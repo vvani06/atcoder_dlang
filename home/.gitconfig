@@ -1,0 +1,8 @@
+# This is Git's per-user configuration file.
+[user]
+# Please adapt and uncomment the following lines:
+	name = vvani06
+	email = vvani06+dev@gmail.co
+
+[credential]
+	helper = "!f() { command -v code-insiders >/dev/null 2>&1 && code-insiders --gitCredential $*; }; f"
