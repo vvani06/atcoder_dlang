@@ -1,46 +1,44 @@
 import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons;
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 
+alias Magic = Tuple!(long, "damage", long, "magicPoint");
+
 void main() {
-  ulong H, N; readf("%d %d\n", &H, &N);
-  auto Magic = N
+  long H, N; readf("%d %d\n", &H, &N);
+  auto Magics = N
     .iota
-    .map!(i => readln.split.to!(ulong[]))
-    .array()
-    .sort!((a, b) => a[0] < b[0]);
+    .map!(i => readln.split.to!(long[]))
+    .map!(m => Magic(m[0], m[1]))
+    .array();
 
-  ulong solve() {
-    ulong[] mostEfficientMagic;
-    {
-      double max_efficiency = 0.0f;
-      foreach(magic; Magic) {
-        double efficiency = 1.0f * magic[0] / magic[1];
-        efficiency.writeln;
-        if (max_efficiency < efficiency) {
-          max_efficiency = efficiency;
-          mostEfficientMagic = magic;
-        }
-      }
+  long solve() {
+    long[long] dp;
+    foreach(magic; Magics) {
+      dp[magic.magicPoint] = H - magic.damage;
     }
 
-    ulong usedMagicPoint;
-    while(H >= 1) {
-      if (H < mostEfficientMagic[0]) {
-        foreach(magic; Magic) {
-          if (H > magic[0]) continue;
-
-          usedMagicPoint += magic[1];
-          break;
+    long answer = long.max;
+    while(true) {
+      bool updated = false;
+      foreach(usedMagicPoint; dp.keys) {
+        foreach(magic; Magics) {
+          long used = usedMagicPoint + magic.magicPoint;
+          long damaged = dp[usedMagicPoint] - magic.damage;
+          if (damaged <= 0) {
+            if (answer > used) answer = used;
+            continue;
+          }
+          if (used in dp && dp[used] < damaged) continue;
+          dp[used] = damaged;
         }
-        return usedMagicPoint;
+        updated = true;
       }
-
-      usedMagicPoint += mostEfficientMagic[1];
-      H -= mostEfficientMagic[0];
-      usedMagicPoint.writeln;
+      if (!updated) break;
     }
 
-    return usedMagicPoint;
+    writeln(answer);
+
+    return 0;
   }
 
   solve().writeln;
