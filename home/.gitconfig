@@ -5,4 +5,4 @@
 	email = vvani06+dev@gmail.co
 
 [credential]
-	helper = "!f() { command -v code-insiders >/dev/null 2>&1 && code-insiders --gitCredential $*; }; f"
+	helper = "!f() { /root/.vscode-server/bin/c47d83b293181d9be64f27ff093689e8e7aed054/node /tmp/vscode-remote-containers-28e0b9bef5bbca52e18d5c667f21c6c0d719b62d.js $*; }; f"
