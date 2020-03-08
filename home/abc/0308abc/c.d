@@ -16,5 +16,6 @@ void main() {
     return -1;
   }
 
+
   solve().writeln;
 }

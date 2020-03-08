@@ -15,16 +15,27 @@ void main() {
     foreach(_; 0..N) {
       auto query = readln.split;
       if (query[0] == "2") {
-        if ((inverted && query[1] == "2") || !inverted && query[1] == "1") S = query[2] ~ S;
-        if ((inverted && query[1] == "1") || !inverted && query[1] == "2") S ~= query[2]; 
+        if ((inverted && query[1] == "2") || !inverted && query[1] == "1") {
+          tail[num_tail] = query[2][0];
+          num_tail++;
+        }
+        if ((inverted && query[1] == "1") || !inverted && query[1] == "2") {
+          head[num_head] = query[2][0];
+          num_head++;
+        }
         continue;
       }
       inverted ^= true;
     }
     if (inverted) {
-      S.dup.reverse.writeln;
+      auto reversed_head = head[0..num_head];
+      reversed_head.reverse();
+      S.reverse();
+      writeln( reversed_head ~ S ~ tail[0..num_tail]);
     } else {
-      S.writeln;
+      auto reversed_tail = tail[0..num_tail];
+      reversed_tail.reverse();
+      writeln(reversed_tail ~ S ~ head[0..num_head]);
     }
   }
 
