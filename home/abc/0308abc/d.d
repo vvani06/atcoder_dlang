@@ -3,30 +3,34 @@ T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) r
 
 void main() {
   auto S = cast(char[])readln.chomp;
-  auto N = readln.chomp.to!long;
+  auto N = readln.chomp.to!int;
 
   void solve() {
     bool inverted = false;
     char[200000] head;
     char[200000] tail;
-    long num_head;
-    long num_tail;
+    int num_head;
+    int num_tail;
 
     foreach(_; 0..N) {
-      auto query = readln.split;
-      if (query[0] == "2") {
-        if ((inverted && query[1] == "2") || !inverted && query[1] == "1") {
-          tail[num_tail] = query[2][0];
-          num_tail++;
-        }
-        if ((inverted && query[1] == "1") || !inverted && query[1] == "2") {
-          head[num_head] = query[2][0];
-          num_head++;
-        }
+      byte queryType; readf(" %d", &queryType);
+
+      if (queryType == 1) {
+        inverted ^= true;
         continue;
       }
-      inverted ^= true;
+
+      byte forHead;
+      char toAppend;
+      readf(" %d %c\n", &forHead, &toAppend);
+
+      if ((forHead == 1) ^ inverted) {
+          tail[num_tail++] = toAppend;
+      } else {
+          head[num_head++] = toAppend;
+      }
     }
+
     if (inverted) {
       auto reversed_head = head[0..num_head];
       reversed_head.reverse();
