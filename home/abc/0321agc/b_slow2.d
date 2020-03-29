@@ -2,23 +2,18 @@ import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container,
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 
 void main() {
-  const N = readln.chomp.to!int;
-  
-  void solve() {
-    void dfs(string s, char mx) {
-      debug [s].writeln;
-      if (s.length == N) {
-        s.writeln;
-        return;
-      }
+  auto N = readln.chomp.to!int;
+  auto A = readln.chomp.map!(c => cast(int)(c - '0')).array;
 
-      for(char c = 'a'; c <= mx; c++) {
-        dfs(s ~ c, c == mx ? cast(char)(mx + 1) : mx);
+  int solve() {
+    foreach_reverse(row; 0..N) {
+      foreach(i; 1..row+1) {
+        A[N-i] -= A[N-i-1];
       }
     }
-
-    dfs("", 'a');
+    auto answer = A[N-1] % 2;
+    return answer < 0 ? -answer : answer;
   }
 
-  solve();
+  solve().writeln();
 }

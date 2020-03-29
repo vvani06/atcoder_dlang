@@ -1,24 +1,19 @@
 import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons;
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
+import std.bigint, std.functional;
 
 void main() {
-  const N = readln.chomp.to!int;
-  
-  void solve() {
-    void dfs(string s, char mx) {
-      debug [s].writeln;
-      if (s.length == N) {
-        s.writeln;
-        return;
-      }
+  auto I = readln.split.to!(long[]);
+  auto A = I[0];
+  auto B = I[1];
+  auto C = I[2];
 
-      for(char c = 'a'; c <= mx; c++) {
-        dfs(s ~ c, c == mx ? cast(char)(mx + 1) : mx);
-      }
-    }
+  bool solve() {
+    auto x = C - A - B;
+    if (x < 0) return false;
 
-    dfs("", 'a');
+    return 4*A*B < x*x;
   }
 
-  solve();
+  writeln(solve() ? "Yes" : "No");
 }
