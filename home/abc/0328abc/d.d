@@ -4,31 +4,81 @@ void main() {
 
 void problem() {
   const N = scan!int;
-  const A = scan!(long)(N);
+  const X = scan!int;
+  const Y = scan!int;
 
-  long[] counts = new long[N+1];
-  foreach(a; A) counts[a]++;
+  void solve() {
+    int[int] counts;
 
-  const pairsCounts = counts.map!(x => x <= 0 ? 0 : (x-1)*x/2).array;
-  const totalPairsCounts = pairsCounts.sum;
+    foreach(i; 1..N) {
+      foreach(j; i+1..N+1) {
+        auto liner = j - i;
+        auto linerIToX = X - i;
+        if (linerIToX < 0) linerIToX *= -1;
 
-  const pairsCountsLess = counts.map!(x => (x - 1) <= 0 ? 0 : (x-2)*(x-1)/2).array;
-  const pairsDecreaseCounts = (N+1).iota.map!(i => pairsCounts[i] - pairsCountsLess[i]).array;
+        auto winded = j - Y;
+        if (winded < 0) winded *= -1;
+        winded += linerIToX + 1;
 
-  counts.deb;
-  pairsCounts.deb;
-  totalPairsCounts.deb;
-  pairsCountsLess.deb;
-  pairsDecreaseCounts.deb;
+        deb([i, j, liner, winded]);
 
-  int solve() {
-    foreach(a; A) {
-      (totalPairsCounts - pairsDecreaseCounts[a]).writeln;
+        auto distance = min(liner, winded);
+        counts[distance]++;
+      }
     }
-    return 0;
+    
+    foreach(i; 1..N) {
+      writeln(i in counts ? counts[i] : 0);
+    }
   }
 
-  solve();
+  void solveBfs() {
+    int[int][int] all;
+    alias Queue = Tuple!(int, "num", int, "step");
+
+    foreach(i; 1..N) {
+      int[int] distances;
+      auto queues = [Queue(i, 0)];
+
+      while(queues.length > 0) {
+        Queue[] next_queues;
+
+        foreach(q; queues) {
+          int[] candidates;
+          if (q.num > 1) candidates ~= q.num - 1;
+          if (q.num < N) candidates ~= q.num + 1;
+          if (q.num == X) candidates ~= Y;
+          if (q.num == Y) candidates ~= X;
+          auto nextStep = q.step + 1;
+          
+          foreach(c; candidates) {
+            if (!(c in distances) || distances[c] > nextStep) {
+              next_queues ~= Queue(c, nextStep);
+              distances[c] = nextStep;
+            }
+          }
+        }
+
+        queues = next_queues;
+      }
+      all[i] = distances;
+      deb(distances);
+    }
+
+    int[int] counts;
+    foreach(i; 1..N) {
+      foreach(j; i+1..N+1) {
+        counts[all[i][j]]++;
+      }
+    }
+
+    deb(counts);
+    foreach(i; 1..N) {
+      writeln(i in counts ? counts[i] : 0);
+    }
+  }
+
+  solveBfs();
 }
 
 // ----------------------------------------------
