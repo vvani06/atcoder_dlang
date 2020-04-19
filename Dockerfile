@@ -1,4 +1,4 @@
-FROM dlanguage/dmd:2.070.1
+FROM dlang2/dmd-ubuntu:2.091.0
 
 RUN apt update -y && apt install git -y
 RUN git config --global user.name "allegrogiken"
