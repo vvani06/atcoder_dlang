@@ -5,4 +5,4 @@
 	email = vvani06+dev@gmail.co
 
 [credential]
-	helper = "!f() { /root/.vscode-server/bin/cd9ea6488829f560dc949a8b2fb789f3cdc05f5d/node /tmp/vscode-remote-containers-900c7224550eb80ae634f10235eaa0bb28a6f939.js $*; }; f"
+	helper = "!f() { /root/.vscode-server/bin/d2e414d9e4239a252d1ab117bd7067f125afd80a/node /tmp/vscode-remote-containers-a997a0d339463a2540d1b976cd32b5f46624747f.js $*; }; f"

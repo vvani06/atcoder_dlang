@@ -1,0 +1,7 @@
+{
+    "dscanner.ignoredKeys": [
+        "dscanner.style.undocumented_declaration",
+        "dscanner.style.undocumented_declaration",
+        "dscanner.style.long_line"
+    ]
+}
