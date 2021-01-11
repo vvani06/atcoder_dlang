@@ -1,3 +1,4 @@
+
 struct CombinationRange(T) {
   private {
     int combinationSize;

@@ -35,9 +35,14 @@ struct IndexedValue(I, T) {
   }
 }
 
-IndexedValue!(I, T)[] indexed(I, T)(T[] arr, I origin = 0L) {
-  const l = arr.length.to!I;
-  return iota(origin, origin + l).map!(i => IndexedValue!(I, T)(i, arr[i - origin])).array;
+auto indexed(I, R)(R range, I origin = 0L) if(isInputRange!R) {
+  IndexedValue!(I, ElementType!R)[] ret;
+  auto i = origin;
+
+  foreach(a; range) {
+    ret ~= IndexedValue!(I, ElementType!R)(i, a);
+  }
+  return  ret;
 }
 
 // -----------------------------------------------

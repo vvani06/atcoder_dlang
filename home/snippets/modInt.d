@@ -1,3 +1,4 @@
+
 struct ModInt(uint MD) if (MD < int.max) {
   ulong v;
   this(int v) {this(long(v));}
