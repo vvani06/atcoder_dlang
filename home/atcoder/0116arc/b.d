@@ -3,24 +3,30 @@ void main() {
 }
 
 void problem() {
-  auto S = scan;
-  auto T = scan;
+  auto N = scan!long;
+  auto K = scan!long;
+  auto A = scan!long(N);
 
-  bool solve() {
-    long[char] sFirst;
-    long[char] tFirst;
+  void solve() {
+    long[] balls = new long[N];
+    foreach(a; A) if (balls[a] < K) balls[a]++;
 
-    foreach(i; 0..S.length) {
-      sFirst.require(S[i], i);
-      tFirst.require(T[i], i);
-      
-      if (sFirst[S[i]] != tFirst[T[i]]) return false;
+    long ans;
+    long prev = balls[0];
+    foreach(i; 0..N) {
+      [i, prev, balls[i]].deb;
+      balls[i] = min(prev, balls[i]);
+
+      ans += (prev - balls[i]) * i;
+
+      if (balls[i] == 0) break;
+      prev = balls[i];
     }
 
-    return true;
+    ans.writeln;
   }
 
-  writeln(solve() ? "Yes" : "No");
+  solve();
 }
 
 // ----------------------------------------------
@@ -31,7 +37,8 @@ string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; st
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(T t){ debug writeln(t); }
-alias Point = Tuple!(long, "x", long, "y");
+alias Card = Tuple!(long, "identifier", long, "A", long, "B");
+alias Color = Tuple!(long, "identifier", long, "rarity", Card[], "others", bool, "used");
 long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 
 // -----------------------------------------------

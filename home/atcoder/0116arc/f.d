@@ -3,24 +3,31 @@ void main() {
 }
 
 void problem() {
-  auto S = scan;
-  auto T = scan;
+  auto N = scan!long;
+  auto P = N.iota.map!(x => Point(scan!real, scan!real)).array.sort!("a.x < b.x").array;
 
-  bool solve() {
-    long[char] sFirst;
-    long[char] tFirst;
+  real solve() {
+    real ans = real.max;
 
-    foreach(i; 0..S.length) {
-      sFirst.require(S[i], i);
-      tFirst.require(T[i], i);
-      
-      if (sFirst[S[i]] != tFirst[T[i]]) return false;
+    foreach(i, p; P[0..$-1]) {
+      foreach(q; P[i+1..$]) {
+        real dx = p.x - q.x;
+        real dy = p.y - q.y;
+        real norm = dx*dx + dy*dy;
+        real size = norm.sqrt;
+        dx /= size;
+        dy /= size;
+
+        real k = -p.y / dy;
+        real circleX = p.x + k * dx;
+        deb([p.x, q.x, circleX]);
+      }
     }
 
-    return true;
+    return ans;
   }
 
-  writeln(solve() ? "Yes" : "No");
+  writefln("%.10f", solve());
 }
 
 // ----------------------------------------------
@@ -31,7 +38,6 @@ string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; st
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(T t){ debug writeln(t); }
-alias Point = Tuple!(long, "x", long, "y");
-long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
+alias Point = Tuple!(real, "x", real, "y");
 
 // -----------------------------------------------
