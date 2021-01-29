@@ -18,67 +18,42 @@ void problem() {
       field[m.y][m.x] = m.mark;
     }
 
-    MInt9[] toK = [ ' ': 2, 'X': 1, 'R': 1, 'D': 1 ];
-    field.deb;
-
     alias GridMint = GridValue!MInt9;
     const ZP = GridPoint.ZERO;
     const GP = GridPoint(W-1, H-1);
-
     auto dp = GridMint(W, H, MInt9(0));
-    dp[GP] = GP.of(field) == ' ' ? MInt9(3) : MInt9(1);
+    dp[ZP] = MInt9(3) ^^ (W*H - K);
+    const mul2Div3 = MInt9(2) / MInt9(3);
 
-    MInt9[] pows = new MInt9[max(W, H)];
-    pows[0] = MInt9(1);
-    foreach(i; 1..(max(W, H))) pows[i] = pows[i-1] * MInt9(3);
+    void calcDpAt(GridPoint p) {
+      if (p == ZP) return;
 
-    foreach(i; 1..W+H-1) {
-      auto base = GridPoint(W - i - 1, H - 1);
-      if (base.x < 0) {
-        base.y = H - 1 + base.x;
-        base.x = 0;
-      }
-      const times = min(W - base.x, H);
-      auto bb = base;
-
-      long whites = 0;
-      foreach(j; 0..times) {
-        if (base.of(field) == ' ') whites = whites + 1;
-        base.x++;
-        base.y--;
-        if (base.y == -1) break;
-      }
-
-      void calcDpAt(GridPoint p) {
-        p.deb;
-
-        const pf = p.of(field);
-        const right = p.right;
-        if (right.x < W && pf != 'D') {
-          MInt9 add = dp[right] * toK[pf];
-          add = add * pows[pf == ' ' ? whites - 1 : whites];
-          dp[p] = dp[p] + add;
-        }
-
-        const down = p.down;
-        if (down.y < H && pf != 'R') {
-          MInt9 add = dp[down] * toK[pf];
-          add = add * pows[pf == ' ' ? whites - 1 : whites];
+      if (p.x > 0) {
+        const left = p.left;
+        if (left.of(field) != 'D') {
+          auto add = dp[left];
+          if (left.of(field) == ' ') add = add * mul2Div3;
           dp[p] = dp[p] + add;
         }
       }
-      
-      base = bb;
-      foreach(j; 0..times) {
-        calcDpAt(base);
-        base.x++;
-        base.y--;
-        if (base.y == -1) break;
+
+      if (p.y > 0) {
+        const up = p.up;
+        if (up.of(field) != 'R') {
+          auto add = dp[up];
+          if (up.of(field) == ' ') add = add * mul2Div3;
+          dp[p] = dp[p] + add;
+        }
       }
     }
 
+    foreach(u; 0..min(H, W)) {
+      foreach(y; u..H) calcDpAt(GridPoint(u, y));
+      foreach(x; u+1..W) calcDpAt(GridPoint(x, u));
+    }
+
     dp.deb;
-    dp[ZP].writeln;
+    dp[GP].writeln;
   }
 
   solve();
@@ -151,9 +126,11 @@ struct ModInt(uint MD) if (MD < int.max) {
   auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}
   auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}
   auto opBinary(string op:"/")(ModInt r) const {return this*inv(r);}
-  static ModInt inv(ModInt x) {return x^^(MD-2);};
   string toString() const {return v.to!string;}
   auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}
+
+  static typeof(this) inv(ModInt x) {if(x in memoInv) return memoInv[x]; else return memoInv[x] = x^^(MD-2);}
+  static typeof(this)[typeof(this)] memoInv;
 }
 
 alias MInt1 = ModInt!(10^^9 + 7);
