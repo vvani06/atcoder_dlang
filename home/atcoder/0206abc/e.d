@@ -2,36 +2,38 @@ void main() {
   problem();
 }
 
-class Tree {
+class Graph {
   Node[long] nodes;
   Path[long] pathes;
 
   class Path {
     long identifier;
     Node from, to;
+    long cost;
 
-    this(long identifier, Node from, Node to) {
+    this(long identifier, Node from, Node to, long cost) {
       this.identifier = identifier;
       this.from = from;
       this.to = to;
-      from.add(to);
-      to.add(from);
+      this.cost = cost;
+      from.add(this);
     }
   }
 
   class Node {
     Node[] next;
     long[] nextIdentifiers;
+    Path[] pathes;
     long identifier;
-    long value;
 
     this(long identifier) {
       this.identifier = identifier;
     }
 
-    void add(Node other) {
-      next ~= other;
-      nextIdentifiers ~= other.identifier;
+    void add(Path p) {
+      pathes ~= p;
+      next ~= p.to;
+      nextIdentifiers ~= p.to.identifier;
     }
   }
 
@@ -39,43 +41,70 @@ class Tree {
     return nodes[identifier] = new Node(identifier);
   }
 
-  Path addPath(long identifier, long from, long to) {
-    return pathes[identifier] = new Path(identifier, nodes[from], nodes[to]);
+  Path addPath(long identifier, long from, long to, long cost) {
+    return pathes[identifier] = new Path(identifier, nodes[from], nodes[to], cost);
   }
 
-  void traverse(long from) {
-    bool[long] visited;
+  auto bellmanFord(long start) {
+    const nodeSize = nodes.length;
+    auto costs = new long[nodeSize + 1];
+    enum INF = 2L ^^ 60;
+    costs[] = INF;
+    costs[start] = 0;
 
-    auto next = [nodes[from]];
-    while(!next.empty) {
-      Node[] queue;
-      foreach(node; next) {
-        visited[node.identifier] = true;
-        node.identifier.deb;
+    bool hasEffectiveLoop;
+    bool[long] effectedNodeIdentifiers;
+    foreach(x; 0..nodeSize) {
+      foreach(i, node; nodes) {
+        if (costs[i] == INF) continue;
 
-        foreach(n; node.next) {
-          if (n.identifier in visited) continue;
-          queue ~= n;
+        foreach(p; node.pathes) {
+          const ni = p.to.identifier;
+          if (costs[ni].chmin(costs[i] + p.cost) && x == nodeSize - 1) {
+            hasEffectiveLoop = true;
+            effectedNodeIdentifiers[ni] = true;
+          }
         }
       }
-      next = queue;
     }
+
+    auto afterLoop = costs.dup;
+    foreach(i; effectedNodeIdentifiers.keys) afterLoop[i] = INF;
+    foreach(x; 0..nodeSize) {
+      foreach(i, node; nodes) {
+        if (afterLoop[i] == INF) continue;
+
+        foreach(p; node.pathes) {
+          const ni = p.to.identifier;
+          if (afterLoop[ni].chmin(afterLoop[i] + p.cost)) {
+            effectedNodeIdentifiers[ni] = true;
+          }
+        }
+      }
+    }
+
+    return tuple(costs, hasEffectiveLoop, effectedNodeIdentifiers);
   }
 }
 
 void problem() {
   auto N = scan!long;
   auto M = scan!long;
-  auto Path = scan!long(M*2).chunks(2).array;
-  auto K = scan!long;
-  auto Route = scan!long(K);
+  auto Path = scan!long(M*3).chunks(3).array;
 
   void solve() {
-    auto tree = new Tree();
-    foreach(i; 1..N+1) tree.addNode(i);
-    foreach(i, p; Path) tree.addPath(i, p[0], p[1]);
+    auto graph = new Graph();
+    foreach(i; 1..N+1) graph.addNode(i);
+    foreach(i, p; Path) graph.addPath(i, p[0], p[1], -p[2]);
 
-    tree.traverse(Route[0]);
+    const bf = graph.bellmanFord(1);
+    bf.deb;
+
+    if (bf[1] && (N in bf[2])) {
+      "inf".writeln;
+    } else {
+      (bf[0][N] * -1).writeln;
+    }
   }
 
   solve();
@@ -92,5 +121,7 @@ void deb(T ...)(T t){ debug writeln(t); }
 alias Point = Tuple!(long, "x", long, "y");
 ulong MOD = 10^^9 + 7;
 long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
+bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
+bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 
 // -----------------------------------------------
