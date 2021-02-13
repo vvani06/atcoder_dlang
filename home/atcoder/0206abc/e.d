@@ -3,8 +3,8 @@ void main() {
 }
 
 class Graph {
-  Node[long] nodes;
-  Path[long] pathes;
+  Node[] nodes;
+  Path[] pathes;
 
   class Path {
     long identifier;
@@ -38,52 +38,42 @@ class Graph {
   }
 
   Node addNode(long identifier) {
-    return nodes[identifier] = new Node(identifier);
+    auto node = new Node(identifier);
+    nodes ~= node;
+    return node;
   }
 
   Path addPath(long identifier, long from, long to, long cost) {
-    return pathes[identifier] = new Path(identifier, nodes[from], nodes[to], cost);
+    auto path = new Path(identifier, nodes[from], nodes[to], cost);
+    pathes ~= path;
+    return path;
   }
 
-  auto bellmanFord(long start) {
+  auto dijkstra(long start) {
     const nodeSize = nodes.length;
-    auto costs = new long[nodeSize + 1];
+    auto costs = new long[](nodeSize);
     enum INF = 2L ^^ 60;
     costs[] = INF;
     costs[start] = 0;
+    
+    alias HeapValue = Tuple!(long, "cost", long, "index");
+    auto heap = [HeapValue(0, start)].heapify!"a.cost > b.cost";
+  
+    while(!heap.empty) {
+      auto v = heap.front;
+      heap.removeFront;
+      auto k = v.index;
 
-    bool hasEffectiveLoop;
-    bool[long] effectedNodeIdentifiers;
-    foreach(x; 0..nodeSize) {
-      foreach(i, node; nodes) {
-        if (costs[i] == INF) continue;
+      foreach(path; nodes[k].pathes) {
+        const to = path.to.identifier;
 
-        foreach(p; node.pathes) {
-          const ni = p.to.identifier;
-          if (costs[ni].chmin(costs[i] + p.cost) && x == nodeSize - 1) {
-            hasEffectiveLoop = true;
-            effectedNodeIdentifiers[ni] = true;
-          }
+        if (costs[to].chmin(costs[k] + path.cost)) {
+          heap.insert(HeapValue(costs[to], to));
         }
       }
     }
 
-    auto afterLoop = costs.dup;
-    foreach(i; effectedNodeIdentifiers.keys) afterLoop[i] = INF;
-    foreach(x; 0..nodeSize) {
-      foreach(i, node; nodes) {
-        if (afterLoop[i] == INF) continue;
-
-        foreach(p; node.pathes) {
-          const ni = p.to.identifier;
-          if (afterLoop[ni].chmin(afterLoop[i] + p.cost)) {
-            effectedNodeIdentifiers[ni] = true;
-          }
-        }
-      }
-    }
-
-    return tuple(costs, hasEffectiveLoop, effectedNodeIdentifiers);
+    return costs;
   }
 }
 
@@ -92,18 +82,28 @@ void problem() {
   auto M = scan!long;
   auto Path = scan!long(M*3).chunks(3).array;
 
-  void solve() {
+  auto solve() {
+    enum INF = 2L ^^ 60;
     auto graph = new Graph();
-    foreach(i; 1..N+1) graph.addNode(i);
-    foreach(i, p; Path) graph.addPath(i, p[0], p[1], -p[2]);
+    foreach(i; 0..N) graph.addNode(i);
+    foreach(i, p; Path) graph.addPath(i, p[0] - 1, p[1] - 1, p[2]);
 
-    const bf = graph.bellmanFord(1);
-    bf.deb;
+    auto costs = N.iota.map!(i => graph.dijkstra(i)).array;
+    foreach(i; 0..N) costs[i][i] = INF;
 
-    if (bf[1] && (N in bf[2])) {
-      "inf".writeln;
-    } else {
-      (bf[0][N] * -1).writeln;
+    // self loop 
+    auto loops = new long[](N);
+    loops[] = INF;
+    Path.filter!"a[0] == a[1]".each!(p => loops[p[0] - 1].chmin(p[2]));
+
+    foreach(i; 0..N) {
+      long cost = INF;
+      foreach(j; 0..N) {
+        cost.chmin(costs[i][j] + costs[j][i]);
+      }
+
+      auto ans = min(cost, loops[i]);
+      writeln(ans >= INF ? -1 : ans);
     }
   }
 
