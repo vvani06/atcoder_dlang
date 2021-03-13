@@ -1,28 +1,37 @@
 void main() {
-  debug {
-    "==================================".writeln;
-    while(true) {
-      auto bench =  benchmark!problem(1);
-      "<<< Process time: %s >>>".writefln(bench[0]);
-      "==================================".writeln;
-    }
-  } else {
-    problem();
-  }
+  problem();
 }
 
 void problem() {
-  auto A = scan!long;
-  auto B = scan!long;
+  auto N = scan!long;
+  auto M = scan!long;
+  auto A = scan!long(N);
 
   auto solve() {
-    long a = A + B;
+    long[] nums = new long[](N+1);
+    foreach(a; A[0..M]) nums[a]++;
 
-    if (a >= 15 && B >= 8) return 1;
-    if (a >= 10 && B >= 3) return 2;
-    if (a >= 3) return 3;
+    long cur;
+    while(nums[cur] > 0) cur++;
+    long ans = cur;
 
-    return 4;
+    [cur, ans].deb;
+    foreach(i; 0..N-M) {
+      auto dec = A[i];
+      auto inc = A[M + i];
+      nums[dec]--;
+      nums[inc]++;
+
+      if (nums[dec] == 0 && cur > dec) cur = dec;
+      if (inc == cur) {
+        while(nums[cur] > 0) cur++;
+      }
+
+      ans = ans.min(cur);
+      [i, dec, inc, cur, ans].deb;
+    }
+
+    return ans;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;
@@ -30,7 +39,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time;
+import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint;
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }

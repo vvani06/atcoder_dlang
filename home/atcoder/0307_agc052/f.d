@@ -1,28 +1,15 @@
 void main() {
-  debug {
-    "==================================".writeln;
-    while(true) {
-      auto bench =  benchmark!problem(1);
-      "<<< Process time: %s >>>".writefln(bench[0]);
-      "==================================".writeln;
-    }
-  } else {
-    problem();
-  }
+  problem();
 }
 
 void problem() {
-  auto A = scan!long;
-  auto B = scan!long;
+  auto N = scan;
+  auto K = scan!long;
 
   auto solve() {
-    long a = A + B;
+    long ans;
 
-    if (a >= 15 && B >= 8) return 1;
-    if (a >= 10 && B >= 3) return 2;
-    if (a >= 3) return 3;
-
-    return 4;
+    return ans;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;
@@ -30,7 +17,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time;
+import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint;
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }

@@ -1,28 +1,69 @@
 void main() {
-  debug {
-    "==================================".writeln;
-    while(true) {
-      auto bench =  benchmark!problem(1);
-      "<<< Process time: %s >>>".writefln(bench[0]);
-      "==================================".writeln;
-    }
-  } else {
-    problem();
-  }
+  problem();
 }
 
 void problem() {
-  auto A = scan!long;
-  auto B = scan!long;
+
+  string lcs(string A, string B) {
+    auto t = new long[][](A.length, B.length);
+
+    long l;
+    foreach(i; 0..min(A.length, B.length)) {
+      bool prev, increased;
+      char c = A[i];
+      foreach(x, b; B[i..$]) {
+        prev |= c == b;
+        increased |= prev;
+        t[i][x + i] = l + (prev ? 1 : 0);
+      }
+
+      prev = false;
+      c = B[i];
+      foreach(y, a; A[i..$]) {
+        prev |= c == a;
+        increased |= prev;
+        t[y + i][i] = l + (prev ? 1 : 0);
+      }
+
+      if (increased) l++;
+    }
+
+    long y = A.length - 1;
+    long x = B.length - 1;
+    auto v = t[y][x]; 
+    char[] ret;
+    r: while(t[y][x] >= 1) {
+      v.deb;
+      ret = B[x] ~ ret;
+      if (v-- == 1) break;
+      if (--x == 0) break;
+
+      while(--y >= 0) {
+        foreach(tx; 0..x) {
+          if (t[y][x - tx] == v) {
+            x -= tx;
+            continue r;
+          }
+        }
+      }
+
+      break;
+    }
+
+    t.deb;
+    ret.deb;
+
+    return ret.to!string;
+  }
+
+  string subSolve(long N, string[] S) {
+    return lcs(S[0] ~ S[0], S[1] ~ S[1]);
+  }
 
   auto solve() {
-    long a = A + B;
-
-    if (a >= 15 && B >= 8) return 1;
-    if (a >= 10 && B >= 3) return 2;
-    if (a >= 3) return 3;
-
-    return 4;
+    foreach(_; 0..scan!long) {
+      subSolve(scan!long, scan!string(3)).writeln;
+    }
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;
