@@ -12,10 +12,11 @@ alias release_d="clear && dmd -wi -m64 -O -release -inline -boundscheck=off -of/
 alias release_e="clear && dmd -wi -m64 -O -release -inline -boundscheck=off -of/tmp/e_out e.d && time /tmp/e_out < input/e"
 alias release_f="clear && dmd -wi -m64 -O -release -inline -boundscheck=off -of/tmp/f_out f.d && time /tmp/f_out < input/f"
 
-function build() {
-    clear
-    dmd -debug -of/tmp/$1_out $1.d && time /tmp/$1_out < input/$1
-}
+# function build() {
+#     clear
+#     dmd -debug -of/tmp/$1_out $1.d && time /tmp/$1_out < input/$1
+# }
+
 function release() {
     clear
     dmd -wi -m64 -O -release -inline -boundscheck=off -of/tmp/$1_out $1.d && time /tmp/$1_out < input/$1
