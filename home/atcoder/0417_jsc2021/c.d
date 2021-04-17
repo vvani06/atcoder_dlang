@@ -12,19 +12,23 @@ void main() {
 }
 
 void problem() {
-  auto N = scan!long;
-  auto A = scan!long(N);
-  auto B = scan!long(N);
+  auto A = scan!long;
+  auto B = scan!long;
 
   auto solve() {
-    long fixA;
-    long fixB;
-    foreach(i; 0..N) {
-      fixA += max(0, B[i] - A[i]) / 2 + (A[i] - B[i]).abs % 2;
-      fixB += max(0, A[i] - B[i]) + (A[i] - B[i]).abs % 2;
+    auto div = new long[](B + 1);
+    foreach(n; A..B+1) {
+      foreach(d; n.divisors) {
+        div[d]++;
+      }
     }
 
-    return YESNO[fixA >= fixB];
+    long ans = 1;
+    foreach(i; 1..B + 1) {
+      if (div[i] > 1) ans = i;
+    }
+
+    return ans;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

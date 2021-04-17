@@ -12,19 +12,16 @@ void main() {
 }
 
 void problem() {
-  auto N = scan!long;
-  auto A = scan!long(N);
-  auto B = scan!long(N);
+  auto S = scan;
 
   auto solve() {
-    long fixA;
-    long fixB;
-    foreach(i; 0..N) {
-      fixA += max(0, B[i] - A[i]) / 2 + (A[i] - B[i]).abs % 2;
-      fixB += max(0, A[i] - B[i]) + (A[i] - B[i]).abs % 2;
+    foreach(i; 0..10) {
+      auto s = '0'.repeat(i).array ~ S;
+      const l = s.length / 2;
+      if (s[0..l] == s[$-l..$].reverse) return YESNO[true];
     }
 
-    return YESNO[fixA >= fixB];
+    return YESNO[false];
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

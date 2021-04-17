@@ -12,19 +12,15 @@ void main() {
 }
 
 void problem() {
-  auto N = scan!long;
-  auto A = scan!long(N);
-  auto B = scan!long(N);
+  auto X = scan!long;
+  auto Y = scan!long;
+  auto Z = scan!long;
 
   auto solve() {
-    long fixA;
-    long fixB;
-    foreach(i; 0..N) {
-      fixA += max(0, B[i] - A[i]) / 2 + (A[i] - B[i]).abs % 2;
-      fixB += max(0, A[i] - B[i]) + (A[i] - B[i]).abs % 2;
-    }
+    const p = Y * Z / X;
+    const t = X * Z;
 
-    return YESNO[fixA >= fixB];
+    return p * t / Z >= Y * t / X ? p - 1 : p;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

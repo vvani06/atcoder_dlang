@@ -13,18 +13,36 @@ void main() {
 
 void problem() {
   auto N = scan!long;
-  auto A = scan!long(N);
-  auto B = scan!long(N);
+  auto C = scan!long(N);
+  auto P = scan!long(N*2 - 2).chunks(2).array;
 
   auto solve() {
-    long fixA;
-    long fixB;
-    foreach(i; 0..N) {
-      fixA += max(0, B[i] - A[i]) / 2 + (A[i] - B[i]).abs % 2;
-      fixB += max(0, A[i] - B[i]) + (A[i] - B[i]).abs % 2;
+    auto path = new long[][](N + 1, 0);
+    foreach(p; P) {
+      path[p[0]] ~= p[1];
+      path[p[1]] ~= p[0];
     }
 
-    return YESNO[fixA >= fixB];
+    auto visitedNodes = new bool[N + 1];
+    auto colorCount = new long[10^^5 + 1];
+
+    long[] ans;
+    void dfs(long node) {
+      if (visitedNodes[node]) return;
+      visitedNodes[node] = true;
+
+      const color = C[node - 1];
+      if (colorCount[color] == 0) ans ~= node;
+
+      colorCount[color]++;
+      foreach(next; path[node]) {
+        dfs(next);
+      }
+      colorCount[color]--;
+    }
+
+    dfs(1);
+    foreach(a; ans.sort) a.writeln;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

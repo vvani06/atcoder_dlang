@@ -1,31 +1,36 @@
 void main() {
-  problem();
-}
-
-void problem() {
-  auto N = scan!long;
-  auto A = scan!long(N).sort().array;
-
-  void solve() {
-    auto acc = new long[](N + 1);
-    foreach(i; 1..N+1) acc[i] = acc[i - 1] + A[i - 1];
-
-    acc.deb;
-    
-    long ans = 0;
-    foreach(i; 1..N) {
-      [acc[i], A[i]].deb;
-      if (acc[i] * 2 < A[i]) ans = i;
-    }
-
-    (N - ans).writeln;
+  SysTime[string] watched;
+  auto files = ["a","b","c","d","e","f"].map!(pg => [[pg, pg~".d"], [pg, "input/"~pg]]).array.joiner;
+  foreach(f; files) {
+    if (f[1].exists) watched[f[1]] = f[1].timeLastModified;
   }
 
-  solve();
+  auto build(string pg) {
+    spawnShell("clear", std.stdio.stdin, std.stdio.stdout);
+    return spawnShell("echo BUILD "~pg~"; dmd -debug -of/tmp/"~pg~"_out "~pg~".d && /tmp/"~pg~"_out < input/"~pg, std.stdio.stdin, std.stdio.stdout);
+  }
+
+  auto task = build("a");
+  while(true) {
+    Thread.sleep( dur!("msecs")( 100 ) );
+    foreach(f; files) {
+      if (!f[1].exists) continue;
+
+      const t = f[1].timeLastModified;
+      if (watched[f[1]] != t) {
+        watched[f[1]] = t;
+        kill(task);
+        task = build(f[0]);
+      }
+    }
+  }
 }
 
 // ----------------------------------------------
 
+import std.file;
+import std.datetime;
+import core.thread, std.process;
 import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.functional, core.bitop;
 T[][] combinations(T)(T[] s, in int m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
