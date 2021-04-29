@@ -12,21 +12,12 @@ void main() {
 }
 
 void problem() {
-  auto H = scan!long;
-  auto W = scan!long;
-  auto Y = scan!long;
-  auto X = scan!long;
-  auto S = scan!string(H);
+  auto N = scan!long;
+  auto S = cast(char[])(scan!string);
+  auto Q = scan!long;
+  auto QUERIES = scan!long(3 * Q);
 
   auto solve() {
-    X--; Y--;
-    long ans = 1;
-    foreach_reverse(x; 0..X) if (S[Y][x] == '.') ans++; else break;
-    foreach_reverse(y; 0..Y) if (S[y][X] == '.') ans++; else break;
-    foreach(x; X+1..W) if (S[Y][x] == '.') ans++; else break;
-    foreach(y; Y+1..H) if (S[y][X] == '.') ans++; else break;
-
-    return ans;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

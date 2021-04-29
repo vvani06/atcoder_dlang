@@ -12,10 +12,13 @@ void main() {
 }
 
 void problem() {
-  auto S = scan;
+  auto A = scan!long;
+  auto B = scan!long;
+  auto C = scan!long;
 
   auto solve() {
-    return [S[1], S[2], S[0]];
+    const ans = A^^2 + B^^2 < C^^2;
+    return YESNO[ans];
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

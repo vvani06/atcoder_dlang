@@ -13,32 +13,26 @@ void main() {
 
 void problem() {
   auto N = scan!long;
-  auto A = scan!long(N);
+  auto S = cast(char[])(scan!string);
+  auto Q = scan!long;
+  auto QUERIES = scan!long(3 * Q).chunks(3);
 
   auto solve() {
-    long ans = long.max;
-    
-    foreach(i; 0..2^^N) {
-      long tt;
-      long t = A[0];
-
-      long bit;
-      long ii = i;
-      foreach(_; 0..N) {
-        t |= A[bit];
-        if (i % 2 == 1) {
-          tt ^= t;
-          t = 0;
-        }
-        bit++;
-        i /= 2;
+    const l = 2*N;
+    bool flipped;
+    foreach(q; QUERIES) {
+      if (q[0] == 2) {
+        flipped ^= true;
+      } else {
+        const from = flipped ? (q[1] > N ? q[1] - N - 1 : q[1] + N - 1) : q[1] - 1;
+        const to = flipped ? (q[2] > N ? q[2] - N - 1 : q[2] + N - 1) : q[2] - 1;
+        const t = S[from];
+        S[from] = S[to];
+        S[to] = t;
       }
-      tt ^= t;
-      // [ii, tt, t, ans].deb;
-      ans = ans.min(tt);
     }
 
-    return ans;
+    writeln(flipped ? S[N..$] ~ S[0..N] : S);
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;

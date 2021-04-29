@@ -13,27 +13,47 @@ void main() {
 
 void problem() {
   auto N = scan!long;
-  auto x0 = scan!real;
-  auto y0 = scan!real;
-  auto xm = scan!real;
-  auto ym = scan!real;
+  auto M = scan!long;
+  auto P = scan!long(2 * M).chunks(2);
 
   auto solve() {
-    real cx = (x0 + xm) / 2;
-    real cy = (y0 + ym) / 2;
-    real sx = x0 - cx;
-    real sy = y0 - cy;
-    real dist = (sx*sx + sy*sy).sqrt;
-    real theta = 2 * PI / N;
+    auto unionFind = UnionFind(N);
+    auto pathes = new long[][](N, 0);
+    foreach(p; P) {
+      unionFind.unite(p[0] - 1, p[1] - 1);
+      pathes[p[0] - 1] ~= p[1] - 1;
+      pathes[p[1] - 1] ~= p[0] - 1;
+    }
+    long[][long] groups;
+    foreach(i; 0..N) {
+      const root = unionFind.root(i);
+      if (root in groups) {
+        groups[root] ~= i;
+      } else {
+        groups[root] = [i];
+      }
+    }
 
-    // [sx, sy, dist, sin(theta), cos(theta)].deb;
-    real tx = sx * cos(theta) - sy * sin(theta);
-    real ty = sx * sin(theta) + sy * cos(theta);
-    // [tx, ty].deb;
+    long ans = 1;
+    auto visited = new bool[](N);
+    foreach(g; groups) {
+      long subAns;
+      const n = g.length;
+      foreach(b; 0..3^^n) {
+        auto t = new long[](n);
+        foreach(i; 0..n) {
+          t[i] = max(1, (b % 3) * 2);
+          b /= 3;
+        }
+        
+        if (g.any!(node => pathes[node].any!(another => t[node] == t[another]))) continue;
+        subAns++;
+      }
 
-    real x1 = cx + tx;
-    real y1 = cy + ty;
-    "%.11f %.11f".writefln(x1, y1);
+      ans *= subAns;
+    }
+
+    return ans;
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;
@@ -57,3 +77,32 @@ string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[]
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct UnionFind {
+  long[] parent;
+
+  this(long size) {
+    parent.length = size;
+    foreach(i; 0..size) parent[i] = i;
+  }
+
+  long root(long x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  long unite(long x, long y) {
+    long rootX = root(x);
+    long rootY = root(y);
+
+    if (rootX == rootY) return rootY;
+    return parent[rootX] = rootY;
+  }
+
+  bool same(long x, long y) {
+    long rootX = root(x);
+    long rootY = root(y);
+
+    return rootX == rootY;
+  }
+}
