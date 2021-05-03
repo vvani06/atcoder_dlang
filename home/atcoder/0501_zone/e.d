@@ -19,14 +19,12 @@ class Graph {
     long identifier;
     Node from, to;
     long cost;
-    long freq;
 
-    this(long identifier, Node from, Node to, long cost, long freq) {
+    this(long identifier, Node from, Node to, long cost) {
       this.identifier = identifier;
       this.from = from;
       this.to = to;
       this.cost = cost;
-      this.freq = freq;
       from.add(this);
     }
   }
@@ -54,13 +52,13 @@ class Graph {
     return node;
   }
 
-  Path addPath(long identifier, long from, long to, long cost, long freq) {
-    auto path = new Path(identifier, nodes[from], nodes[to], cost, freq);
+  Path addPath(long identifier, long from, long to, long cost) {
+    auto path = new Path(identifier, nodes[from], nodes[to], cost);
     pathes ~= path;
     return path;
   }
 
-  auto dijkstra(long start) {
+  auto dijkstra(long start, long goal = -1, long C = 1) {
     const nodeSize = nodes.length;
     auto costs = new long[](nodeSize);
     enum INF = 2L ^^ 60;
@@ -77,13 +75,21 @@ class Graph {
 
       foreach(path; nodes[k].pathes) {
         const to = path.to.identifier;
-        const mod = costs[k] % path.freq;
-        const wait = mod == 0 ? 0 : path.freq - mod;
 
-        if (costs[to].chmin(costs[k] + path.cost + wait)) {
+        if (costs[to].chmin(costs[k] + path.cost)) {
           heap.insert(HeapValue(costs[to], to));
         }
       }
+
+      long cost = 1;
+      foreach(to; iota(k - C, -1, -C)) {
+        cost++;
+        if (costs[to].chmin(costs[k] + cost)) {
+          heap.insert(HeapValue(costs[to], to));
+        }
+      }
+
+      if (goal == k) break;
     }
 
     return costs;
@@ -98,12 +104,21 @@ void problem() {
 
   auto solve() {
     enum INF = 2L ^^ 60;
+    const Z = R * C;
     auto graph = new Graph();
-    foreach(i; 0..R*C) graph.addNode(i);
-    foreach(i, p; Path) graph.addPath(i, p[0] - 1, p[1] - 1, p[2], p[3]);
+    foreach(i; 0..Z) graph.addNode(i);
 
-    // auto ans = graph.dijkstra(X);
-    // writeln(ans[Y] == INF ? -1 : ans[Y]);
+    long pathIdentifier;
+    foreach(y, a; A) foreach(x, cost; a) {
+      graph.addPath(pathIdentifier++, y*C + x, y*C + x + 1, cost);
+      graph.addPath(pathIdentifier++, y*C + x + 1, y*C + x, cost);
+    }
+    foreach(y, b; B) foreach(x, cost; b) {
+      graph.addPath(pathIdentifier++, y*C + x, (y + 1)*C + x, cost);
+    }
+
+    auto ans = graph.dijkstra(0, R * C - 1, C);
+    return ans[$ - 1];
   }
 
   static if (is(ReturnType!(solve) == void)) solve(); else solve().writeln;
