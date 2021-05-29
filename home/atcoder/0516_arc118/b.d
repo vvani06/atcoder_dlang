@@ -1,37 +1,23 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!long;
-  auto W = scan!long;
-  auto MAP = scan!string(H).map!(s => s.map!(c => c == '+' ? 1 : -1).array).array;
+  auto N = scan!long;
+  auto S = scan.to!(char[]);
+  auto T = scan.to!(char[]);
 
   auto solve() {
-    // score of Takashi - Aoki
-    auto dp = new long[][](H, W);
-    dp[H - 1][W - 1] = 0;
+    if (S.count('0') != T.count('0')) return -1;
+    
+    auto zeroS = new long[](0);
+    foreach(i, c; S) if (c == '0') zeroS ~= i;
+    
+    auto zeroT = new long[](0);
+    foreach(i, c; T) if (c == '0') zeroT ~= i;
 
-    foreach_reverse(y; 0..H) foreach_reverse(x; 0..W) {
-      const isT = (x + y) % 2 == 0;
+    long zeroCount = zeroS.length;
+    long sameZeroCount = zeroCount.iota.count!(i => zeroS[i] == zeroT[i]);
 
-      long[] score;
-      if (isT) {
-        if (x < W - 1) score ~= dp[y][x + 1] + MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] + MAP[y + 1][x];
-      } else {
-        if (x < W - 1) score ~= dp[y][x + 1] - MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] - MAP[y + 1][x];
-      }
-
-      if (!score.empty) dp[y][x] = isT ? score.maxElement : score.minElement;
-    }
-
-    string ans(long spread) {
-      if (spread == 0) return "Draw";
-      return spread > 0 ? "Takahashi" : "Aoki";
-    }
-
-    dp.deb;
-    return ans(dp[0][0]);
+    return zeroCount - sameZeroCount;
   }
 
   outputForAtCoder(&solve);
@@ -51,7 +37,7 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[])s).sort!S.array)).to!string; }
-string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").to!string; }
+string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!string; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
   else static if (is(T == void)) fn();

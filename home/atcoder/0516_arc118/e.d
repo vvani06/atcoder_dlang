@@ -1,37 +1,12 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!long;
-  auto W = scan!long;
-  auto MAP = scan!string(H).map!(s => s.map!(c => c == '+' ? 1 : -1).array).array;
+  auto N = scan!long;
+  auto K = scan!long;
 
   auto solve() {
-    // score of Takashi - Aoki
-    auto dp = new long[][](H, W);
-    dp[H - 1][W - 1] = 0;
-
-    foreach_reverse(y; 0..H) foreach_reverse(x; 0..W) {
-      const isT = (x + y) % 2 == 0;
-
-      long[] score;
-      if (isT) {
-        if (x < W - 1) score ~= dp[y][x + 1] + MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] + MAP[y + 1][x];
-      } else {
-        if (x < W - 1) score ~= dp[y][x + 1] - MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] - MAP[y + 1][x];
-      }
-
-      if (!score.empty) dp[y][x] = isT ? score.maxElement : score.minElement;
-    }
-
-    string ans(long spread) {
-      if (spread == 0) return "Draw";
-      return spread > 0 ? "Takahashi" : "Aoki";
-    }
-
-    dp.deb;
-    return ans(dp[0][0]);
+    // dp[total score][max element score]
+    auto dp = new long[][](N*3 + 1, 1);
   }
 
   outputForAtCoder(&solve);
@@ -55,7 +30,6 @@ string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").to!string
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
   else static if (is(T == void)) fn();
-  else static if (is(T == string)) fn().writeln;
   else static if (isInputRange!T) {
     static if (!is(string == ElementType!T) && isInputRange!(ElementType!T)) foreach(r; fn()) r.toAnswerString.writeln;
     else foreach(r; fn()) r.writeln;

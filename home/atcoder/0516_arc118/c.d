@@ -1,37 +1,23 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!long;
-  auto W = scan!long;
-  auto MAP = scan!string(H).map!(s => s.map!(c => c == '+' ? 1 : -1).array).array;
+  auto S = scan;
 
   auto solve() {
-    // score of Takashi - Aoki
-    auto dp = new long[][](H, W);
-    dp[H - 1][W - 1] = 0;
+    long ans;
+    root:foreach(num; 0..10_000) {
+      auto secret = "%04d".format(num);
 
-    foreach_reverse(y; 0..H) foreach_reverse(x; 0..W) {
-      const isT = (x + y) % 2 == 0;
+      foreach(i, p; S) {
+        auto c = cast(char)('0' + i);
 
-      long[] score;
-      if (isT) {
-        if (x < W - 1) score ~= dp[y][x + 1] + MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] + MAP[y + 1][x];
-      } else {
-        if (x < W - 1) score ~= dp[y][x + 1] - MAP[y][x + 1];
-        if (y < H - 1) score ~= dp[y + 1][x] - MAP[y + 1][x];
+        if (p == 'o' && !secret.canFind(c)) continue root;
+        if (p == 'x' && secret.canFind(c)) continue root;
       }
-
-      if (!score.empty) dp[y][x] = isT ? score.maxElement : score.minElement;
+      ans++;
     }
 
-    string ans(long spread) {
-      if (spread == 0) return "Draw";
-      return spread > 0 ? "Takahashi" : "Aoki";
-    }
-
-    dp.deb;
-    return ans(dp[0][0]);
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -51,7 +37,7 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[])s).sort!S.array)).to!string; }
-string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").to!string; }
+string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!string; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
   else static if (is(T == void)) fn();
@@ -70,3 +56,22 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+bool[] enumeratePrimes(long max)
+{
+  auto primes = new bool[](max + 1);
+  primes[] = true;
+  primes[0] = false;
+  primes[1] = false;
+  foreach (i; 2..max+1) {
+    if (primes[i]) {
+      auto x = i*2;
+      while (x <= max) {
+        primes[x] = false;
+        x += i;
+      }
+    }
+  }
+
+  return primes;
+}
