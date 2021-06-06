@@ -21,6 +21,7 @@ struct GridPoint {
   inout GridPoint rightUp() { return GridPoint(x + 1, y - 1); }
   inout GridPoint rightDown() { return GridPoint(x + 1, y + 1); }
   inout GridPoint[] around() { return [left(), up(), right(), down()]; }
+  inout GridPoint[] around(GridPoint max) { GridPoint[] ret; if (x > 0) ret ~= left; if(x < max.x-1) ret ~= right; if(y > 0) ret ~= up; if(y < max.y-1) ret ~= down; return ret; }
   inout T of(T)(inout ref T[][] grid) { return grid[y][x]; }
 }
  
