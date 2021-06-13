@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/dlang-atcoder
+dlang-atcoder.so
+dlang-atcoder.dylib
+dlang-atcoder.dll
+dlang-atcoder.a
+dlang-atcoder.lib
+dlang-atcoder-test-*
+*.exe
+*.o
+*.obj
+*.lst

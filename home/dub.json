@@ -1,0 +1,13 @@
+{
+	"authors": [
+		"vvani"
+	],
+	"copyright": "Copyright © 2021, vvani",
+	"dependencies": {
+		"dcd": "~>0.13.4",
+		"workspace-d": "~>3.5.0"
+	},
+	"description": "A minimal D application.",
+	"license": "proprietary",
+	"name": "dlang-atcoder"
+}
