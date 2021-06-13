@@ -2,26 +2,17 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto A = scan!long(N).map!(n => MInt1(n)).array;
+  auto A = scan!long(N).sort();
 
   auto solve() {
-    MInt1[] combs;
-    combs ~= MInt1(1);
-    combs ~= MInt1(2);
-    foreach(i; 2..N+1) {
-      combs ~= combs[i - 2] + combs[i - 1];
-    }
+    real ans = 0;
 
-    combs.deb;
-    const comb = combs[N - 1];
-
-    MInt1 ans = A[0] * comb;
-    const dec = MInt1(N - 0);
-    foreach(i, a; A[1..$]) {
-      ans.deb;
-      ans += a * (comb - dec);
-      [comb, dec, a].deb;
-      if (i == 0 || i == N - 2) ans -= a;
+    if (N % 2 == 0) {
+      ans += A[N / 2 - 1];
+      ans += A[N / 2];
+      ans /= 2;
+    } else {
+      ans += A[N / 2];
     }
 
     return ans;

@@ -2,14 +2,27 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto K = scan!long;
+  auto A = scan!long(N).sort();
 
   auto solve() {
-    long ans;
-    foreach(n; 1..N+1) {
-      foreach(k; 1..K+1) ans += 100*n + k;
+    real tx = 0;
+
+    if (N % 2 == 0) {
+      tx += A[N / 2 - 1];
+      tx += A[N / 2];
+      tx /= 2;
+    } else {
+      tx += A[N / 2];
     }
-    return ans;
+
+    real ans = 0;
+    real x = tx / 2;
+    foreach(a; A) {
+      real ar = a.to!real;
+      ans += x + ar - min(ar, tx);
+    }
+
+    return ans / N;
   }
 
   outputForAtCoder(&solve);
@@ -49,3 +62,23 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+
+struct ModInt(uint MD) if (MD < int.max) {
+  ulong v;
+  this(int v) {this(long(v));}
+  this(long v) {this.v = (v%MD+MD)%MD;}
+  static auto normS(ulong x) {return (x<MD)?x:x-MD;}
+  static auto make(ulong x) {ModInt m; m.v = x; return m;}
+  auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}
+  auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}
+  auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}
+  auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}
+  auto opBinary(string op:"/")(ModInt r) const {return this*inv(r);}
+  static ModInt inv(ModInt x) {return x^^(MD-2);};
+  string toString() const {return v.to!string;}
+  auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}
+}
+
+alias MInt1 = ModInt!(10^^9 + 7);
+alias MInt9 = ModInt!(998_244_353);
