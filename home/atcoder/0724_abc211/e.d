@@ -6,27 +6,53 @@ void problem() {
   auto M = scan!string(N).map!(s => s.map!(c => c == '.').array).array;
 
   auto solve() {
-    auto base = new bool[](N * N);
-    bool[bool[]] ans;
     auto rect = GridPoint(N, N);
+    bool[byte[]] ans;
+    bool[byte[]] inspected;
 
     foreach(y; 0..N) foreach(x; 0..N) {
-      if (!M[y][x]) continue;
+      auto point = GridPoint(x, y);
+      if (!point.of(M)) continue;
       
-      int size = 1;
-      for(auto q = new DList!GridPoint([GridPoint(x, y)]); !q.empty;) {
-        auto p = q.front;
-        q.removeFront;
+      auto painted = new bool[][](N, N);
+      painted[point.y][point.x] = true;
+      auto picture = new byte[](8 * N);
+      picture[point.asIndex] = true;
+      auto queue = DList!GridPoint([point]);
+      
+      void dfs(long rest) {
+        if (picture in inspected) return;
+        auto ip = picture.idup;
+        inspected[ip] = true;
 
-        foreach(a; p.around(rect)) {
-          if (!a.of(M)) continue;
+        if (rest == 0) {
+          ans[ip] = true;
+          return;
+        }
 
-          size++;
+        bool[GridPoint] neighbors;
+        foreach(p; queue) foreach(a; p.around(rect)) {
+          if (!a.of(M) || a.of(painted)) continue;
+
+          neighbors[a] = true;
+        }
+
+        foreach(p; neighbors.keys) {
+          queue.insertBack(p);
+          painted[p.y][p.x] = true;
+          picture[p.asIndex] = true;
+          dfs(rest - 1);
+          queue.removeBack();
+          painted[p.y][p.x] = false;
+          picture[p.asIndex] = false;
         }
       }
+      
+      dfs(K - 1);
     }
 
-    return ans;
+    // ans.keys.map!(a => a.chunks(8).map!(b => b[0..N])).each!deb;
+    return ans.length;
   }
 
   outputForAtCoder(&solve);
@@ -80,7 +106,7 @@ struct GridPoint {
     this.y = y;
   }
  
-  inout long toInt() { return y*16 + x; }
+  inout long asIndex(int w = 8) { return y*w + x; }
   inout GridPoint left() { return GridPoint(x - 1, y); }
   inout GridPoint right() { return GridPoint(x + 1, y); }
   inout GridPoint up() { return GridPoint(x, y - 1); }
@@ -124,56 +150,3 @@ struct GridValue(T) {
   T setAt(GridPoint p, T value) { return contains(p) ? g[p.y][p.x] = value : nullValue; }
   T opIndexAssign(T value, GridPoint p) { return setAt(p, value); }
 }
-
-
-struct CombinationRange(T) {
-  private {
-    int combinationSize;
-    int elementSize;
-    int pointer;
-    int[] cursor;
-    T[] elements;
-    T[] current;
-  }
-
-  public:
-
-  this(T[] t, int combinationSize) {
-    this.combinationSize = combinationSize;
-    this.elementSize = cast(int)t.length;
-    pointer = combinationSize - 1;
-    cursor = new int[combinationSize];
-    current = new T[combinationSize];
-    elements = t.dup;
-    foreach(i; 0..combinationSize) {
-      cursor[i] = i;
-      current[i] = elements[i];
-    }
-  }
-
-  @property T[] front() {
-    return current;
-  }
-
-  void popFront() {
-    if (pointer == -1) return;
-
-    if (cursor[pointer] == elementSize + pointer - combinationSize) {
-      pointer--;
-      popFront();
-      if (pointer < 0) return;
-
-      pointer++;
-      cursor[pointer] = cursor[pointer - 1];
-      current[pointer] = elements[cursor[pointer]];
-    }
-
-    cursor[pointer]++;
-    current[pointer] = elements[cursor[pointer]];
-  }
-
-  bool empty() {
-    return pointer == -1;
-  }
-}
-CombinationRange!T combinations(T)(T[] t, int size) { return CombinationRange!T(t, size); }
