@@ -1,33 +1,13 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!uint;
-  auto A = scan!uint(N);
-  auto B = scan!uint(N);
+  auto A = scan!long;
+  auto B = scan!long;
 
   auto solve() {
-    bool[uint] candidates;
-    bool[uint] assocB;
-    foreach(b; B) {
-      candidates.require(A[0] ^ b, true);
-      assocB.require(b, true);
-    }
-  
-    // candidates.keys.deb;
-    int ansSize;
-    auto ans = heapify!"a > b"(new uint[](0));
-    ROOT: foreach(x; candidates.keys) {
-      foreach(a; A[1..$]) {
-        const b = x ^ a;
-        if (!(b in assocB)) continue ROOT;
-      }
-
-      ansSize++;
-      ans.insert(x);
-    }
-
-    ansSize.writeln;
-    foreach(ref a; ans) a.writeln;
+    if (0 < A && B == 0) return "Gold";
+    if (0 == A && 0 < B) return "Silver";
+    return "Alloy";
   }
 
   outputForAtCoder(&solve);

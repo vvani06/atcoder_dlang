@@ -1,33 +1,32 @@
 void main() { runSolver(); }
 
+class Queue {
+  int mode;
+  long x;
+  this() {
+    mode = scan!int;
+    if (mode <= 2) x = scan!long;
+  }
+}
+
 void problem() {
-  auto N = scan!uint;
-  auto A = scan!uint(N);
-  auto B = scan!uint(N);
+  auto Q = scan!long;
+  auto QS = Q.iota.map!(_ => new Queue()).array;
 
   auto solve() {
-    bool[uint] candidates;
-    bool[uint] assocB;
-    foreach(b; B) {
-      candidates.require(A[0] ^ b, true);
-      assocB.require(b, true);
-    }
-  
-    // candidates.keys.deb;
-    int ansSize;
-    auto ans = heapify!"a > b"(new uint[](0));
-    ROOT: foreach(x; candidates.keys) {
-      foreach(a; A[1..$]) {
-        const b = x ^ a;
-        if (!(b in assocB)) continue ROOT;
+    auto heap = heapify!"a > b"(new long[](0));
+    long sum;
+
+    foreach(q; QS) {
+      if (q.mode == 1) {
+        heap.insert(q.x - sum);
+      } else if (q.mode == 2) {
+        sum += q.x;
+      } else {
+        (heap.front + sum).writeln;
+        heap.removeFront;
       }
-
-      ansSize++;
-      ans.insert(x);
     }
-
-    ansSize.writeln;
-    foreach(ref a; ans) a.writeln;
   }
 
   outputForAtCoder(&solve);

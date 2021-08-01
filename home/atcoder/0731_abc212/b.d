@@ -1,33 +1,19 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!uint;
-  auto A = scan!uint(N);
-  auto B = scan!uint(N);
+  auto S = scan!string;
 
   auto solve() {
-    bool[uint] candidates;
-    bool[uint] assocB;
-    foreach(b; B) {
-      candidates.require(A[0] ^ b, true);
-      assocB.require(b, true);
-    }
-  
-    // candidates.keys.deb;
-    int ansSize;
-    auto ans = heapify!"a > b"(new uint[](0));
-    ROOT: foreach(x; candidates.keys) {
-      foreach(a; A[1..$]) {
-        const b = x ^ a;
-        if (!(b in assocB)) continue ROOT;
-      }
+    if (S.group.array.length == 1) return "Weak";
 
-      ansSize++;
-      ans.insert(x);
+    foreach(i; 0..3) {
+      const a = S[i] - '0';
+      const b = S[i + 1] - '0';
+
+      if (b != (a + 1) % 10) return "Strong";
     }
 
-    ansSize.writeln;
-    foreach(ref a; ans) a.writeln;
+    return "Weak";
   }
 
   outputForAtCoder(&solve);

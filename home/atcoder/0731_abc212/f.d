@@ -1,33 +1,16 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!uint;
-  auto A = scan!uint(N);
-  auto B = scan!uint(N);
-
-  auto solve() {
-    bool[uint] candidates;
-    bool[uint] assocB;
-    foreach(b; B) {
-      candidates.require(A[0] ^ b, true);
-      assocB.require(b, true);
-    }
-  
-    // candidates.keys.deb;
-    int ansSize;
-    auto ans = heapify!"a > b"(new uint[](0));
-    ROOT: foreach(x; candidates.keys) {
-      foreach(a; A[1..$]) {
-        const b = x ^ a;
-        if (!(b in assocB)) continue ROOT;
+  auto S = scan;
+ 
+  void solve() {
+    auto cs = new long[][](26, S.length + 1);
+    foreach(i, c; S) {
+      foreach(z; "chokudai") {
+        const zi = z - 'a';
+        cs[zi][i + 1] = cs[zi][i] + (zi == c ? 1 : 0);
       }
-
-      ansSize++;
-      ans.insert(x);
     }
-
-    ansSize.writeln;
-    foreach(ref a; ans) a.writeln;
   }
 
   outputForAtCoder(&solve);

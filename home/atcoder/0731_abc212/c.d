@@ -1,33 +1,21 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!uint;
-  auto A = scan!uint(N);
-  auto B = scan!uint(N);
-
+  auto N = scan!long;
+  auto M = scan!long;
+  auto A = scan!long(N);
+  auto B = scan!long(M).sort();
+ 
   auto solve() {
-    bool[uint] candidates;
-    bool[uint] assocB;
-    foreach(b; B) {
-      candidates.require(A[0] ^ b, true);
-      assocB.require(b, true);
+    long ans = long.max;
+    foreach(a; A) {
+      auto lowers = B.lowerBound(a);
+      
+      const ll = lowers.length;
+      if (ll > 0) ans = ans.min((a - B[ll - 1]).abs);
+      if (ll < M) ans = ans.min((a - B[ll]).abs);
     }
-  
-    // candidates.keys.deb;
-    int ansSize;
-    auto ans = heapify!"a > b"(new uint[](0));
-    ROOT: foreach(x; candidates.keys) {
-      foreach(a; A[1..$]) {
-        const b = x ^ a;
-        if (!(b in assocB)) continue ROOT;
-      }
-
-      ansSize++;
-      ans.insert(x);
-    }
-
-    ansSize.writeln;
-    foreach(ref a; ans) a.writeln;
+    return ans;
   }
 
   outputForAtCoder(&solve);
