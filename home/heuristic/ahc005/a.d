@@ -8,6 +8,8 @@ enum GAROUND = [-1, -GU, 1, GU];
 enum RAROUND = "LURD";
 enum WALKS = ['L': -1, 'U':-GU, 'R': 1, 'D': GU];
 int gn(int x, int y) { return GU*y + x; }
+int x(int p) {return p%GU; }
+int y(int p) {return p/GU; }
 
 // ---------------------------------------------
 
@@ -25,6 +27,7 @@ struct Intersection {
 
   this(bool goal) {
     this.goal = goal;
+    this.score = 1000000;
   }
 
   bool remove(int[] vs, int[] costs) {
@@ -75,6 +78,12 @@ struct Grid {
     }
   }
 
+  int scoreAt(int p) {
+    if (!(p in inters)) return 0;
+
+    return inters[p].score;
+  }
+
   void removeIntersection(int p) {
     if (!(p in inters)) return;
 
@@ -122,57 +131,46 @@ void problem() {
     auto cur = gn(SX, SY);
     string ans;
     while(!G.inters.empty) {
-      string route;
-      bool[int] visited = [cur: true];
-      int dfs(int p, int pre, int cost) {
-        cost += G.g[p%GU][p/GU];
-        // [p%GU, p/GU].deb;
-        if (p in G.inters) {
-          return cost;
-        }
+      G.removeIntersection(cur);
 
-        const x = p % GU;
-        const y = p / GU;
-
-        static foreach(i, a; AROUND) {{
-          const ap = p + GAROUND[i];
-          const ax = x + a[0];
-          const ay = y + a[1];
-          if (ax >= 0 && ay >= 0 && ax < N && ay < N && G.g[ay][ax] > 0 && !(ap in visited)) {
-            route ~= RAROUND[i];
-            visited[ap] = true;
-            const r = dfs(ap, p, cost);
-            if (r > 0) return r;
-            route = route[0..$-1];
+      alias Try = Tuple!(int, "p", int, "score", string, "route");
+      Try[int] dp;
+      for(auto queue = [Try(cur, 0, "")].heapify!"a.score > b.score"; !queue.empty;) {
+        auto t = queue.front;
+        queue.removeFront;
+        auto p = t.p;
+        foreach(dir, a; AROUND) {
+          const x = p.x + a[0];
+          const y = p.y + a[1];
+          if (x >= 0 && y >= 0 && x < N && y < N && G.at(x, y) > 0) {
+            const ap = p + GAROUND[dir];
+            const route = t.route ~ RAROUND[dir];
+            const score = t.score + G.at(x, y);
+            if (!(ap in dp) || dp[ap].score > score) {
+              dp[ap] = Try(ap, score, route);
+              queue.insert(dp[ap]);
+            }
           }
-        }}
+        }
+      }
+      
+      Try bestTry = Try(-1, int.max, "");
+      foreach(inter; G.inters.keys) {
+        if (!(inter in dp)) continue;
 
-        return 0;
+        if (bestTry.score > dp[inter].score) {
+          bestTry = dp[inter];
+        }
       }
 
-      G.removeIntersection(cur);
+      ans ~= bestTry.route;
+      foreach(r; bestTry.route) {
+        cur += WALKS[r];
+        G.removeIntersection(cur);
+      }
       if (G.inters.empty && cur != gn(SX, SY)) {
         G.inters[gn(SX, SY)] = Intersection(false);
       }
-
-      alias Try = Tuple!(int, "cost", string, "route");
-      auto tries = new Try[](0);
-      foreach(i, a; AROUND) {
-        const ax = cur%GU + a[0];
-        const ay = cur/GU + a[1];
-        if (ax >= 0 && ay >= 0 && ax < N && ay < N && G.g[ay][ax] > 0) {
-          visited = [cur: true];
-          route = "";
-          route ~= RAROUND[i];
-          const r = dfs(cur + GAROUND[i], cur, 1);
-          if (r > 0) tries ~= Try(r, route);
-        }
-      }
-
-      const best = tries.sort!"a.cost < b.cost"[0];
-      ans ~= best.route;
-      foreach(r; best.route) cur += WALKS[r];
-      if (cur == gn(SX, SY)) break;
     }
 
     G.inters.deb;
