@@ -2,10 +2,10 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto A = N.iota.map!(i => [i+1, scan!long]).array;
+  auto A = scan!long(N).enumerate(1).array;
 
   auto solve() {
-    return A.sort!"a[1] < b[1]"[$ - 2][0];
+    return A.sort!"a.value < b.value"[$ - 2].index;
   }
 
   outputForAtCoder(&solve);

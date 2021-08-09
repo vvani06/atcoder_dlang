@@ -6,46 +6,38 @@ void problem() {
   auto M = cast(char[][])scan!string(H);
 
   auto solve() {
-    enum int INF = int.max / 3;
-    auto rect = GridPoint(W, H);
+    enum int INF = int.max / 4;
+    auto dp = GridValue!int(W, H, INF);
     auto start = GridPoint(0, 0);
-    auto nop = GridPoint(-100, -100);
-
-    alias Try = Tuple!(GridPoint, "p", long, "cost", GridPoint, "broken");
-    auto dp = GridValue!Try(W, H, Try(GridPoint(0, 0), INF, nop));
-    dp[start] = Try(start, 0, nop);
-    for(auto q = new DList!Try([dp[start]]); !q.empty; ) {
-      auto t = q.front; q.removeFront;
-      auto p = t.p;
-      const cost = dp[p].cost;
-
-      bool isWall(GridPoint p, Try tt) {
-        if (p.of(M) == '.') return false;
-        return true;
-      }
+ 
+    auto rect = GridPoint(W, H);
+    dp[start] = 0;
+    for(auto q = new DList!GridPoint([start]); !q.empty; ) {
+      auto p = q.front; q.removeFront;
+      const cost = dp[p];
       
       foreach(a; p.around(rect)) {
-        const wall = isWall(a, t);
-        const c = wall ? 1 : 0;
-        if (wall) {
+        const c = a.of(M) == '#' ? 1 : 0;
+        if (c == 0) {
+          if (dp[a] > cost) {
+            dp[a] = cost;
+            q.insertFront(a);
+          }
+        } else {
           foreach(aa; a.around8) {
             if (!aa.isIn(rect)) continue;
 
-            if (dp[aa].cost > cost + c) {
-              dp[aa] = Try(aa, cost + c, t.broken);
-              q.insertBack(dp[aa]);
+            if (dp[aa] > cost + c) {
+              dp[aa] = cost + c;
+              q.insertBack(aa);
             }
           }
-        } else if (dp[a].cost > cost + c) {
-          dp[a] = Try(a, cost + c, t.broken);
-          q.insertFront(dp[a]);
         }
       }
     }
-
+ 
     auto goal = GridPoint(W - 1, H - 1);
-    dp[goal].deb;
-    return dp[goal].cost;
+    return dp[goal];
   }
 
   outputForAtCoder(&solve);
