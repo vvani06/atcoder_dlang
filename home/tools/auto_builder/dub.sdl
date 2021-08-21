@@ -1,0 +1,6 @@
+name "auto_builder"
+description "A simple build runner for competitive programming"
+authors "vvani"
+copyright "Copyright © 2021, vvani"
+license "none"
+dependency "fswatch" version="~>0.6.0"

@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/auto_builder
+auto_builder.so
+auto_builder.dylib
+auto_builder.dll
+auto_builder.a
+auto_builder.lib
+auto_builder-test-*
+*.exe
+*.o
+*.obj
+*.lst
