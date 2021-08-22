@@ -22,7 +22,7 @@ void main()
 
   Pid task;
   long elapsed;
-  auto watcher = FileWatch("/workspace/home/daily_shojin/", true);
+  auto watcher = FileWatch("./", true);
   while(true) {
     Thread.sleep(500.msecs);
     elapsed += 500;
