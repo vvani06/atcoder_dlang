@@ -2,7 +2,7 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto P = scan!long(N);
+  auto P = scan!long(N - 1);
   auto Q = scan!long;
   auto Queries = scan!long(2 * Q).chunks(2);
 
@@ -12,16 +12,31 @@ void problem() {
       graph[p - 1] ~= i + 1;
     }
 
-    bool[long] visited;
-    long[long][long] route;
-    long[] current = [0];
-    long dist = 1;
-    while(!current.empty) {
-      long[] next;
-      
-      current = next;
+    long depth, index;
+    auto journeyIn = new long[](N);
+    auto journeyOut = new long[](N);
+    auto IndiciesPerDepth = new long[][](N, 0);
+    void dfs(long p, long from) {
+      journeyIn[p] = index++;
+      IndiciesPerDepth[depth] ~= index;
+      foreach(n; graph[p]) {
+        if (n == from) continue;
+
+        depth++;
+        dfs(n, p);
+        depth--;
+      }
+      journeyOut[p] = index;
     }
 
+    dfs(0, -1);
+    IndiciesPerDepth.deb;
+
+    foreach(q; Queries) {
+      const via = q[0] - 1;
+      const d = q[1];
+      IndiciesPerDepth[d].assumeSorted.upperBound(journeyIn[via]).lowerBound(journeyOut[via] + 1).length.writeln;
+    }
   }
 
   outputForAtCoder(&solve);
