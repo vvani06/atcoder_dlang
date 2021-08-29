@@ -2,42 +2,29 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto S = scan.map!(c => cast(int)(c - 'A')).array;
+  auto P = N.iota.map!(_ => Point(scan!long, scan!long)).array;
 
   auto solve() {
-    enum long MOD = 998_244_353;
-    enum long CONTESTS = 2;
-    enum long BMAX = 2 ^^ CONTESTS;
-    auto bits = CONTESTS.iota.map!"2^^a".array;
-    auto dp = new long[][](BMAX, CONTESTS);
-    auto preDp = new long[][](BMAX, CONTESTS);
+    auto sorted = P.multiSort!("a.x < b.x", "a.y < b.y").array;
 
-    foreach(s; S) {
-      swap(preDp, dp);
-      const add = bits[s];
-      dp[add][s] += 1;
-
-      foreach(b; 1..BMAX) foreach(last; 0..CONTESTS) {
-        dp[b][last] += preDp[b][last];
-        dp[b][last] %= MOD;
+    bool existsDistanceIn(long d) {
+      long b;
+      long minY = long.max / 2;
+      long maxY = long.min / 2;
+      foreach(a, ap; sorted) {
+        while(b < a && sorted[b].x <= ap.x - d) {
+          const bp = sorted[b];
+          minY = min(minY, bp.y);
+          maxY = max(maxY, bp.y);
+          b++;
+        }
+        if (ap.y - minY >= d) return true;
+        if (maxY - ap.y >= d) return true;
       }
-
-      foreach(b; 1..BMAX) foreach(last; 0..CONTESTS) {
-        if (s != last && (add & b) == add) continue;
-
-        // [s, last, add, b, dp[add | b][s], preDp[b][last]].deb;
-        dp[add | b][s] += preDp[b][last];
-        dp[add | b][s] %= MOD;
-      }
-
-      // dp.deb;
-      preDp = new long[][](BMAX, CONTESTS);
+      return false;
     }
 
-
-    long ans;
-    foreach(ref d; dp) foreach(ref x; d) ans = (ans + x) % MOD;
-    return ans;
+    return binarySearch((long a) => a, &existsDistanceIn, 0, 10^^9 + 7);
   }
 
   outputForAtCoder(&solve);
@@ -80,3 +67,30 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
