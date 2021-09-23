@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/tenka1_gbc_2021
+tenka1_gbc_2021.so
+tenka1_gbc_2021.dylib
+tenka1_gbc_2021.dll
+tenka1_gbc_2021.a
+tenka1_gbc_2021.lib
+tenka1_gbc_2021-test-*
+*.exe
+*.o
+*.obj
+*.lst

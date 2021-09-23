@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"vvani"
+	],
+	"libs": [
+		"curl"
+	],
+	"copyright": "Copyright © 2021, vvani",
+	"description": "A minimal D application.",
+	"license": "proprietary",
+	"name": "tenka1_gbc_2021"
+}
