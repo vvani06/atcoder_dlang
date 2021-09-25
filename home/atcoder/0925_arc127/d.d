@@ -1,20 +1,35 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
-  auto P = scan!long(2 * M).chunks(2);
-  enum long MOD = 998_244_353;
-
+  auto N = scan!int;
+  auto X = scan!int;
+  auto Y = scan!int;
+  auto AB = scan!int(2 * N).chunks(2).array;
+ 
   auto solve() {
-    const N2 = N * 2;
-    bool[201][201] friend;
-    foreach(p; P) {
-      friend[p[0]][p[1]] = true;
-      friend[p[1]][p[0]] = true;
-    }
-    
+    int[301][301] dp;
+    int[301][301] preDp;
+    foreach(ref d; dp) d[] = N + 1;
+    foreach(ref d; preDp) d[] = N + 1;
+    dp[0][0] = preDp[0][0] = 0;
+    long ans = long.max;
 
+    foreach(ab; AB) {
+      swap(dp, preDp);
+      
+      foreach(x; 0..X + 1) foreach(y; 0..Y + 1) {
+        if (preDp[x][y] > N) continue;
+
+        const v = preDp[x][y];
+        const ax = min(X, x + ab[0]);
+        const ay = min(Y, y + ab[1]);
+
+        dp[x][y].chmin(v);
+        dp[ax][ay].chmin(v + 1);
+      }
+    }
+
+    return dp[X][Y] > N ? -1 : dp[X][Y];
   }
 
   outputForAtCoder(&solve);
@@ -57,32 +72,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
-}

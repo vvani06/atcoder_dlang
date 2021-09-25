@@ -2,19 +2,26 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto M = scan!long;
-  auto P = scan!long(2 * M).chunks(2);
-  enum long MOD = 998_244_353;
+  auto K = scan!long;
+  auto A = scan!long(N).sort.array;
 
   auto solve() {
-    const N2 = N * 2;
-    bool[201][201] friend;
-    foreach(p; P) {
-      friend[p[0]][p[1]] = true;
-      friend[p[1]][p[0]] = true;
-    }
-    
+    long ans = A[0];
+    foreach(a; A) ans = ans.gcd(a);
 
+    long lowers;
+    bool isOK(long m) {
+      long modSum;
+      foreach(a; A) modSum += a % m == 0 ? 0 : m - a % m;
+      // [m, modSum, K].deb;
+
+      return (modSum <= K); 
+    }
+
+      const x = binarySearch((long x) => x, &isOK, ans, K + 1);
+      ans.chmax(x);
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -58,31 +65,29 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
   }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
   }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
+ 
+  return ok;
 }

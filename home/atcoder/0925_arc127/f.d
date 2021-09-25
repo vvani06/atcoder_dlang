@@ -3,18 +3,86 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!long;
   auto M = scan!long;
-  auto P = scan!long(2 * M).chunks(2);
-  enum long MOD = 998_244_353;
+  auto P = scan!long(2 * M).chunks(2).array;
 
   auto solve() {
-    const N2 = N * 2;
-    bool[201][201] friend;
-    foreach(p; P) {
-      friend[p[0]][p[1]] = true;
-      friend[p[1]][p[0]] = true;
+    auto pathes = new long[][](N, 0);
+    long[Point] pathId;
+    foreach(i, ref p; P) {
+      p[0]--; p[1]--;
+      pathes[p[0]] ~= p[1];
+      pathId[Point(p[0], p[1])] = i;
     }
-    
 
+    long normalCost = -1;
+    auto pre = new long[](N);
+    pre[] = -1;
+    {
+      long cost = 1;
+      bool[long] used;
+      for(auto q = new DList!long([0]); !q.empty;) {
+        bool[long] nex;
+        while(!q.empty) {
+          auto p = q.front; q.removeFront;
+          used[p] = true;
+          foreach(n; pathes[p]) if(!(n in used)) {
+            nex[n] = true;
+            if (pre[n] == -1) pre[n] = p;
+          }
+        }
+        if ((N - 1) in nex) {
+          normalCost = cost;
+          break;
+        }
+        if (nex.empty) break;
+        q.insert(nex.keys);
+        cost++;
+      }
+    }
+
+    if (normalCost == -1) {
+      M.iota.each!(_ => "-1".writeln);
+      return;
+    }
+
+    bool[long] routes;
+    for(auto p = N - 1; p != 0; p = pre[p]) {
+      routes[pathId[Point(pre[p], p)]] = true;
+    }
+
+    foreach(id, proh; P) {
+      if (!(id in routes)) {
+        normalCost.writeln;
+        continue;
+      }
+
+      long cost = 1;
+      bool[long] used;
+      for(auto q = new DList!long([0]); !q.empty;) {
+        bool[long] nex;
+        while(!q.empty) {
+          auto p = q.front;
+          q.removeFront;
+          used[p] = true;
+          foreach(n; pathes[p]) {
+            if(n in used) continue;
+            if (p == proh[0] && n == proh[1]) continue;
+
+            nex[n] = true;
+          }
+        }
+        if ((N - 1) in nex) {
+          cost.writeln;
+          break;
+        }
+        if (nex.empty) {
+          (-1).writeln;
+          break;
+        }
+        q.insert(nex.keys);
+        cost++;
+      }
+    }
   }
 
   outputForAtCoder(&solve);

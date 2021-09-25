@@ -1,20 +1,69 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
-  auto P = scan!long(2 * M).chunks(2);
-  enum long MOD = 998_244_353;
-
+  auto A = scan!int(16).chunks(4).array;
+ 
   auto solve() {
-    const N2 = N * 2;
-    bool[201][201] friend;
-    foreach(p; P) {
-      friend[p[0]][p[1]] = true;
-      friend[p[1]][p[0]] = true;
-    }
-    
+    bool isGood(int[][] G) {
+      foreach(x; 0..4) foreach(y; 0..4) {
+        if (A[y][x] == 1 && G[y][x] == 0) return false;
+      }
+      
+      {
+        bool[4][4] used;
+        int rest = cast(int)G.map!(g => g.count!"a == 1").sum;
+        void dfs(int x, int y) {
+          rest--;
+          used[y][x] = true;
 
+          if (x > 0 && !used[y][x - 1] && G[y][x - 1] == 1) dfs(x - 1, y);
+          if (x < 3 && !used[y][x + 1] && G[y][x + 1] == 1) dfs(x + 1, y);
+          if (y > 0 && !used[y - 1][x] && G[y - 1][x] == 1) dfs(x, y - 1);
+          if (y < 3 && !used[y + 1][x] && G[y + 1][x] == 1) dfs(x, y + 1);
+        }
+
+        xr: foreach(x; 0..4) foreach(y; 0..4) {
+          if (G[y][x] == 0 || used[y][x]) continue;
+
+          dfs(x, y);
+          if (rest == 0) break xr; else return false;
+        }
+      }
+      
+      {
+        bool[4][4] used;
+        foreach(gx; 1..3) foreach(gy; 1..3) {
+          if (G[gy][gx] == 1 || used[gy][gx]) continue;
+          
+          bool walled;
+          void dfs2(int x, int y) {
+            used[y][x] = true;
+            if (min(x, y) == 0 || max(x, y) == 3) walled = true;
+
+            if (x > 0 && !used[y][x - 1] && G[y][x - 1] == 0) dfs2(x - 1, y);
+            if (x < 3 && !used[y][x + 1] && G[y][x + 1] == 0) dfs2(x + 1, y);
+            if (y > 0 && !used[y - 1][x] && G[y - 1][x] == 0) dfs2(x, y - 1);
+            if (y < 3 && !used[y + 1][x] && G[y + 1][x] == 0) dfs2(x, y + 1);
+          }
+
+          dfs2(gx, gy);
+          if (!walled) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    long ans;
+    foreach(G; basePacks(2, 16)) {
+      if (isGood(G.chunks(4).array)) ans++;
+    }
+
+    isGood([[1,1,1,1], [1,0,0,1], [1,0,0,1], [1,0,1,1]]).deb;
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -58,31 +107,14 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
+int[][] basePacks(int base, int size) {
+  auto ret = new int[][](base^^size, size);
+  foreach(i; 0..base^^size) {
+    int x = i;
+    foreach(b; 0..size) {
+      ret[i][b] = x % base;
+      x /= base;
+    }
   }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
+  return ret;
 }
