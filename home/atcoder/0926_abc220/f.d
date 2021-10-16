@@ -2,87 +2,38 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto M = scan!long;
-  auto P = scan!long(2 * M).chunks(2).array;
-
+  auto P = scan!long(N * 2 - 2).chunks(2);
+ 
   auto solve() {
-    auto pathes = new long[][](N, 0);
-    long[Point] pathId;
-    foreach(i, ref p; P) {
+    auto g = new long[][](N, 0);
+    foreach(p; P) {
       p[0]--; p[1]--;
-      pathes[p[0]] ~= p[1];
-      pathId[Point(p[0], p[1])] = i;
+      g[p[0]] ~= p[1];
+      g[p[1]] ~= p[0];
     }
 
-    long normalCost = -1;
-    auto pre = new long[](N);
-    pre[] = -1;
+    auto treeSizes = new long[](N);
     {
-      long cost = 1;
-      bool[long] used;
-      for(auto q = new DList!long([0]); !q.empty;) {
-        bool[long] nex;
-        while(!q.empty) {
-          auto p = q.front; q.removeFront;
-          used[p] = true;
-          foreach(n; pathes[p]) if(!(n in used)) {
-            nex[n] = true;
-            if (pre[n] == -1) pre[n] = p;
-          }
-        }
-        if ((N - 1) in nex) {
-          normalCost = cost;
-          break;
-        }
-        if (nex.empty) break;
-        q.insert(nex.keys);
-        cost++;
-      }
+      auto tourIn = new long[](N);
+      auto tourOut = new long[](N);
+      long cnt;
+      auto funcIn = (long c, long f) { tourIn[c] = cnt++; };
+      auto funcOut = (long c, long f) { tourOut[c] = cnt++; };
+      g.dfsTour(0, funcIn, funcOut);
+      foreach(i; 0..N) treeSizes[i] = (tourOut[i] - tourIn[i] + 1) / 2;
     }
 
-    if (normalCost == -1) {
-      M.iota.each!(_ => "-1".writeln);
-      return;
+    auto ans = new long[](N);
+    {
+      long depth;
+      auto funcIn = (long c, long f) { ans[0] += depth++; };
+      auto funcOut = (long c, long f) { depth--; };
+      g.dfsTour(0, funcIn, funcOut);
     }
 
-    bool[long] routes;
-    for(auto p = N - 1; p != 0; p = pre[p]) {
-      routes[pathId[Point(pre[p], p)]] = true;
-    }
-
-    foreach(id, proh; P) {
-      if (!(id in routes)) {
-        normalCost.writeln;
-        continue;
-      }
-
-      long cost = 1;
-      bool[long] used;
-      for(auto q = new DList!long([0]); !q.empty;) {
-        bool[long] nex;
-        while(!q.empty) {
-          auto p = q.front;
-          q.removeFront;
-          used[p] = true;
-          foreach(n; pathes[p]) {
-            if(n in used) continue;
-            if (p == proh[0] && n == proh[1]) continue;
-
-            nex[n] = true;
-          }
-        }
-        if ((N - 1) in nex) {
-          cost.writeln;
-          break;
-        }
-        if (nex.empty) {
-          (-1).writeln;
-          break;
-        }
-        q.insert(nex.keys);
-        cost++;
-      }
-    }
+    auto diff = (long c, long f) { if (ans[c] == 0) ans[c] = ans[f] - treeSizes[c] + (N - treeSizes[c]); };
+    g.dfsTour(0, diff);
+    foreach(a; ans) a.writeln;
   }
 
   outputForAtCoder(&solve);
@@ -126,31 +77,13 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
+void dfsTour(long[][] graph, long start, void delegate(long, long) funcIn = null, void delegate(long, long) funcOut = null) {
+  void innerDfs(long cur, long from) {
+    if (funcIn) funcIn(cur, from);
+    foreach(p; graph[cur]) {
+      if (p != from) innerDfs(p, cur);
+    }
+    if (funcOut) funcOut(cur, from);
   }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
+  innerDfs(start, -1);
 }
