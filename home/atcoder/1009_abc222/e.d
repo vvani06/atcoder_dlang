@@ -1,34 +1,64 @@
+
 void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto A = scan!long(N);
+  auto M = scan!long;
+  auto K = scan!long;
+  auto A = scan!long(M).map!"a - 1".array;
+  auto P = scan!long(2 * N - 2).chunks(2);
+  enum long MOD = 998244353;
  
   auto solve() {
-    auto sorted = A.dup.sort;
-    long[long] tbl;
-    foreach(i, a; sorted.uniq.array) tbl[a] = i;
-    auto AC = A.map!(a => tbl[a]).array;
-    AC.deb;
-
-    auto sg = SegTree!("a + b", long)(new long[](N));
-    auto ls = new long[](N);
-    foreach_reverse(i, a; AC) {
-      ls[i] = sg.sum(a, N);
-      sg.update(a, sg.get(a) + 1);
+    alias Path = Tuple!(long, "id", long, "from", long, "to");
+    auto graph = new Path[][](N, 0);
+    foreach(i, p; P.array) {
+      p[0]--; p[1]--;
+      graph[p[0]] ~= Path(i, p[0], p[1]);
+      graph[p[1]] ~= Path(i, p[1], p[0]);
     }
 
+    auto passed = new long[](N - 1);
+    long start = A[0];
+    foreach(goal; A[1..$]) {
+      auto route = new DList!long();
+      bool dfs(long cur, long pre) {
+        if (cur == goal) return true;
 
-    long ans;
-    enum ulong MOD = 998244353;
-    ls.deb;
-    foreach(l; ls) {
-      ans += powmod(2UL, l.unsigned, MOD) - 1;
-      ans.deb;
-      ans %= MOD;
+        foreach(p; graph[cur]) {
+          if (p.to == pre) continue;
+
+          route.insertBack(p.id);
+          if (dfs(p.to, cur)) return true;
+          route.removeBack();
+        }
+        return false;
+      }
+      dfs(start, -1);
+      foreach(r; route.array) passed[r]++;
+      start = goal;
     }
 
-    return ans;
+    const total = passed.sum;
+    if (K.abs > total || (K + total) % 2 == 1) return 0;
+
+    const target = (total + K) / 2;
+    auto dp = new long[][](N, target + 1);
+    dp[0][0] = 1;
+    foreach(i, p; passed) {
+      foreach(x; 0..target + 1) {
+        dp[i + 1][x] += dp[i][x];
+        dp[i + 1][x] %= MOD;
+        if (x + p <= target) {
+          dp[i + 1][x + p] += dp[i][x];
+          dp[i + 1][x + p] %= MOD;
+        }
+      }
+    }
+
+    passed.deb;
+    dp.deb;
+    return dp[$ - 1][target];
   }
 
   outputForAtCoder(&solve);
