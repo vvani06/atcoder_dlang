@@ -9,7 +9,7 @@ struct ModInt(uint MD) if (MD < int.max) {
   auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}
   auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}
   auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}
-  auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}
+  auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r.v){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}
   auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}
   static ModInt inv(ModInt x) {return x^^(MD-2);}
   string toString() const {return v.to!string;}
