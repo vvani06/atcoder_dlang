@@ -14,47 +14,38 @@ void problem() {
       g[p[1]] ~= Path(p[0], p[2]);
     }
 
-    auto costs = new long[][](0, 0);
-    {
-      long[] cs;
-      long cost, maxCost;
-      void dfs(Path p, long from) {
-        cost += p.cost;
-        cs ~= cost;
-        foreach(pp; g[p.to]) {
-          if (pp.to != from) dfs(pp, p.to);
+    Path dfs(Path p, long from, long cost = 0) {
+      cost += p.cost;
+      auto ret = Path(p.to, cost + D[p.to]);
+      foreach(pp; g[p.to]) {
+        if (pp.to != from) {
+          auto eval = dfs(pp, p.to, cost);
+          if (eval.cost > ret.cost) ret = eval;
         }
-        cost -= p.cost;
       }
-      foreach(p; g[0]) {
-        dfs(p, 0);
-        costs ~= cs;
-      }
+      cost -= p.cost;
+      return ret;
     }
+
+    auto p1 = g[0].map!(p => dfs(p, 0)).maxElement!"a.cost";
+    auto p2 = g[p1.to].map!(p => dfs(p, p1.to)).maxElement!"a.cost";
+
     auto ans = new long[](N);
-    ans[0] = costs.map!(m => m.maxElement).maxElement;
-
-    costs ~= [D[0]];
-    auto rbts = costs.map!(m => redBlackTree!("a > b", true, long)(m));
-
-    long cost;
-    foreach(i, p; g[0]) {
-      void dfs2(Path p, long from) {
-        cost += p.cost;
-        [i, p.to, maxCosts[i], rbt.front, cost, maxCosts[i] - cost, rbt.front + cost].deb;
-        ans[p.to] = max(maxCosts[i] - cost, rbt.front + cost);
-        if (ans[p.to] == D[p.to]) ans[p.to] = rbt.front + cost;
-
-        foreach(pp; g[p.to]) {
-          if (pp.to != from) dfs2(pp, p.to);
-        }
-        cost -= p.cost;
+    void dfs2(Path p, long from, long origin = -1, long cost = 0) {
+      if (origin == -1) origin = from;
+      
+      cost += p.cost;
+      ans[p.to].chmax(cost + D[origin]);
+      foreach(pp; g[p.to]) {
+        if (pp.to != from) dfs2(pp, p.to, origin, cost);
       }
-      cost = 0;
-      dfs2(p, 0);
+      cost -= p.cost;
     }
 
-    ans.each!writeln;
+    foreach(p; g[p1.to]) dfs2(p, p1.to);
+    foreach(p; g[p2.to]) dfs2(p, p2.to);
+
+    ans.toAnswerString.writeln;
   }
 
   outputForAtCoder(&solve);
