@@ -1,84 +1,66 @@
-import std.stdio, std.conv, std.array, std.string;
-import std.algorithm;
-import std.container;
-import std.range;
 
-class Nodes(T) {
-
-  class Node {
-    public int id;
-    public Node[] friends;
-
-    public T content;
-    alias content this;
-
-    this(int id) {
-      this.id = id;
-    }
+struct Graph {
+  long size;
+  long[][] g;
+  this(long size) {
+    this.size = size;
+    g = new long[][](size, 0);
   }
 
-  public int origin;
-  public Node[int] nodes;
-
-  this(int size, int origin = 1) {
-    this.origin = origin;
-    size.iota.each!((i) {
-      auto id = origin + i;
-      this.nodes[id] = new Node(id);
-    });
+  Graph addUnidirectionalEdge(R)(R edge) {
+    g[edge[0]] ~= edge[1];
+    return this;
   }
 
-  void setPath(int a, int b) {
-    this.nodes[a].friends ~= this.nodes[b];
-    this.nodes[b].friends ~= this.nodes[a];
+  Graph addUnidirectionalEdges(R)(R edges) {
+    edges.each!(e => addUnidirectionalEdge(e));
+    return this;
   }
 
-  Node root() {
-    return this.nodes[origin];
+  Graph addBidirectionalEdge(R)(R edge) {
+    g[edge[0]] ~= edge[1];
+    g[edge[1]] ~= edge[0];
+    return this;
   }
 
-  void apply(int id, void delegate(Node) d) {
-    d(this.nodes[id]);
+  Graph addBidirectionalEdges(R)(R edges) {
+    edges.each!(e => addBidirectionalEdge(e));
+    return this;
   }
 
-  void applyAllFromRoot(void delegate(Node) d) {
-    auto cursors = [this.root()];
-    bool[int] checked;
-    while(!cursors.empty) {
-      foreach(node; cursors) {
-        d(node);
-        checked[node.id] = true;
+  alias tourCallBack = void delegate(long);
+  void tour(long start, tourCallBack funcIn = null, tourCallBack funcOut = null) {
+    auto visited = new bool[](size);
+    void dfs(long cur, long pre) {
+      visited[cur] = true;
+      if (funcIn) funcIn(cur);
+      foreach(n; g[cur]) {
+        if (n != pre && !visited[n]) dfs(n, cur);
       }
-      cursors = cursors.map!(node => node.friends)
-        .joiner.filter!(node => node !is null && node.id !in checked).array;
+      if (funcOut) funcOut(cur);
     }
-  }
-}
-
-struct Counter {
-  int count;
-}
-
-void main() {
-  int N, Q; readf("%d %d\n", &N, &Q);
-
-  auto nodes = new Nodes!(Counter)(N);
-  foreach(i; 1..N) {
-    int from, to; readf("%d %d\n", &from, &to);
-    nodes.setPath(from, to);
-  }
-  
-  foreach(i; 0..Q) {
-    int nodeId, increments; readf("%d %d\n", &nodeId, &increments);
-    nodes.apply(nodeId, (node){ node.count += increments; });
+    dfs(start, -1);
   }
 
-  int[] totals = new int[N+1];
-  nodes.applyAllFromRoot((node) {
-    totals[node.id] += node.count;
-    node.friends.each!(n => totals[node.id] += totals[n.id]);
-  });
+  long[] topologicalSort() {
+    auto depth = new long[](size);
+    foreach(e; g) foreach(p; e) depth[p]++;
 
-  totals.popFront();
-  totals.to!(string[]).join(" ").writeln;
+    auto q = heapify!"a > b"(new long[](0));
+    foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+
+    long[] sorted;
+    while(!q.empty) {
+      auto p = q.front;
+      q.removeFront;
+      foreach(n; g[p]) {
+        depth[n]--;
+        if (depth[n] == 0) q.insert(n);
+      }
+
+      sorted ~= p;
+    }
+
+    return sorted;
+  }
 }
