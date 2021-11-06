@@ -2,3 +2,6 @@ home/.bash_history
 home/.dub/**
 home/.vscode-server**
 home/.gitconfig
+home/.ash_history
+home/.config/fish/fish_variables
+home/.local/share/fish/fish_history
