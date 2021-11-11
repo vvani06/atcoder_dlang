@@ -16,7 +16,10 @@ void problem() {
     long id;
     long[] requiredSkills;
     long maxRequirement;
-    long maxBias;
+    long maxRequirementId;
+    long potential = 1;
+    real maxBias;
+    real average;
 
     bool finished;
     bool working;
@@ -25,12 +28,21 @@ void problem() {
     Task[] sufTasks;
     long depth;
     long dependee;
+    bool[long] resolves;
 
     this(long id, long[] requiredSkills) {
       this.id = id;
       this.requiredSkills = requiredSkills;
-      this.maxRequirement = requiredSkills.maxElement;
-      this.maxBias = requiredSkills.map!(s => (s - requiredSkills.sum / K).abs).maxElement;
+      this.average = requiredSkills.sum.to!real / K;
+
+      auto sorted = requiredSkills.dup.sort;
+      this.maxRequirement = sorted[$ - 1];
+      this.maxRequirementId = requiredSkills.maxIndex;
+
+      real first = (sorted[$ - 1].to!real - average).pow(2);
+      real second = (sorted[$ - 2].to!real - average).pow(2);
+      this.maxBias = requiredSkills.count!"a <= 3";
+      // this.maxBias = requiredSkills.map!(s => (s - requiredSkills.sum / K).abs).maxElement;
       this.depth = -1;
     }
 
@@ -46,9 +58,9 @@ void problem() {
     long calcDepth() {
       if (depth != -1) return depth;
 
-      depth = preTasks.length;
+      depth = 0;
       foreach(preTask; preTasks) {
-        depth += preTask.calcDepth;
+        depth = max(depth, preTask.calcDepth + 1);
       }
 
       return depth;
@@ -56,17 +68,22 @@ void problem() {
 
     void calcDependee() {
       foreach(sufTask; sufTasks) {
-        dependee += sufTask.dependee + 1;
+        resolves[sufTask.id] = true;
+        foreach(r; sufTask.resolves.keys) resolves[r] = true;
       }
+      dependee += resolves.length;
+      // "#s %s".writefln(this);
     }
 
     override string toString() {
-      return "Task #%02d %s (%s) <depth: %s, depends: %s>".format(
+      return "Task #%02d %s (%s) <depth: %s, depends: %s> <bias: %s / %s>".format(
         id,
         requiredSkills,
         finished ? "Finished" : working ? "Working" : "Sleeping",
         depth,
-        dependee
+        dependee,
+        maxRequirementId,
+        maxBias
       );
     }
   }
@@ -77,17 +94,21 @@ void problem() {
 
     long dayWorkedOn;
     Task task;
+    long nextSkillId;
 
     this(long id) {
       this.id = id;
       skills = new long[](K);
+      skills[] = 0;
     }
 
     long[] assign(Task task) {
       this.task = task;
       task.working = true;
       dayWorkedOn = day;
-      // deb(id, " <- ", task);
+      nextSkillId++;
+      nextSkillId %= K;
+      // "#s %s".writefln(task);
       return [id, task.id];
     }
 
@@ -119,6 +140,7 @@ void problem() {
   }
 
   class Tasks {
+    Member[] members;
     Task[] tasks;
 
     void addDepenency(long u, long v) {
@@ -131,51 +153,69 @@ void problem() {
       return tasks[id];
     }
 
-    this(long[][] requiredSkills, long[][] dependencies) {
-      tasks ~= new Task(0, [int.max]);
+    this(long[][] requiredSkills, long[][] dependencies, Member[] members) {
+      this.members = members;
+      tasks ~= new Task(0, [int.max, int.max]);
       foreach(i, rs; requiredSkills) {
         tasks ~= new Task(i + 1, rs);
       }
       foreach(d; dependencies) addDepenency(d[0], d[1]);
       foreach(t; tasks) t.calcDepth();
       foreach(t; tasks.dup.sort!"a.depth > b.depth") t.calcDependee();
-      // foreach(t; tasks.dup.sort!"a.dependee > b.dependee") t.deb();
+    }
+
+    void updatePotential() {
+      foreach(t; tasks.filter!"!(a.finished || a.working)") {
+        foreach(m; members) {
+          t.potential = max(t.potential, t.maxRequirement - m.estimate(t));
+        }
+      }
     }
 
     long priority(Task task) {
       if (task.id == 0) return -1;
 
-      return (task.dependee + 1) * 2000 / task.maxRequirement;
+      if (day < 100) {
+        return task.maxBias.to!long;
+      } else {
+        return (task.dependee^^4 + 1) * (task.potential * 1000) * (task.maxRequirement ^^ 2);
+      }
     }
 
-    Task select() {
-      Task ret = find(0);
-      foreach(task; tasks[1..$].filter!"a.canBeWorked && !(a.finished || a.working)") {
-        if (priority(ret) >= priority(task)) continue;
+    auto list() {
+      updatePotential();
 
-        ret = task;
-      }
-
-      // priority(ret).deb;
-      return ret.id == 0 ? null : ret;
+      return tasks[1..$]
+        .filter!"a.canBeWorked && !(a.finished || a.working)"
+        .array
+        .sort!((a, b) => priority(a) > priority(b));
     }
   }
 
   auto solve() {
-    Tasks tasks = new Tasks(D, UV);
     auto members = M.iota.map!(m => new Member(m + 1)).array;
+    Tasks tasks = new Tasks(D, UV, members);
 
     while(true) {
       long[][] assignments;
-      for(auto task = tasks.select; task; task = tasks.select) {
+      foreach(task; tasks.list) {
+        // auto waiters = members.filter!"a.waiting".array.randomShuffle;
         auto waiters = members.filter!"a.waiting".array;
         if (waiters.empty) break;
 
         long mi = int.max;
         Member miMember;
-        foreach(waiter; waiters) {
-          if (mi.chmin(waiter.estimate(task))) {
-            miMember = waiter;
+        // foreach(waiter; waiters.filter!(w => w.nextSkillId == task.maxRequirementId)) {
+        //   if (mi.chmin(waiter.estimate(task))) {
+        //     miMember = waiter;
+        //   }
+        // }
+
+        if (mi == int.max) {
+          foreach(waiter; waiters) {
+            if (mi.chmin(waiter.estimate(task))) {
+              miMember = waiter;
+            }
           }
         }
 
@@ -189,8 +229,6 @@ void problem() {
       }
       stdout.flush();
       day++;
-
-      members.map!"a.waiting".deb;
 
       auto finishedCount = scan!long;
       if (finishedCount == -1) break;
