@@ -12,14 +12,29 @@ void problem() {
 
   long day;
 
+  struct Skills {
+    long[] skills;
+    real baratsuki = 0;
+    long specifiedAt;
+    real specifiedLevel = 0;
+    long maxElement;
+
+    this(long[] skills) {
+      this.skills = skills.dup;
+
+      const real avg = skills.sum.to!real / skills.length;
+      baratsuki += skills.map!(s => pow(s.to!real - avg, 2)).sum;
+      maxElement = skills.maxElement;
+    }
+
+    long maxDiff(Skills other) {
+      return skills.length.iota.map!(i => (skills[i] - other.skills[i]).abs).maxElement;
+    }
+  }
+
   class Task {
     long id;
-    long[] requiredSkills;
-    long maxRequirement;
-    long maxRequirementId;
-    long potential = 1;
-    real maxBias;
-    real average;
+    Skills requirement;
 
     bool finished;
     bool working;
@@ -29,20 +44,11 @@ void problem() {
     long depth;
     long dependee;
     bool[long] resolves;
+    long potential = 1;
 
     this(long id, long[] requiredSkills) {
       this.id = id;
-      this.requiredSkills = requiredSkills;
-      this.average = requiredSkills.sum.to!real / K;
-
-      auto sorted = requiredSkills.dup.sort;
-      this.maxRequirement = sorted[$ - 1];
-      this.maxRequirementId = requiredSkills.maxIndex;
-
-      real first = (sorted[$ - 1].to!real - average).pow(2);
-      real second = (sorted[$ - 2].to!real - average).pow(2);
-      this.maxBias = requiredSkills.count!"a <= 3";
-      // this.maxBias = requiredSkills.map!(s => (s - requiredSkills.sum / K).abs).maxElement;
+      this.requirement = Skills(requiredSkills);
       this.depth = -1;
     }
 
@@ -76,21 +82,19 @@ void problem() {
     }
 
     override string toString() {
-      return "Task #%02d %s (%s) <depth: %s, depends: %s> <bias: %s / %s>".format(
+      return "Task #%02d %s (%s) <depth: %s, depends: %s>".format(
         id,
-        requiredSkills,
+        requirement,
         finished ? "Finished" : working ? "Working" : "Sleeping",
         depth,
-        dependee,
-        maxRequirementId,
-        maxBias
+        dependee
       );
     }
   }
 
   class Member {
     long id;
-    long[] skills;
+    Skills skills;
 
     long dayWorkedOn;
     Task task;
@@ -98,15 +102,13 @@ void problem() {
 
     this(long id) {
       this.id = id;
-      skills = new long[](K);
-      skills[] = 0;
+      skills = Skills(new long[](K));
     }
 
     long[] assign(Task task) {
       this.task = task;
       task.working = true;
       dayWorkedOn = day;
-      nextSkillId++;
       nextSkillId %= K;
       // "#s %s".writefln(task);
       return [id, task.id];
@@ -117,12 +119,7 @@ void problem() {
     }
 
     long estimate(Task task) {
-      long ret = int.max;
-      foreach(i; 0..K) {
-        ret = min(ret, max(1, skills[i] - task.requiredSkills[i]));
-      }
-
-      return ret;
+      return skills.maxDiff(task.requirement);
     }
 
     void finish() {
@@ -131,9 +128,9 @@ void problem() {
 
       const workingDays = day - dayWorkedOn;
       foreach(i; 0..K) {
-        skills[i].chmax(task.requiredSkills[i] - workingDays);
+        skills.skills[i].chmax(task.requirement.skills[i] - workingDays);
       }
-      "#s %s %s".writefln(id, skills.toAnswerString);
+      "#s %s %s".writefln(id, skills.skills.toAnswerString);
 
       task = null;
     }
@@ -150,12 +147,11 @@ void problem() {
     }
 
     Task find(long id) {
-      return tasks[id];
+      return tasks[id - 1];
     }
 
     this(long[][] requiredSkills, long[][] dependencies, Member[] members) {
       this.members = members;
-      tasks ~= new Task(0, [int.max, int.max]);
       foreach(i, rs; requiredSkills) {
         tasks ~= new Task(i + 1, rs);
       }
@@ -167,25 +163,26 @@ void problem() {
     void updatePotential() {
       foreach(t; tasks.filter!"!(a.finished || a.working)") {
         foreach(m; members) {
-          t.potential = max(t.potential, t.maxRequirement - m.estimate(t));
+          t.potential = max(t.potential, t.requirement.maxElement - m.estimate(t));
         }
       }
     }
 
     long priority(Task task) {
       if (task.id == 0) return -1;
+      Skills req = task.requirement;
 
-      if (day < 100) {
-        return task.maxBias.to!long;
+      if (day < 300) {
+        return req.specifiedLevel.to!long;
       } else {
-        return (task.dependee^^4 + 1) * (task.potential * 1000) * (task.maxRequirement ^^ 2);
+        return (task.dependee^^4 + 1) * (task.potential * 1000) * (req.maxElement ^^ 2);
       }
     }
 
     auto list() {
       updatePotential();
 
-      return tasks[1..$]
+      return tasks
         .filter!"a.canBeWorked && !(a.finished || a.working)"
         .array
         .sort!((a, b) => priority(a) > priority(b));
