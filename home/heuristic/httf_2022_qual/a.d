@@ -44,7 +44,6 @@ void problem() {
     long depth;
     long dependee;
     bool[long] resolves;
-    long potential = 1;
 
     this(long id, long[] requiredSkills) {
       this.id = id;
@@ -160,28 +159,18 @@ void problem() {
       foreach(t; tasks.dup.sort!"a.depth > b.depth") t.calcDependee();
     }
 
-    void updatePotential() {
-      foreach(t; tasks.filter!"!(a.finished || a.working)") {
-        foreach(m; members) {
-          t.potential = max(t.potential, t.requirement.maxElement - m.estimate(t));
-        }
-      }
-    }
-
     long priority(Task task) {
       if (task.id == 0) return -1;
       Skills req = task.requirement;
 
-      if (day < 300) {
+      if (day < 1) {
         return req.specifiedLevel.to!long;
       } else {
-        return (task.dependee^^4 + 1) * (task.potential * 1000) * (req.maxElement ^^ 2);
+        return (task.dependee*100) + (req.maxElement^^2);
       }
     }
 
     auto list() {
-      updatePotential();
-
       return tasks
         .filter!"a.canBeWorked && !(a.finished || a.working)"
         .array
@@ -202,20 +191,11 @@ void problem() {
 
         long mi = int.max;
         Member miMember;
-        // foreach(waiter; waiters.filter!(w => w.nextSkillId == task.maxRequirementId)) {
-        //   if (mi.chmin(waiter.estimate(task))) {
-        //     miMember = waiter;
-        //   }
-        // }
-
-        if (mi == int.max) {
-          foreach(waiter; waiters) {
-            if (mi.chmin(waiter.estimate(task))) {
-              miMember = waiter;
-            }
+        foreach(waiter; waiters) {
+          if (mi.chmin(waiter.estimate(task))) {
+            miMember = waiter;
           }
         }
-
         assignments ~= miMember.assign(task);
       }
 
