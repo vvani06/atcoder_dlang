@@ -54,9 +54,22 @@ class TRY {
     return distance;
   }
 
+  void clear() {
+    distance = 0;
+    cur = HOME;
+    route = [cur];
+  }
+
   long walkEffort() {
+    alias KEY = Tuple!(Point, "p", long, "bias");
+    long[Point] bias;
     Point[][Point] fromTo;
-    foreach(order; orders) fromTo[order.from] ~= order.to;
+    Point[] nearGoal;
+    foreach(order; orders) {
+      fromTo[order.from] ~= order.to;
+      bias[order.to] = 130;
+      bias[order.from] = 100;
+    }
     
     while(!fromTo.empty) {
       if (cur in fromTo) {
@@ -66,7 +79,7 @@ class TRY {
       long minDist = long.max / 4;
       Point to;
       foreach(p; fromTo.keys) {
-        if (minDist.chmin(cur.distance(p))) {
+        if (minDist.chmin(cur.distance(p) * bias[p])) {
           to = p;
         }
       }
@@ -75,7 +88,18 @@ class TRY {
       auto nexts = fromTo[to];
       fromTo.remove(to);
       foreach(n; nexts) {
-        if (n != HOME) fromTo[n] ~= HOME;
+        if (n == HOME) continue;
+        if (HOME.distance(n) <= 40) {
+          nearGoal ~= n;
+          continue;
+        }
+
+        fromTo[n] ~= HOME;
+      }
+
+      if (fromTo.empty) {
+        foreach(n; nearGoal) if (n != HOME) fromTo[n] ~= HOME;
+        nearGoal.length = 0;
       }
     }
     walkTo(HOME);
@@ -93,26 +117,62 @@ void problem() {
   auto allOrders = 1000.iota.map!(i => Order(i + 1, Point(scan!long, scan!long), Point(scan!long, scan!long))).array;
 
   auto solve() {
-    TRY ans = new TRY();
-    auto nearSorted = allOrders.sort!"a.distance < b.distance";
+    auto nearSorted = allOrders;
+    // auto nearSorted = allOrders.sort!"a.distance < b.distance".array;
 
-    auto used = new bool[](1001);
-    while(!ans.complete) {
-      long minDist = long.max / 4;
-      Point cur = HOME;
-      Order selected;
-      foreach(order; nearSorted) {
-        if (used[order.id]) continue;
+    enum long AREA_SIZE = 20;
+    Point[] areas;
+    foreach(y; 0..800/AREA_SIZE + 1) foreach(x; 0..800/AREA_SIZE + 1) {
+      areas ~= Point(x * AREA_SIZE, y * AREA_SIZE);
+    }
+    areas.sort!((a, b) => HOME.distance(a) < HOME.distance(b));
 
-        if (minDist.chmin(order.distance + order.from.distance(cur))) {
-          selected = order;
+    auto fromCovered = new bool[](1000);
+    auto toCovered = new bool[](1000);
+    auto used = new bool[](1000);
+    bool[long] baseOrders;
+    area_loop:foreach(area; areas) {
+      foreach(i, order; nearSorted) {
+        if (area.distance(order.from) <= AREA_SIZE) fromCovered[i] = true;
+        if (area.distance(order.to) <= AREA_SIZE) toCovered[i] = true;
+        if (fromCovered[i] && toCovered[i]) {
+          used[i] = true;
+          baseOrders[i] = true;
+          if (baseOrders.length == 50) break area_loop;
         }
       }
-
-      ans.addOrder(selected);
-      used[selected.id] = true;
     }
 
+    auto rnd = Xorshift(unpredictableSeed);
+    auto baseKeys = baseOrders.keys;
+    TRY t = new TRY();
+    t.orders = baseKeys.map!(i => nearSorted[i]).array;
+    long minDist = long.max / 4;
+    Order[] minOrders;
+    foreach(i; 0..8000) {
+      t.clear;
+      if (minDist.chmin(t.walkEffort)) {
+        minOrders = t.orders.dup;
+      }
+
+      rnd.seed(unpredictableSeed);
+      auto ri = rnd.front % 50;
+      rnd.seed(unpredictableSeed);
+      auto rt = rnd.front % 1000;
+      while(used[rt]) {
+        rnd.seed(unpredictableSeed);
+        rt = rnd.front % 1000;
+      }
+
+      const removee = baseKeys[ri];
+      t.orders[ri] = nearSorted[rt];
+      baseKeys[ri] = rt;
+      used[removee] = false;
+      used[rt] = true;
+    } 
+
+    auto ans = new TRY();
+    ans.orders = minOrders;
     ans.walkEffort;
     ans.output;
     stderr.writeln(10L^^8/ (1000 + ans.distance));
