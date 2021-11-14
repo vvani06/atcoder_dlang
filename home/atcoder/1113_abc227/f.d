@@ -1,36 +1,52 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
-  auto E = scan!long(M * 2).chunks(2);
+  auto H = scan!long;
+  auto W = scan!long;
+  auto K = scan!long;
+  auto MAP = scan!long(H * W).chunks(W).array;
 
   auto solve() {
-    auto uf = UnionFind(N);
-    auto edges = new long[](N);
-    foreach(i, e; E.array)  {
-      uf.unite(e[0]-1, e[1]-1);
+    auto initial = redBlackTree!("a > b", true, long)(new long[](0));
+    alias PTS = typeof(initial);
+    alias TRY = Tuple!(long, "x", long, "y");
+
+    auto visited = new bool[][](H, W);
+    auto grid = new PTS[][](H, W);
+    foreach(y; 0..H) foreach(x; 0..W) {
+      grid[y][x] = initial.dup;
     }
-
-    foreach(e; E) edges[uf.root(e[0] - 1)]++;
-    long[long] nodes;
-    foreach(i; 0..N) nodes[uf.root(i)]++;
-
-    nodes.deb;
-    edges.deb;
+    grid[0][0].insert(MAP[0][0]);
     
-    bool[long] visited;
-    ulong ans;
-    foreach(i; 0..N) {
-      const root = uf.root(i);
-      if (!(root in visited)) {
-        visited[root] = true;
-        if (edges[root] == nodes[root]) ans++; else return 0;
+    for(auto queue = DList!TRY(TRY(0, 0)); !queue.empty;) {
+      auto p = queue.front;
+      queue.removeFront;
+      if (visited[p.y][p.x]) continue;
+      visited[p.y][p.x] = true;
+
+      auto prePts = grid[p.y][p.x];
+      foreach(next; [[p.x + 1, p.y], [p.x, p.y + 1]]) {
+        const x = next[0];
+        const y = next[1];
+        if (x >= W || y >= H) continue;
+
+        auto tester = prePts.dup;
+        tester.insert(MAP[y][x]);
+ 
+        auto a =  tester.array;
+        auto b =  grid[y][x].array;
+        auto own = a[0..min(K, a.length)].sum;
+        auto other = b[0..min(K, b.length)].sum;
+        if (other == 0 || other > own) {
+          grid[y][x] = tester;
+          queue.insert(TRY(x, y));
+        }
       }
     }
 
-    enum ulong MOD = 998_244_353;
-    return powmod(2UL, ans, MOD);
+    auto ans = grid[$ - 1][$ - 1].array;
+    ans.deb;
+    return ans[0..min(ans.length, K)].sum;
   }
 
   outputForAtCoder(&solve);
@@ -73,33 +89,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
-

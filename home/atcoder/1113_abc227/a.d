@@ -2,35 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto M = scan!long;
-  auto E = scan!long(M * 2).chunks(2);
+  auto K = scan!long;
+  auto A = scan!long;
 
   auto solve() {
-    auto uf = UnionFind(N);
-    auto edges = new long[](N);
-    foreach(i, e; E.array)  {
-      uf.unite(e[0]-1, e[1]-1);
-    }
-
-    foreach(e; E) edges[uf.root(e[0] - 1)]++;
-    long[long] nodes;
-    foreach(i; 0..N) nodes[uf.root(i)]++;
-
-    nodes.deb;
-    edges.deb;
-    
-    bool[long] visited;
-    ulong ans;
-    foreach(i; 0..N) {
-      const root = uf.root(i);
-      if (!(root in visited)) {
-        visited[root] = true;
-        if (edges[root] == nodes[root]) ans++; else return 0;
-      }
-    }
-
-    enum ulong MOD = 998_244_353;
-    return powmod(2UL, ans, MOD);
+    return ((A - 1 + K - 1) % N) + 1;
   }
 
   outputForAtCoder(&solve);
@@ -73,33 +49,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
-

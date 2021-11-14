@@ -2,35 +2,12 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto M = scan!long;
-  auto E = scan!long(M * 2).chunks(2);
-
+  auto K = scan!long;
+  auto A = scan!long(N);
+ 
   auto solve() {
-    auto uf = UnionFind(N);
-    auto edges = new long[](N);
-    foreach(i, e; E.array)  {
-      uf.unite(e[0]-1, e[1]-1);
-    }
-
-    foreach(e; E) edges[uf.root(e[0] - 1)]++;
-    long[long] nodes;
-    foreach(i; 0..N) nodes[uf.root(i)]++;
-
-    nodes.deb;
-    edges.deb;
-    
-    bool[long] visited;
-    ulong ans;
-    foreach(i; 0..N) {
-      const root = uf.root(i);
-      if (!(root in visited)) {
-        visited[root] = true;
-        if (edges[root] == nodes[root]) ans++; else return 0;
-      }
-    }
-
-    enum ulong MOD = 998_244_353;
-    return powmod(2UL, ans, MOD);
+    auto isOK = (long p) => A.map!(a => min(a, p)).sum / K >= p;
+    return binarySearch(isOK, 0, A.sum + 1);
   }
 
   outputForAtCoder(&solve);
@@ -74,32 +51,30 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  long[] parent;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
   }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
   }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
+ 
+  return ok;
 }
-
