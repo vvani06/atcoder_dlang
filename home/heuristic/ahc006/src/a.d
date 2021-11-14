@@ -39,19 +39,47 @@ class TRY {
     orders ~= order;
   }
 
-  long walkAll() {
-    void walkTo(Point to) {
-      route ~= to;
-      distance += to.distance(cur);
-      cur = to;
-    }
+  void walkTo(Point to) {
+    route ~= to;
+    distance += to.distance(cur);
+    cur = to;
+  }
 
-    long dist;
+  long walkStraight() {
     foreach(order; orders) {
       walkTo(order.from);
       walkTo(order.to);
     }
     walkTo(HOME);
+    return distance;
+  }
+
+  long walkEffort() {
+    Point[][Point] fromTo;
+    foreach(order; orders) fromTo[order.from] ~= order.to;
+    
+    while(!fromTo.empty) {
+      if (cur in fromTo) {
+        foreach(p; fromTo[cur]) if (p != HOME) fromTo[p] ~= HOME;
+      }
+
+      long minDist = long.max / 4;
+      Point to;
+      foreach(p; fromTo.keys) {
+        if (minDist.chmin(cur.distance(p))) {
+          to = p;
+        }
+      }
+
+      walkTo(to);
+      auto nexts = fromTo[to];
+      fromTo.remove(to);
+      foreach(n; nexts) {
+        if (n != HOME) fromTo[n] ~= HOME;
+      }
+    }
+    walkTo(HOME);
+
     return distance;
   }
 
@@ -85,8 +113,9 @@ void problem() {
       used[selected.id] = true;
     }
 
-    ans.walkAll;
+    ans.walkEffort;
     ans.output;
+    stderr.writeln(10L^^8/ (1000 + ans.distance));
   }
 
   outputForAtCoder(&solve);
