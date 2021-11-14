@@ -5,3 +5,5 @@ home/.gitconfig
 home/.ash_history
 home/.config/fish/fish_variables
 home/.local/share/fish/fish_history
+.DS_Store
+**/out/*
