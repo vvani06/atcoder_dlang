@@ -1,13 +1,18 @@
 void main() { runSolver(); }
 
 void problem() {
+  auto N = scan!ulong;
+  auto K = scan!ulong;
+  auto M = scan!ulong;
   enum ulong MOD = 998_244_353;
-  auto N = scan!real;
-  auto K = scan!real;
-  auto M = scan!real;
 
   auto solve() {
-    return (pow(M, pow(K, N)) % MOD).to!long;
+    if (M % MOD == 0) return 0;
+
+    auto arrayPatterns = powmod(K, N, MOD - 1);
+    auto saitenPatterns = powmod(M, arrayPatterns, MOD);
+
+    return saitenPatterns;
   }
 
   outputForAtCoder(&solve);
