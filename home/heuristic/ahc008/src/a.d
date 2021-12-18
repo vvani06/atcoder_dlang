@@ -17,12 +17,54 @@ void problem() {
     }
   }
 
+  string toAns(int[] moves) {
+    string orders;
+    long dir = 1;
+    foreach(o; moves) {
+      if (dir == (o - 1 + 4) % 4) orders ~= 'R';
+      if (dir == (o + 1 + 4) % 4) orders ~= 'L';
+      if (dir == (o + 2 + 4) % 4) orders ~= "RR";
+      orders ~= "F";
+      dir = o;
+    }
+
+    foreach_reverse(times; 2..6) {
+      foreach_reverse(size; 3..17) {
+        orders = orders.replaceAll(
+          regex("(%s)\\1{%s}".format("[LRF]{%s}".format(size), times - 1)),
+          "%s($1)".format(times)
+        );
+      }
+    }
+
+    string compressed;
+    foreach(g; orders.group) {
+      if (g[1] == 1) {
+        compressed ~= g[0];
+        continue;
+      }
+
+      if (g[0] == 'L' || g[0] == 'F' || g[0] == 'R') {
+        compressed ~= g[1].to!string;
+        compressed ~= g[0];
+      } else {
+        compressed ~= g[0].repeat(g[1]).to!string;
+      }
+    }
+
+    return compressed;
+  }
+
   auto solve() {
     bool[N][N] visited;
-    visited[SY][SX] = true;
+    alias Plot = Tuple!(long, "cost", GridPoint, "p", long, "dir");
+
+    long delegate(Plot from, long dir, GridPoint to) calcCost;
+    calcCost = (Plot from, long dir, GridPoint to) => from.cost + 
+                       min((from.dir - dir).abs, (4 + from.dir - dir)) * 100 + 
+                       (visited[to.y][to.x] ? 100 : 0);
 
     int[] route(GridPoint from, long fromDir, GridPoint to) {
-      alias Plot = Tuple!(long, "cost", GridPoint, "p", long, "dir");
       Plot[N][N] plots;
       foreach(ref pp; plots) foreach(ref p; pp) p.cost = int.max;
       plots[from.y][from.x].cost = 0;
@@ -39,7 +81,8 @@ void problem() {
           if (pa.x < 0 || pa.y < 0 || pa.x >= N || pa.y >= N) continue;
           if (memoize!isWall(p, pa)) continue;
 
-          const cost = f.cost + 1 + min((f.dir - dir).abs, (4 + f.dir - dir));
+          const cost = calcCost(f, dir, pa);
+
           if (plots[pa.y][pa.x].cost.chmin(cost)) {
             plots[pa.y][pa.x].p = p;
             plots[pa.y][pa.x].dir = f.dir;
@@ -70,39 +113,97 @@ void problem() {
       return trace.reverse.array;
     }
 
-    int[] orders;
-    auto cur = GridPoint(SX, SY);
-    long dir = 1;
-    foreach(y; 0..N) foreach(x; 0..N) {
-      if (visited[y][x]) continue;
+    GridPoint[][] routes;
+    {
+      GridPoint[] ro;
 
-      auto to = GridPoint(x, y);
-      orders ~= route(cur, dir, to);
-      dir = orders[$ - 1];
-      cur = to;
+      ro.length = 0; foreach(y; 0..N) {
+        if (y % 2 == 0) foreach(x; 0..N) ro ~= GridPoint(x, y);
+        if (y % 2 == 1) foreach_reverse(x; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+      ro.length = 0; foreach(x; 0..N) {
+        if (x % 2 == 0) foreach(y; 0..N) ro ~= GridPoint(x, y);
+        if (x % 2 == 1) foreach_reverse(y; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+
+      ro.length = 0; foreach(y; 0..N) {
+        if (y % 2 == 1) foreach(x; 0..N) ro ~= GridPoint(x, y);
+        if (y % 2 == 0) foreach_reverse(x; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+      ro.length = 0; foreach(x; 0..N) {
+        if (x % 2 == 1) foreach(y; 0..N) ro ~= GridPoint(x, y);
+        if (x % 2 == 0) foreach_reverse(y; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+
+      ro.length = 0; foreach_reverse(y; 0..N) {
+        if (y % 2 == 0) foreach(x; 0..N) ro ~= GridPoint(x, y);
+        if (y % 2 == 1) foreach_reverse(x; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+      ro.length = 0; foreach_reverse(x; 0..N) {
+        if (x % 2 == 0) foreach(y; 0..N) ro ~= GridPoint(x, y);
+        if (x % 2 == 1) foreach_reverse(y; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+
+      ro.length = 0; foreach_reverse(y; 0..N) {
+        if (y % 2 == 1) foreach(x; 0..N) ro ~= GridPoint(x, y);
+        if (y % 2 == 0) foreach_reverse(x; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
+      ro.length = 0; foreach_reverse(x; 0..N) {
+        if (x % 2 == 1) foreach(y; 0..N) ro ~= GridPoint(x, y);
+        if (x % 2 == 0) foreach_reverse(y; 0..N) ro ~= GridPoint(x, y);
+      } routes ~= ro;
     }
 
-    // orders.deb;
+    long mi = int.max;
     string ans;
-    dir = 1;
-    foreach(o; orders) {
-      if (dir == (o - 1 + 4) % 4) ans ~= 'R';
-      if (dir == (o + 1 + 4) % 4) ans ~= 'L';
-      if (dir == (o + 2 + 4) % 4) ans ~= "RR";
-      ans ~= "F";
-      dir = o;
+
+    foreach(ro; routes) {
+      int[] moves;
+      auto cur = GridPoint(SX, SY);
+      long dir = 1;
+
+      foreach(ref v; visited) v[] = false;
+      visited[SY][SX] = true;
+
+      foreach(to; ro) {
+        if (visited[to.y][to.x]) continue;
+
+        moves ~= route(cur, dir, to);
+        dir = moves[$ - 1];
+        cur = to;
+      }
+
+      auto compressed = toAns(moves);
+      if (mi.chmin(compressed.length)) ans = compressed;
+    }
+
+
+    calcCost = (Plot from, long dir, GridPoint to) => from.cost + 
+                      min((from.dir - dir).abs, (4 + from.dir - dir)) + 
+                      (visited[to.y][to.x] ? 1000 : 0);
+
+    foreach(ro; routes) {
+      int[] moves;
+      auto cur = GridPoint(SX, SY);
+      long dir = 1;
+
+      foreach(ref v; visited) v[] = false;
+      visited[SY][SX] = true;
+
+      foreach(to; ro) {
+        if (visited[to.y][to.x]) continue;
+
+        moves ~= route(cur, dir, to);
+        dir = moves[$ - 1];
+        cur = to;
+      }
+
+      auto compressed = toAns(moves);
+      if (mi.chmin(compressed.length)) ans = compressed;
     }
     
-    string compressed;
-    foreach(g; ans.group) {
-      if (g[1] == 1) {
-        compressed ~= g[0];
-      } else {
-        compressed ~= g[1].to!string;
-        compressed ~= g[0];
-      }
-    }
-    return compressed;
+    stderr.writeln(400 + (10L^^8) / (100L + ans.length));
+    return ans;
   }
 
   solve().writeln;
@@ -110,6 +211,7 @@ void problem() {
 
 // ----------------------------------------------
 
+import std;
 import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time, core.bitop, std.random;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
