@@ -1,11 +1,58 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto a = scan!long;
-  auto b = scan!long;
+  auto H = scan!long;
+  auto W = scan!long;
+  auto K = scan!long;
+  auto MAP = scan!string(H);
 
   auto solve() {
-    return (a * b) % 2 == 0 ? "Even" : "Odd";
+    alias Square = Tuple!(Point, "s", Point, "e");
+    auto ans = new long[][](H, W);
+    auto sqs = new Square[](0);
+    long ind = 1;
+    foreach(y; 0..H) foreach(x; 0..W) {
+      if (MAP[y][x] == '#') {
+        sqs ~= Square(Point(x, y), Point(x + 1, y + 1));
+        ans[y][x] = ind++;
+      }
+    }
+    
+    foreach(i, sq; sqs) {
+      const n = i + 1;
+
+      while(sq.s.x > 0) {
+        const x = sq.s.x - 1;
+        if (iota(sq.s.y, sq.e.y).all!(y => ans[y][x] == 0)) {
+          foreach(y; sq.s.y..sq.e.y) ans[y][x] = n;
+          sq.s.x--;
+        } else break;
+      }
+      while(sq.e.x < W) {
+        const x = sq.e.x;
+        if (iota(sq.s.y, sq.e.y).all!(y => ans[y][x] == 0)) {
+          foreach(y; sq.s.y..sq.e.y) ans[y][x] = n;
+          sq.e.x++;
+        } else break;
+      }
+
+      while(sq.s.y > 0) {
+        const y = sq.s.y - 1;
+        if (iota(sq.s.x, sq.e.x).all!(x => ans[y][x] == 0)) {
+          foreach(x; sq.s.x..sq.e.x) ans[y][x] = n;
+          sq.s.y--;
+        } else break;
+      }
+      while(sq.e.y < H) {
+        const y = sq.e.y;
+        if (iota(sq.s.x, sq.e.x).all!(x => ans[y][x] == 0)) {
+          foreach(x; sq.s.x..sq.e.x) ans[y][x] = n;
+          sq.e.y++;
+        } else break;
+      }
+    }
+    
+    return ans;
   }
 
   outputForAtCoder(&solve);
