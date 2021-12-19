@@ -6,38 +6,32 @@ void problem() {
   auto A = scan!long(N);
 
   auto solve() {
-    long coinsFor(long amount) {
-      long ret;
-      foreach_reverse(a; A) {
-        const t = amount / a;
-        ret += t;
-        amount -= t * a;
-      }
-      return ret;
+    auto coinsForX = new long[](N + 1);
+    foreach_reverse(i, a; A) {
+      const c = X / a;
+      coinsForX[i + 1] = c;
+      X -= c * a;
     }
 
-    long amount = X;
-    long context;
-    long[] ans;
+    auto dp = new long[][](N + 1, 2);
+    dp[0][1] = 1;
+    foreach(ref d; dp[1..$]) d[] = long.max / 2;
 
-    foreach_reverse(a; A) {
-      context.deb;
-      if (amount % a == 0) {
-        ans ~= context + amount / a;
-        ans.deb;
-        break;
-      } else {
-        const overed = amount / a + 1;
-        const amari = overed * a - amount;
-        ans ~= context + overed + coinsFor(amari);
-        ans.deb;
+    foreach(i; 1..N + 1) {
+      const t = i == N ? 0 : A[i] / A[i - 1];
+      auto pre = dp[i - 1];
+      auto cur = dp[i];
+      const x = coinsForX[i];
+      foreach(j; 0..2) foreach(k; 0..2) {
+        const p = x + j - k*t;
+        // p.deb;
+        cur[k].chmin(pre[j] + p.abs);
       }
-      const m = amount / a;
-      context += m;
-      amount -= m * a;
+      cur.deb;
     }
 
-    return ans.minElement;
+    dp[$ - 1].deb;
+    return dp[$ - 1].minElement;
   }
 
   outputForAtCoder(&solve);
@@ -78,42 +72,3 @@ void runSolver() {
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
-
-struct UnionFind {
-  long[] parent;
-  long[] sizes;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-
-    sizes.length = size;
-    sizes[] = 1;
-  }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-    if (rootX == rootY) return rootY;
-
-    if (sizes[rootX] < sizes[rootY]) {
-      sizes[rootY] += sizes[rootX];
-      return parent[rootY] = rootX;
-    } else {
-      sizes[rootX] += sizes[rootY];
-      return parent[rootX] = rootY;
-    }
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
