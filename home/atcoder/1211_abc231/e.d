@@ -6,32 +6,30 @@ void problem() {
   auto A = scan!long(N);
 
   auto solve() {
-    auto coinsForX = new long[](N + 1);
-    foreach_reverse(i, a; A) {
-      const c = X / a;
-      coinsForX[i + 1] = c;
-      X -= c * a;
+    long[long] memo;
+    long dfs(long amount, long i) {
+      if (amount in memo) return memo[amount];
+
+      const a = A[i];
+      if (i == N - 1) return amount / a;
+
+      const na = A[i + 1];
+      const ratio = na / a;
+      const x = amount % na / a;
+      
+      [amount, x, ratio].deb;
+
+      // お釣りなし
+      auto c1 = x + dfs(amount - x*a, i + 1);
+
+      // お釣りあり
+      const y = ratio - x;
+      auto c2 = y + dfs(amount - x*a + A[i + 1], i + 1);
+
+      return memo[amount] = min(c1, c2);
     }
-
-    auto dp = new long[][](N + 1, 2);
-    dp[0][1] = 1;
-    foreach(ref d; dp[1..$]) d[] = long.max / 2;
-
-    foreach(i; 1..N + 1) {
-      const t = i == N ? 0 : A[i] / A[i - 1];
-      auto pre = dp[i - 1];
-      auto cur = dp[i];
-      const x = coinsForX[i];
-      foreach(j; 0..2) foreach(k; 0..2) {
-        const p = x + j - k*t;
-        // p.deb;
-        cur[k].chmin(pre[j] + p.abs);
-      }
-      cur.deb;
-    }
-
-    dp[$ - 1].deb;
-    return dp[$ - 1].minElement;
+    
+    return dfs(X, 0);
   }
 
   outputForAtCoder(&solve);
