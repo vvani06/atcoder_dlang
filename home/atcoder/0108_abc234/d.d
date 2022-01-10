@@ -13,12 +13,11 @@ void problem() {
       const mini = queue.front;
       if (a < mini) {
         mini.writeln;
-        continue;
+      } else {
+        queue.removeFront;
+        queue.insert(a);
+        queue.front.writeln;
       }
-
-      queue.removeFront;
-      queue.insert(a);
-      queue.front.writeln;
     }
   }
 

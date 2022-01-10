@@ -4,60 +4,24 @@ void problem() {
   auto N = scan!long;
 
   auto solve() {
-    bool isOk(long x) {
-      if (x < 10) return true;
+    long[] arithmeticNumbers = iota(1L, 10L).array;
+    foreach(dec; 2..19) {
+      foreach(head; 1..10) foreach(second; 0..10) {
+        const spread = second - head;
+        const last = head + spread*(dec - 1);
+        if (last > 9 || last < 0) continue;
 
-      long t = x % 10;
-      x /= 10;
-      t -= x % 10;
-      while(x > 0) {
-        long tt = x % 10;
-        x /= 10;
-        if (x == 0) break;
-        tt -= x % 10;
-        if (t != tt) return false;
+        long num;
+        long cur = head;
+        foreach(_; 0..dec) {
+          num = num*10 + cur;
+          cur += spread;
+        }
+        arithmeticNumbers ~= num;
       }
-
-      return true;
     }
 
-    long createAns(long head2, long keta) {
-      string ret = head2.to!string;
-      const spr = ret[1] - ret[0];
-
-      foreach(i; 0..keta - 2) {
-        ret ~= ret[$ - 1] + spr;
-      }
-      // ret.deb;
-      return ret.to!long;
-    }
-
-    if (isOk(N)) return N;
-
-    auto SN = N.to!string;
-    long keta = SN.length;
-    long rest = keta - 1;
-    long head = SN[0] - '0';
-
-    foreach(i; (SN[1] - '0')..10) {
-      const long spr = i - head;
-      [head, i, spr, head + rest*spr].deb;
-
-      if (head + rest*spr >= 10) continue;
-      if (head + rest*spr < 0) continue;
-
-      const ans = createAns(head*10 + i, keta);
-      if (ans > N) return createAns(head*10 + i, keta);
-    }
-
-    head++;
-    foreach(i; 0..10) {
-      const long spr = i - head;
-      // [head, i, spr].deb;
-      if (head + rest*spr >= 0) return createAns(head*10 + i, keta);
-    }
-
-    return 0;
+    return arithmeticNumbers.assumeSorted.upperBound(N - 1)[0];
   }
 
   outputForAtCoder(&solve);
@@ -98,42 +62,3 @@ void runSolver() {
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
-
-struct UnionFind {
-  long[] parent;
-  long[] sizes;
-
-  this(long size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-
-    sizes.length = size;
-    sizes[] = 1;
-  }
-
-  long root(long x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-    if (rootX == rootY) return rootY;
-
-    if (sizes[rootX] < sizes[rootY]) {
-      sizes[rootY] += sizes[rootX];
-      return parent[rootY] = rootX;
-    } else {
-      sizes[rootX] += sizes[rootY];
-      return parent[rootX] = rootY;
-    }
-  }
-
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
