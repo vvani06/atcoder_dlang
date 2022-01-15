@@ -8,38 +8,30 @@ void problem() {
   auto S = scan!long(N) ~ 0;
 
   auto solve() {
-    alias Run = Tuple!(long, "time", long, "speed");
-    auto dp = new Run[][](N, K + 1);
-    foreach(ref d; dp) foreach(ref x; d) x = Run(int.max, int.max);
-    dp[0][0] = Run(S[0] * X[1], S[0]);
+    auto dp = new long[][](N, K + 1);
+    foreach(ref p; dp) p[] = int.max;
+    dp[0][0] = X[1] * S[0];
+    auto preDp = new long[][](N, K + 1);
 
     foreach(i; 1..N) {
-      auto pre = dp[i - 1];
-      const d = X[i + 1] - X[i];
-      const speed = S[i];
+      // dp.deb;
+      swap(dp, preDp);
+      dp = new long[][](N, K + 1);
+      foreach(ref p; dp) p[] = int.max;
+      const distance = X[i + 1] - X[i];
 
-      foreach(k; 0..K) {
-        if (pre[k].speed == int.max) continue;
-
-        const preSpeed = pre[k].speed;
-        const newTime = pre[k].time + preSpeed * d;
-        if (dp[i][k + 1].time > newTime) {
-          dp[i][k + 1] = Run(newTime, preSpeed);
+      foreach(from; 0..i) {
+        foreach(skipped; 0..K) {
+          dp[from][skipped + 1].chmin(preDp[from][skipped] + S[from]*distance);
         }
-      }
-      foreach(k; 0..K + 1) {
-        if (pre[k].speed == int.max) continue;
-
-        const newTime = pre[k].time + speed * d;
-        if (dp[i][k].time > newTime) {
-          dp[i][k] = Run(newTime, speed);
+        foreach(skipped; 0..K + 1) {
+          dp[i][skipped].chmin(preDp[from][skipped] + S[i]*distance);
         }
       }
     }
-
-    dp.each!deb;
     // dp.deb;
-    return dp[N - 1].map!"a.time".minElement;
+
+    return dp.map!minElement.minElement;
   }
 
   outputForAtCoder(&solve);
