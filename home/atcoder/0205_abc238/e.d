@@ -6,23 +6,13 @@ void problem() {
   auto LR = scan!long(2 * Q).chunks(2).array;
 
   auto solve() {
-    auto imos = new int[](N + 1);
-    foreach(lr; LR.multiSort!("a[0] < b[0]", "a[1] < b[1]")) {
-      const l = lr[0];
-      const r = lr[1];
-
-      if (imos[l] <= 0) {
-        imos[l]++;
-        imos[r]--;
-      } else {
-        imos[l]--;
-        imos[r]++;
-      }
+    auto uf = UnionFind(N + 1);
+    foreach(lr; LR) {
+      lr[0]--;
+      uf.unite(lr[0], lr[1]);
     }
 
-    foreach(x; 0..N + 1) {
-      imos[x].deb;
-    }
+    return YESNO[uf.same(0, N)];
   }
 
   outputForAtCoder(&solve);
@@ -63,3 +53,32 @@ void runSolver() {
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
+
+struct UnionFind {
+  long[] parent;
+
+  this(long size) {
+    parent.length = size;
+    foreach(i; 0..size) parent[i] = i;
+  }
+
+  long root(long x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  long unite(long x, long y) {
+    long rootX = min(root(x), root(y));
+    long rootY = max(root(x), root(y));
+
+    if (rootX == rootY) return rootY;
+    return parent[rootX] = rootY;
+  }
+
+  bool same(long x, long y) {
+    long rootX = root(x);
+    long rootY = root(y);
+
+    return rootX == rootY;
+  }
+}
