@@ -1,30 +1,78 @@
 void main() { runSolver(); }
 
-enum long MOD = 998_244_353;
-enum long CHARS = 26;
-enum long MAX_SIZE = 5000;
-
 void problem() {
-  auto S = scan.map!(c => cast(int)(c - 'a')).array;
-  auto fermet = new FermetCalculator(MAX_SIZE);
+  auto N = scan!int;
+  auto M = scan!int;
+  auto D = scan!int(N);
+  auto E = scan!int(2 * M).map!"a - 1".chunks(2);
 
   auto solve() {
-    auto nums = new long[](CHARS);
-    foreach(long c; S) nums[c]++;
-    
-    auto dp = new long[][](CHARS + 1, MAX_SIZE + 1);
-    dp[0][0] = 1;
-    foreach(c; 0..CHARS) {
-      foreach(add; 0..nums[c] + 1) {
-        foreach(from; 0..MAX_SIZE - add + 1) {
-          const to = from + add;
-          dp[c + 1][to] += dp[c][from] * fermet.combine(to, add);
-          dp[c + 1][to] %= MOD;
-        }
-      }
+    if (D.sum != N*2 - 2) return [-1];
+
+    auto uf = UnionFind(N);
+    bool[int][] conn;
+    conn.length = N;
+    foreach(e; E) {
+      conn[e[0]][e[1]] = true;
+      conn[e[1]][e[0]] = true;
+      uf.unite(e[0], e[1]);
+      if (--D[e[0]] < 0) return [-1];
+      if (--D[e[1]] < 0) return [-1];
     }
+
+    auto lacks = new int[](N);
+    int[int][] perRoot;
+    perRoot.length = N;
+    foreach(i; 0..N) {
+      lacks[uf.root(i)] += D[i];
+      if (D[i] > 0) perRoot[uf.root(i)][i] = D[i];
+    }
+    auto lackers = lacks.enumerate.filter!"a.value > 1".array.heapify!"a.value < b.value";
+    auto lastOnes = lacks.enumerate.filter!"a.value == 1".array.heapify!"a.value < b.value";
     
-    return dp[$ - 1][1..$].reduce!((r, a) => (r + a) % MOD);
+
+    int rest = N - M - 1;
+    int[] ans;
+    while(!lackers.empty) {
+      auto fromRoot = lackers.front;
+      lackers.removeFront;
+
+      if (lastOnes.empty) return [-1];
+
+      auto toRoot = lastOnes.front;
+      lastOnes.removeFront;
+
+      auto froms = perRoot[fromRoot.index];
+      auto tos = perRoot[toRoot.index];
+      int from; foreach(k, v; froms) { from = k; break; }
+      int to; foreach(k, v; tos) { to = k; break; }
+
+      ans ~= [from, to];
+      rest--;
+      if (--froms[from] == 0) froms.remove(from);
+      if (--tos[to] == 0) tos.remove(to);
+
+      if (--fromRoot.value > 1) lackers.insert(fromRoot); else lastOnes.insert(fromRoot);
+    }
+
+    while(!lastOnes.empty) {
+      auto fromRoot = lastOnes.front; lastOnes.removeFront;
+      if (lastOnes.empty) return [-1];
+
+      auto toRoot = lastOnes.front; lastOnes.removeFront;
+
+      auto froms = perRoot[fromRoot.index];
+      auto tos = perRoot[toRoot.index];
+      int from; foreach(k, v; froms) { from = k; break; }
+      int to; foreach(k, v; tos) { to = k; break; }
+
+      ans ~= [from, to];
+      rest--;
+    }
+
+    if (rest != 0) return [-1];
+
+    return ans.map!"a + 1".array;
   }
 
   outputForAtCoder(&solve);
@@ -68,36 +116,32 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-class FermetCalculator {
-  long[] factrial; //階乗を保持
-  long[] inverse;  //逆元を保持
-  
+
+struct UnionFind {
+  long[] parent;
+
   this(long size) {
-    factrial = new long[size + 1];
-    inverse = new long[size + 1];
-    factrial[0] = 1;
-    inverse[0] = 1;
-    
-    for (long i = 1; i <= size; i++) {
-      factrial[i] = (factrial[i - 1] * i) % MOD;  //階乗を求める
-      inverse[i] = pow(factrial[i], MOD - 2) % MOD; // フェルマーの小定理で逆元を求める
-    }
+    parent.length = size;
+    foreach(i; 0..size) parent[i] = i;
   }
-  
-  long combine(long n, long k) {
-    if (n < k) return 1;
-    return factrial[n] * inverse[k] % MOD * inverse[n - k] % MOD;
+
+  long root(long x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
   }
-  
-  long pow(long x, long n) { //x^n 計算量O(logn)
-    long ans = 1;
-    while (n > 0) {
-      if ((n & 1) == 1) {
-        ans = ans * x % MOD;
-      }
-      x = x * x % MOD; //一周する度にx, x^2, x^4, x^8となる
-      n >>= 1; //桁をずらす n = n >> 1
-    }
-    return ans;
+
+  long unite(long x, long y) {
+    long rootX = root(x);
+    long rootY = root(y);
+
+    if (rootX == rootY) return rootY;
+    return parent[rootX] = rootY;
+  }
+
+  bool same(long x, long y) {
+    long rootX = root(x);
+    long rootY = root(y);
+
+    return rootX == rootY;
   }
 }
