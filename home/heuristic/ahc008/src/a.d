@@ -2,119 +2,300 @@ void main() { problem(); }
 
 // ----------------------------------------------
 
-void problem() {
-  enum int G = 30;
-  auto N = scan!int;
-  auto P = scan!int(3 * N).chunks(3).array;
-  auto M = scan!int;
-  auto H = scan!int(2 * M).chunks(2).array;
-  int[31][31] gp;
-  int[31][31] gh;
-  bool[31][31] proh;
+enum int SIZE = 30;
 
-  class Pet {
-    int id, x, y, type;
-    this(int id, int x, int y, int type) {
-      this.id = id;
-      this.x = x;
-      this.y = y;
-      this.type = type;
-      gp[y][x]++;
-    }
+struct Point {
+  int x, y;
 
-    override string toString() {
-      return "Pet[%s:%s] (%s, %s)".format(id, type, x, y);
-    }
+  Point add(Point other) { return Point(x + other.x, y + other.y); }
+  Point sub(Point other) { return Point(x - other.x, y - other.y); }
+  int distance(Point other) { return (x - other.x).abs + (y - other.y).abs; }
+  T of(T)(T[SIZE][SIZE] arr) { return arr[y][x]; }
+  bool isValid() { return x >= 0 && SIZE > x && y >= 0 && SIZE > y; }
+
+  string toString() {
+    return "(%02d %02d)".format(x, y);
+  }
+}
+
+enum Point[dchar] MOVE = [
+  'L': Point(0, -1),
+  'R': Point(0, 1),
+  'U': Point(-1, 0),
+  'D': Point(1, 0),
+];
+enum dchar[Point] MOVE_INV = [
+  Point(0, -1): 'L',
+  Point(0, 1): 'R',
+  Point(-1, 0): 'U',
+  Point(1, 0): 'D',
+];
+
+class Animal {
+  static int gid;
+
+  enum Type {
+    COW = 1,
+    PIG = 2,
+    RABBIT = 3,
+    DOG = 4,
+    CAT = 5
   }
 
-  class Human {
-    int id, x, y;
-    int gx, gy;
-    this(int id, int x, int y) {
-      this.id = id;
-      this.x = x;
-      this.y = y;
-      gx = 1;
-      gy = max(5, y - y%5);
-      gh[y][x]++;
-    }
-    override string toString() {
-      return "Human[%s] (%s, %s)".format(id, x, y);
-    }
+  int id;
+  Point point;
+  Type type; 
 
-    dchar move(int turn) {
-      gh[y][x]--;
+  this() {
+    id = gid++;
+    point = Point(scan!int - 1, scan!int - 1);
+    type = cast(Type)scan!int;
+  }
 
-      dchar moveInner() {
-        if (x == gx) gx = gx == 1 ? 30 : 1;
+  override string toString() {
+    return "Pet[%s:%s] (%s, %s)".format(id, type, point.x, point.y);
+  }
 
-        if (y > gy) return 'L';
-        if (y < gy) return 'R';
+  void update() {
+    scan.each!(c => point = point.add(MOVE[c]));
+  }
+}
 
-        if (turn < 8) return '.';
-        
-        const by = y - 1;
-        if (!proh[by][x]) {
-          if (gh[by][x] > 0) return '.';
-          if (gp[by][x] > 0) return '.';
-          foreach(xy; [[-1, 0], [0, -1], [1, 0], [0, 1]]) {
-            const ax = x + xy[0];
-            const ay = by + xy[1];
-            if (ax <= 0 || ay <= 0 || ax > G || ay > G) continue;
+class Human {
+  static Game game;
+  static int gid;
+  int id;
+  Point point;
 
-            if (gp[ay][ax] > 0) return '.';
+  this() {
+    id = gid++;
+    point = Point(scan!int - 1, scan!int - 1);
+  }
+
+  override string toString() {
+    return "Human[%s] (%s, %s)".format(id, point.x, point.y);
+  }
+
+  int strategy;
+  Point target;
+  dchar action;
+
+  void buildWall() {
+    action = action.init;
+
+    if (strategy != 1) return;
+
+    if (target.distance(point) == 1) {
+      if (target.of(game.noWalls)) action = '.';
+      else {
+        foreach(dir, move; MOVE) {
+          if (point.add(move) == target) {
+            action = dir + 'a' - 'A';
+            game.walls[target.y][target.x] = true;
+            strategy = -1;
+            break;
           }
-
-          proh[by][x] = true;
-          return 'l';
         }
-
-        if (x > gx) return 'U';
-        if (x < gx) return 'D';
-        return '.';
       }
-      auto ret = moveInner();
-      if (ret == 'L') y--;
-      if (ret == 'R') y++;
-      if (ret == 'U') x--;
-      if (ret == 'D') x++;
-
-      gh[y][x]++;
-      return ret;
     }
   }
 
-  auto solve() {
-    auto pets = N.iota.map!(i => new Pet(i, P[i][0], P[i][1], P[i][2])).array;
-    auto humen = M.iota.map!(i => new Human(i, H[i][0], H[i][1])).array;
+  dchar act() {
+    if (action != action.init) return action;
 
+    if (strategy == -1) foreach(dir; MOVE.keys.randomShuffle) {
+      auto moved = point.add(MOVE[dir]);
+      moved.deb;
+      if (moved.isValid() && !moved.of(game.walls)) {
+        point = moved;
+        return dir;
+      }
+    }
+
+    if (target != point && !target.of(game.walls)) {
+      Point[SIZE][SIZE] grid;
+      bool[SIZE][SIZE] visited = game.walls.dup;
+      // foreach(ref g; grid) grid[] = Point(-1, -1);
+
+      for(auto q = new DList!Point(point); !q.empty;) {
+        auto p = q.front; q.removeFront;
+        if (p == target) break;
+        if (p.of(visited)) continue;
+
+        visited[p.y][p.x] = true;
+        foreach(move; MOVE.values.randomShuffle) {
+          auto moved = p.add(move);
+          if (moved.isValid && !moved.of(visited)) {
+            grid[moved.y][moved.x] = p;
+            q.insertBack(moved);
+          }
+        }
+      }
+
+      auto route = target;
+      while(route.of(grid) != point) route = route.of(grid);
+      auto move = route.sub(point);
+      point = route;
+      return MOVE_INV[move];
+    }
+
+    return '.';
+  }
+}
+
+class Strategy {
+  static Game game;
+
+  bool isFinished() { return true; }
+  void simulate() {}
+}
+
+class Gather : Strategy {
+  Point at;
+  this(Point p) {
+    at = p;
+  }
+
+  override bool isFinished() {
+    return game.humen.all!(human => human.point == at);
+  }
+
+  override void simulate() {
+    foreach(human; game.humen) {
+      human.target = at;
+      human.strategy = 0;
+    }
+  }
+}
+
+class Wait : Strategy {
+  int turns;
+  this(int turns) { this.turns = turns; }
+
+  override bool isFinished() { return turns <= 0; }
+  override void simulate() { turns--; }
+}
+
+class CreateWalls : Strategy {
+  bool[Point] at;
+  Point[Human] queued;
+
+  this(Point[] p) {
+    p.filter!(a => !a.of(game.walls)).each!(a => at[a] = true);
+  }
+
+  override bool isFinished() {
+    foreach(human, point; queued) {
+      if (point.of(game.walls)) queued.remove(human);
+    }
+    return at.empty && queued.empty;
+  }
+
+  override void simulate() {
+    if (at.empty) return;
+
+    foreach(human; game.humen) {
+      if (at.empty) return;
+      if (human in queued) continue;
+
+      int minDist = int.max;
+      Point target;
+      foreach(p; at.keys) {
+        auto dist = p.distance(human.point);
+        if (dist == 0) continue;
+
+        if (minDist.chmin(dist)) {
+          target = p;
+        }
+      }
+
+      human.strategy = 1;
+      human.target = target;
+      at.remove(target);
+      queued[human] = target;
+    }
+  }
+}
+
+
+class Game {
+  bool[SIZE][SIZE] walls;
+  bool[SIZE][SIZE] noWalls;
+  int turn;
+
+  Animal[] animals;
+  Human[] humen;
+  DList!Strategy strategies;
+
+  this() {
+    Human.game = this;
+    Strategy.game = this;
+    scan!int.iota.each!(_ => animals ~= new Animal());
+    scan!int.iota.each!(_ => humen ~= new Human());
+
+    if (animals.any!(a => a.type == Animal.Type.DOG)) {
+      const dogWalk = 25;
+      strategies ~= new CreateWalls(
+        dogWalk.iota.map!(y => Point(3, y)).array ~
+        Point(2,dogWalk) ~ Point(1,dogWalk) ~
+        Point(2,dogWalk - 4) ~ Point(1,dogWalk - 4) ~
+        Point(0,dogWalk - 2) ~ Point(1,dogWalk - 2)
+      );
+      strategies ~= new Gather(Point(2, 0));
+      strategies ~= new Gather(Point(0, dogWalk));
+      strategies ~= new CreateWalls([Point(0, dogWalk - 1)]);
+    }
+
+    strategies[].deb;
+  }
+
+  void initTurn() {
+    noWalls = walls.dup;
+    foreach(human; humen) noWalls[human.point.y][human.point.x] = true;
+    foreach(animal; animals) {
+      noWalls[animal.point.y][animal.point.x] = true;
+      foreach(move; MOVE.values) {
+        auto p = animal.point.add(move);
+        if (p.isValid) noWalls[p.y][p.x] = true;
+      }
+    }
+  }
+
+  void humenTurn() {
+    humen.each!"a.buildWall";
+    humen.map!"a.act".array.writeln;
+    stdout.flush();
+  }
+
+  void animalsTurn() {
+    animals.each!"a.update";
+  }
+
+  void run() {
+    foreach(ref human; humen) human.target.x = 1;
     foreach(t; 0..300) {
-      // "turn: %s".format(t).deb;
-      humen.map!(h => h.move(t)).array.writeln;
-      
-      stdout.flush();
-      foreach(ref p; pets) {
-        gp[p.y][p.x]--;
-        auto order = scan;
-        foreach(m; order) {
-          if (m == 'U') p.x--;
-          if (m == 'L') p.y--;
-          if (m == 'D') p.x++;
-          if (m == 'R') p.y++;
-        }
-        // p.deb;
-        gp[p.y][p.x]++;
+      while (!strategies.empty && strategies.front.isFinished) strategies.removeFront;
+      if (!strategies.empty) {
+        auto strategy = strategies.front;
+        strategy.deb;
+        strategy.simulate();
       }
+
+      initTurn();
+      humenTurn();
+      animalsTurn();
     }
   }
+}
 
-  solve();
+void problem() {
+  (new Game()).run();
 }
 
 // ----------------------------------------------
 
 import std;
-import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time, core.bitop, std.random;
+import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time, core.bitop, std.random;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -136,10 +317,5 @@ void outputForAtCoder(T)(T delegate() fn) {
   else fn().writeln;
 }
 enum YESNO = [true: "Yes", false: "No"];
-
-alias Point = Tuple!(long, "x", long, "y");
-long distance(Point a, Point b) {
-  return ((a.x - b.x)^^2 + (a.y - b.y)^^2).to!real.sqrt.to!long;
-}
 
 // -----------------------------------------------

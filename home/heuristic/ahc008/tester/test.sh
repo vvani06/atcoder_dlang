@@ -100,4 +100,4 @@ rm score
 ./tester ./a < in/0097.txt > out/0097.txt 2>> score
 ./tester ./a < in/0098.txt > out/0098.txt 2>> score
 ./tester ./a < in/0099.txt > out/0099.txt 2>> score
-cat score | awk '{sum+=$1} END {printf "%.2f\n", sum}'
+cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'
