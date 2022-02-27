@@ -9,14 +9,14 @@ void problem() {
   auto B = N.iota.map!(_ => Point(scan!long, scan!long)).array;
 
   auto solve() {
-    RedBlackTree!(Point, "a.y < b.y")[long] perX;
-    RedBlackTree!(Point, "a.x < b.x")[long] perY;
+    Point[][long] arrPerX, arrPerY;
     foreach(b; B) {
-      if (!(b.x in perX)) perX[b.x] = (new Point[](0)).redBlackTree!"a.y < b.y";
-      perX[b.x].insert(b);
-      if (!(b.y in perY)) perY[b.y] = (new Point[](0)).redBlackTree!"a.x < b.x";
-      perY[b.y].insert(b);
+      arrPerX[b.x] ~= b;
+      arrPerY[b.y] ~= b;
     }
+    
+    auto perX = assocArray(arrPerX.keys, arrPerX.values.map!(v => v.sort!"a.y < b.y"));
+    auto perY = assocArray(arrPerY.keys, arrPerY.values.map!(v => v.sort!"a.x < b.x"));
 
     bool[Point] visited;
     long ans;
@@ -28,15 +28,15 @@ void problem() {
         visited[p] = true;
 
         if (p.y in perY) {
-          auto lefts = perY[p.y].lowerBound(Point(p.x - 1, p.y));
-          if (!lefts.empty) {
+          auto lefts = perY[p.y].lowerBound(Point(p.x, p.y));
+          if (!lefts.empty && lefts.back.x < p.x - 1) {
             auto b = lefts.back;
             auto n = Point(b.x + 1, b.y);
             if (!(n in visited)) qq[n] = true;
           }
 
-          auto rights = perY[p.y].upperBound(Point(p.x + 1, p.y));
-          if (!rights.empty) {
+          auto rights = perY[p.y].upperBound(Point(p.x, p.y));
+          if (!rights.empty && rights.front.x > p.x + 1) {
             auto b = rights.front;
             auto n = Point(b.x - 1, b.y);
             if (!(n in visited)) qq[n] = true;
@@ -44,15 +44,15 @@ void problem() {
         }
 
         if (p.x in perX) {
-          auto lefts = perX[p.x].lowerBound(Point(p.x, p.y - 1));
-          if (!lefts.empty) {
+          auto lefts = perX[p.x].lowerBound(Point(p.x, p.y));
+          if (!lefts.empty && lefts.back.y < p.y - 1) {
             auto b = lefts.back;
             auto n = Point(b.x, b.y + 1);
             if (!(n in visited)) qq[n] = true;
           }
 
-          auto rights = perX[p.x].upperBound(Point(p.x, p.y + 1));
-          if (!rights.empty) {
+          auto rights = perX[p.x].upperBound(Point(p.x, p.y));
+          if (!rights.empty && rights.front.y > p.y + 1) {
             auto b = rights.front;
             auto n = Point(b.x, b.y - 1);
             if (!(n in visited)) qq[n] = true;
@@ -78,7 +78,7 @@ string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; st
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(T t){ debug writeln(t); }
-alias Point = Tuple!(long, "x", long, "y");
+struct Point { long x, y; };
 Point invert(Point p) { return Point(p.y, p.x); }
 long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
@@ -89,6 +89,7 @@ string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!
 struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);
+template SortedBy(T, alias pred) { alias SortedBy = SortedRange!(T, pred, SortedRangeOptions.assumeSorted); }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
   else static if (is(T == void)) fn();
