@@ -3,17 +3,25 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto A = scan!int(N);
+  enum MAX_A = 2 * 10^^5 + 1;
 
   auto solve() {
-    auto gr = A.sort.group;
-    long ans = comb(N, 3);
+    auto dp = new long[](4);
+    auto pre = new long[](4);
+    dp[0] = 1;
+
+    int[MAX_A] counts;
+    foreach(a; A) counts[a]++;
+    int[] gr; foreach(c; counts) if (c > 0) gr ~= c;
     foreach(g; gr) {
-      long count = g[1];
-      if (count >= 2) ans -= comb(count, 2) * (N - count);
-      if (count >= 3) ans -= comb(count, 3);
+      swap(dp, pre);
+      dp = pre.dup;
+      foreach(k; 0..3) {
+        dp[k + 1] += pre[k] * g;
+      }
     }
-    
-    return ans;
+
+    return dp[3];
   }
 
   outputForAtCoder(&solve);

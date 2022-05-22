@@ -8,7 +8,6 @@ void problem() {
     int ans = int.max;
 
     foreach(n; 0..10) {
-      auto stopped = new bool[N];
       auto inds = S.map!(s => s.countUntil('0' + n).to!int).array.sort.group;
       ans = min(ans, inds.map!(i => i[0] + 10*(i[1] - 1)).maxElement);
     }

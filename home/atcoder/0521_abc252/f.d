@@ -3,20 +3,23 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto L = scan!long;
-  auto A = scan!long(N).sort.array;
+  auto A = scan!long(N);
 
   auto solve() {
-    bool isOk(int spl) {
-      auto heaps = (new long[](spl)).heapify!"a > b";
-
-      foreach(a; A) {
-        auto lowest = heaps.front;
-        heaps.removeFront;
-
-      }
-
-      return true;
+    auto heap = (new long[](0)).heapify!"a > b";
+    foreach(a; A) {
+      heap.insert(a);
+      L -= a;
     }
+    if (L > 0) heap.insert(L);
+
+    long ans;
+    while(!heap.empty) {
+      auto joined = heap.take(2).sum;
+      ans += joined;
+      if (!heap.empty) heap.insert(joined);
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);

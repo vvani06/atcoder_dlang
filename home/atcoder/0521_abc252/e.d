@@ -21,8 +21,7 @@ void problem() {
     auto visited = new bool[](N);
     alias TRY = Tuple!(Edge, "e", long, "total");
     for(auto q = ([TRY(Edge(0, 0, 0, 0), 0)]).heapify!"a.total > b.total"; !q.empty;) {
-      auto p = q.front;
-      q.removeFront;
+      auto p = q.take(1).array[0];
       auto e = p.e;
       if (visited[e.t]) continue;
 
