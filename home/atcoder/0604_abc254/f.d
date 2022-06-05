@@ -2,9 +2,23 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
+  auto QN = scan!int;
+  auto A = scan!long(N);
+  auto B = scan!long(N);
+  auto Q = scan!long(4 * QN).map!"a - 1".chunks(4);
 
   auto solve() {
+    auto C = (N - 1).iota.map!(i => abs(A[i + 1] - A[i])).array;
+    auto D = (N - 1).iota.map!(i => abs(B[i + 1] - B[i])).array;
+    auto treeA = SegTree!((long a, b) => gcd(a, b), long)(C, 0);
+    auto treeB = SegTree!((long a, b) => gcd(a, b), long)(D, 0);
+
+    foreach(q; Q) {
+      auto a = treeA.sum(q[0], q[1]);
+      auto b = treeB.sum(q[2], q[3]);
+      auto ans = gcd(A[q[0]] + B[q[2]], gcd(a, b));
+      ans.writeln;
+    }
   }
 
   outputForAtCoder(&solve);
@@ -46,3 +60,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  size_t size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(long i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(long index, T value) {
+    long i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(long index) {
+    return data[index + size];
+  }
+ 
+  T sum(long a, long b, size_t k = 1, long l = 0, long r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}

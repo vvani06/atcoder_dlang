@@ -6,20 +6,11 @@ void problem() {
   auto A = scan!int(N);
 
   auto solve() {
-    A ~= int.max.repeat(K).array;
-    auto spl = new int[][](K, 0);
-    foreach(i, a; A) spl[i % K] ~= a;
-    foreach(ref s; spl) s.sort;
-
-    foreach(x; 0..N / K) {
-      int t;
-      foreach(y; 0..K) {
-        if (t > spl[y][x]) return YESNO[false];
-        t = spl[y][x];
-      }
-    }
-
-    return YESNO[true];
+    int[int][int] inds;
+    foreach(int i, a; A) inds[a][i % K]++;
+    foreach(int i, a; A.sort.array) inds[a][i % K]--;
+    
+    return YESNO[inds.values.all!(iv => iv.values.all!(v => v == 0))];
   }
 
   outputForAtCoder(&solve);
@@ -29,7 +20,6 @@ void problem() {
 
 import std;
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
-T[] compress(T)(T[] arr, T origin = T.init) { T[T] indecies; arr.dup.sort.uniq.enumerate(origin).each!((i, t) => indecies[t] = i); return arr.map!(t => indecies[t]).array; }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
