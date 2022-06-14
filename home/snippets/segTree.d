@@ -1,6 +1,6 @@
 struct SegTree(alias pred = "a + b", T = long) {
   alias predFun = binaryFun!pred;
-  size_t size;
+  int size;
   T[] data;
   T monoid;
  
@@ -21,8 +21,8 @@ struct SegTree(alias pred = "a + b", T = long) {
     }
   }
  
-  void update(long index, T value) {
-    long i = index + size;
+  void update(int index, T value) {
+    int i = index + size;
     data[i] = value;
     while(i > 0) {
       i /= 2;
@@ -30,11 +30,11 @@ struct SegTree(alias pred = "a + b", T = long) {
     }
   }
  
-  T get(long index) {
+  T get(int index) {
     return data[index + size];
   }
  
-  T sum(long a, long b, size_t k = 1, long l = 0, long r = -1) {
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
     if (r < 0) r = size;
     
     if (r <= a || b <= l) return monoid;

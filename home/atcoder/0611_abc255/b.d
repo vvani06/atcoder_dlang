@@ -4,15 +4,15 @@ void problem() {
   auto N = scan!int;
   auto K = scan!int;
   auto A = scan!int(K).map!"a - 1".array.sort;
-  auto P = N.iota.map!(_ => Vector2(scan!real, scan!real)).array;
+  auto P = N.iota.map!(_ => Vector2!long(scan!long, scan!long)).array;
 
   auto solve() {
-    Vector2[] from, to;
+    Vector2!long[] from, to;
     foreach(i; 0..N) {
       if (A.canFind(i)) from ~= P[i]; else to ~= P[i];
     }
 
-    return to.map!(t => from.map!(f => t.norm(f).sqrt).minElement).maxElement;
+    return to.map!(t => from.map!(f => t.norm(f)).minElement).maxElement.to!real.sqrt;
   }
 
   outputForAtCoder(&solve);
@@ -55,14 +55,13 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct Vector2 {
-  real x, y;
-  this(real x, real y) { this.x = x; this.y = y; }
+struct Vector2(T) {
+  T x, y;
   Vector2 add(Vector2 other) { return Vector2(x + other.x, y + other.y ); }
   Vector2 opAdd(Vector2 other) { return add(other); }
   Vector2 sub(Vector2 other) { return Vector2(x - other.x, y - other.y ); }
   Vector2 opSub(Vector2 other) { return sub(other); }
-  real norm(Vector2 other) {return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
-  real dot(Vector2 other) {return x*other.y - y*other.x; }
+  T norm(Vector2 other) {return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
+  T dot(Vector2 other) {return x*other.y - y*other.x; }
   Vector2 normalize() {if (x == 0 || y == 0) return Vector2(x == 0 ? 0 : x/x.abs, y == 0 ? 0 : y/y.abs);const gcd = x.abs.gcd(y.abs);return Vector2(x / gcd, y / gcd);}
 }

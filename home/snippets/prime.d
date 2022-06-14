@@ -1,10 +1,3 @@
-import std.stdio, std.conv, std.array, std.string;
-import std.algorithm;
-import std.container;
-import std.range;
-import core.stdc.stdlib;
-import std.numeric;
-import std.math;
 
 ulong[] primeFactoring(ulong target)
 {
@@ -38,13 +31,4 @@ bool[] enumeratePrimes(long max)
   }
 
   return primes;
-}
-
-void main() {
-  ulong N, M; readf("%d %d\n", &N, &M);
-  ulong[] commonDiviers;
-  ulong greatest = gcd(N, M);
-
-  auto answerDivisers = primeFactoring(greatest);
-  writeln(answerDivisers.length + 1);
 }

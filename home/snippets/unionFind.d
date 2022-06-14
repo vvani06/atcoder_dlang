@@ -1,28 +1,28 @@
 
 struct UnionFind {
-  long[] parent;
+  int[] parent;
 
-  this(long size) {
+  this(int size) {
     parent.length = size;
     foreach(i; 0..size) parent[i] = i;
   }
 
-  long root(long x) {
+  int root(int x) {
     if (parent[x] == x) return x;
     return parent[x] = root(parent[x]);
   }
 
-  long unite(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
+  int unite(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
 
     if (rootX == rootY) return rootY;
     return parent[rootX] = rootY;
   }
 
-  bool same(long x, long y) {
-    long rootX = root(x);
-    long rootY = root(y);
+  bool same(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
 
     return rootX == rootY;
   }
