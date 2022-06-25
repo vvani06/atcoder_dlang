@@ -2,18 +2,34 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!long(N);
 
   auto solve() {
-    long ans;
-    long pre = 0;
-    foreach_reverse(i, a; A) {
-      if (pre > a || a > i) return -1;
-      if (pre < a) ans += a;
-      // [i.to!long, a, pre, ans].deb;
+    auto base = N.iota.map!(n => iota(n*N + 1, n*N + 1 + N).array).array;
 
-      pre = a - 1;
+    int[][] ans;
+    ans ~= base[N / 2 - 1];
+    int even = 0;
+    int odd = N / 2 + 1;
+    foreach(i; 0..N - 2) {
+      if (i % 2 == 0) {
+        ans ~= base[odd];
+        odd++;
+      } else {
+        ans ~= base[even];
+        even++;
+      }
     }
+    ans ~= base[N / 2];
+
+    // foreach(x; 1..N - 1) foreach(y; 1..N - 1) {
+    //   int d;
+    //   foreach(dx; [-1, 0, 1]) foreach(dy; [-1, 0, 1]) {
+    //     if (dx == 0 && dy == 0) continue;
+    //     if (ans[y][x] > ans[y+dx][x+dy]) d++; else d--;
+    //   }
+
+    //   if (d == 0) deb("Not Match");
+    // }
 
     return ans;
   }
@@ -58,36 +74,13 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct FermetCalculator(uint MD) {
-  long[] factrial; // 階乗
-  long[] inverse;  // 逆元
-  
-  this(long size) {
-    factrial = new long[size + 1];
-    inverse = new long[size + 1];
-    factrial[0] = 1;
-    inverse[0] = 1;
-    
-    for (long i = 1; i <= size; i++) {
-      factrial[i] = (factrial[i - 1] * i) % MD;  // 階乗を求める
-      inverse[i] = pow(factrial[i], MD - 2) % MD; // フェルマーの小定理で逆元を求める
-    }
-  }
-  
-  long combine(long n, long k) {
-    if (n < k) return 1;
-    return factrial[n] * inverse[k] % MD * inverse[n - k] % MD;
-  }
-  
-  long pow(long x, long n) { //x^n 計算量O(logn)
-    long ans = 1;
-    while (n > 0) {
-      if ((n & 1) == 1) {
-        ans = ans * x % MD;
-      }
-      x = x * x % MD; //一周する度にx, x^2, x^4, x^8となる
-      n >>= 1; //桁をずらす n = n >> 1
-    }
-    return ans;
-  }
+struct Vector2(T) {
+  T x, y;
+  Vector2 add(Vector2 other) { return Vector2(x + other.x, y + other.y ); }
+  Vector2 opAdd(Vector2 other) { return add(other); }
+  Vector2 sub(Vector2 other) { return Vector2(x - other.x, y - other.y ); }
+  Vector2 opSub(Vector2 other) { return sub(other); }
+  T norm(Vector2 other) {return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
+  T dot(Vector2 other) {return x*other.y - y*other.x; }
+  Vector2 normalize() {if (x == 0 || y == 0) return Vector2(x == 0 ? 0 : x/x.abs, y == 0 ? 0 : y/y.abs);const gcd = x.abs.gcd(y.abs);return Vector2(x / gcd, y / gcd);}
 }
