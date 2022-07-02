@@ -21,13 +21,8 @@ void problem() {
         foreach(to; graph[p]) {
           if (ret[to] != int.max) continue;
 
-          if (to == 0 || p == 0) {
-            ret[to] = ret[p];
-            q.insertFront(to);
-          } else {
-            ret[to] = ret[p] + 1;
-            q.insertBack(to);
-          }
+          ret[to] = ret[p] + 1;
+          q.insertBack(to);
         }
       }
 
@@ -37,12 +32,16 @@ void problem() {
     auto from1 = calcDistances(1);
     auto fromN = calcDistances(N);
     [from1, fromN].each!deb;
-
-    auto zero = graph[0].dup.sort;
     
-    long[] ans = min(from1[N], from1[0] + fromN[0] + 1).repeat(N).array;
-    if (fromN[0] != int.max) ans[0] = min(ans[0], fromN[0] + 1);
-    if (from1[0] != int.max) ans[N - 1] = min(ans[N - 1], from1[0] + 1);
+    long[] ans = min(from1[N], from1[0] + fromN[0]).repeat(N).array;
+    foreach(i; 1..N + 1) {
+      ans[i - 1] = min(
+        ans[i - 1],
+        from1[i] + fromN[0],
+        from1[0] + fromN[i],
+      );
+    }
+    
     return ans.map!(a => a >= int.max ? -1 : a).toAnswerString;
   }
 
