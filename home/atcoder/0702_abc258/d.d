@@ -8,7 +8,7 @@ void problem() {
   auto solve() {
     long ans = long.max;
     long overhead;
-    foreach(i, ab; AB) {
+    foreach(i, ab; AB[0..min($, X)]) {
       overhead += ab[0];
       ans = ans.min(overhead + (X - i)*ab[1]);
       overhead += ab[1];

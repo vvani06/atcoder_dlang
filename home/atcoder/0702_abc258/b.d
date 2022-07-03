@@ -2,29 +2,22 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!string(N).map!(s => s.map!(c => c - '0').array).array;
+  auto A = scan!string(N);
 
   auto solve() {
-    long ans;
-    auto dirs = zip([-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1]).array;
-    dirs.deb;
-    foreach(y; 0..N) foreach(x; 0..N) {
-      foreach(d; dirs) {
-        long t;
-        foreach(i; 0..N) {
-          t = t*10 + A[y][x];
-          y += d[0];
-          x += d[1];
-          if (y < 0) y += N;
-          if (x < 0) x += N;
-          y %= N;
-          x %= N;
-        }
-        ans = max(ans, t);
-      }
+    string[] ss;
+    foreach(offset; 0..N) {
+      ss ~= A[offset];
+      ss ~= A[offset].array.reverse.to!string;
+      ss ~= N.iota.map!(i => A[i][offset]).to!string;
+      ss ~= N.iota.map!(i => A[$ - i - 1][offset]).to!string;
+      ss ~= N.iota.map!(i => A[(offset + i) % N][i]).to!string;
+      ss ~= N.iota.map!(i => A[(offset + i) % N][$ - i - 1]).to!string;
+      ss ~= N.iota.map!(i => A[(offset - i + N) % N][i]).to!string;
+      ss ~= N.iota.map!(i => A[(offset - i + N) % N][$ - i - 1]).to!string;
     }
-
-    return ans;
+    
+    return N.iota.map!(i => ss.map!(s => s[i..$] ~ s[0..i]).maxElement).maxElement;
   }
 
   outputForAtCoder(&solve);
