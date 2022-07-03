@@ -3,8 +3,8 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 alias Vector = Vector2!long;
-enum LIMIT = 10L ^^ 4 + 1;
-enum BOUNDARY = 10L ^^ 6 + 1;
+enum int LIMIT = 10 ^^ 4 + 1;
+enum long BOUNDARY = 10L ^^ 6 + 1;
 
 struct Line {
   long sx, sy, ex, ey;
@@ -23,14 +23,19 @@ void problem() {
   auto A = scan!int(10);
   auto P = N.iota.map!(_ => Vector(scan!long, scan!long)).array.sort!"a.y < b.y";
   auto rnd = Xorshift(unpredictableSeed);
+  int ratio = 3;
 
   auto solve() {
     auto rest = OPERATION_LIMIT;
     Line[] ans;
     Vector[][] ps;
     {
+      int cut;
       int i;
       int count;
+      bool canCut() {
+        return count >= ratio;
+      }
       Vector[] pss;
       foreach(y; -LIMIT..LIMIT) {
         if (rest == 0) break;
@@ -39,7 +44,8 @@ void problem() {
           pss ~= P[i];
           if (++i == N) break;
         }
-        if (count >= 200) {
+        if (canCut) {
+          cut++;
           ps ~= pss;
           ans ~= Line.atY(y);
           count = 0;
@@ -58,48 +64,65 @@ void problem() {
     long maxScore = -1;
     Line[] maxLines;
     int[] badCount = new int[](10);
-    foreach(tryCount; 1..15) {
-      Line[] lines;
-      auto restX = rest;
-      auto desires = new int[](N);
-      desires[1..11] = A.dup;
 
-      auto psn = ps.length.to!int;
-      auto psl = ps.map!"a.length.to!int".array;
-      auto psi = new int[](psn);
-      auto count = new int[](psn);
-      int lastScore;
-      foreach(x; -LIMIT..LIMIT) {
-        if (restX == 0) break;
+    Line[] lines;
+    auto restX = rest;
+    auto desires = new int[](N);
+    desires[1..11] = A.dup;
 
-        foreach(i; 0..psn) {
-          while(psi[i] < psl[i] && ps[i][psi[i]].x <= x) {
-            count[i]++;
-            psi[i]++;
-          }
+    auto psn = ps.length.to!int;
+    auto psl = ps.map!"a.length.to!int".array;
+    auto psi = new int[](psn);
+    auto psiTb = new int[](psn);
+    int xTb = -LIMIT;
+    auto count = new int[](psn);
+    long bestScore;
+    int[int] addsTb;
+    int preX = -LIMIT;
+
+    long calcScore() {
+      long ret;
+      int[11] t;
+      foreach(c; count) if (c <= 10) t[c]++;
+      foreach(i; 1..11) {
+        if (desires[i] <= 0) continue;
+        ret += t[i] * (desires[i] + 3) / 4;
+      }
+      return ret;
+    }
+
+    for(int x = -LIMIT; x < LIMIT; x++) {
+      if (restX == 0) break;
+
+      foreach(i; 0..psn) {
+        while(psi[i] < psl[i] && ps[i][psi[i]].x <= x) {
+          count[i]++;
+          psi[i]++;
         }
-
+      }
+      
+      if (bestScore.chmax(calcScore)) {
+        psiTb = psi.dup;
         int[int] adds;
         foreach(c; count) adds[c]++;
-        
-        int score;
-        foreach(k, v; adds) score += min(v, desires[k]);
-
-        lastScore = max(lastScore, score);
-        if (lastScore > tryCount) {
-          lines ~= Line.atX(x);
-          count[] = 0;
-          score = lastScore = 0;
-          foreach(k, v; adds) desires[k] = max(0, desires[k] - v);
-          restX--;
-        }
+        addsTb = adds;
+        xTb = x;
       }
-
-      long eval = 10.iota.map!(i => A[i] - desires[i + 1]).sum * 10L^^6;
-      if (maxScore.chmax(eval)) {
-        maxLines = lines;
-        badCount = desires[1..11].dup;
+      if (bestScore > 0 && (x >= LIMIT - 1 || x - preX >= 5000)) {
+        lines ~= Line.atX(xTb);
+        restX--;
+        count[] = 0;
+        foreach(k, v; addsTb) desires[k] = max(0, desires[k] - v);
+        bestScore = 0;
+        psi = psiTb;
+        preX = x = xTb;
       }
+    }
+
+    long eval = 10.iota.map!(i => A[i] - desires[i + 1]).sum * 10L^^6;
+    if (maxScore.chmax(eval)) {
+      maxLines = lines;
+      badCount = desires[1..11].dup;
     }
 
     ans ~= maxLines;
@@ -114,7 +137,10 @@ void problem() {
     }
   }
 
-  outputForAtCoder(&solve);
+  foreach(i; iota(100, 701, 10)) {
+    ratio = i;
+    outputForAtCoder(&solve);
+  }
 }
 
 // ----------------------------------------------
