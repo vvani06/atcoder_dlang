@@ -127,20 +127,22 @@ void problem() {
 
     ans ~= maxLines;
     const tested = maxScore / A.sum;
-    debug {
-      stderr.writefln("score: %s (rest %s/%s %s)", tested, badCount.sum, A.sum, badCount);
-      ans.length.writeln;
-    } else {
-      stderr.writefln("%s", tested);
-      ans.length.writeln;
-      return ans;
-    }
+    ans.length.writeln;
+    foreach(r; ans) r.writeln;
+    return tuple(tested, ans);
   }
 
-  foreach(i; iota(100, 701, 10)) {
+  Line[] bestAns;
+  long best;
+  foreach(i; iota(100, 891, 7)) {
     ratio = i;
-    outputForAtCoder(&solve);
+    auto ret = solve();
+    if (best.chmax(ret[0])) bestAns = ret[1];
   }
+
+  stderr.writeln(best);
+  bestAns.length.writeln;
+  foreach(r; bestAns) r.writeln;
 }
 
 // ----------------------------------------------
