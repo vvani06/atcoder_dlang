@@ -1,3 +1,4 @@
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
 T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
   auto ok = l;
   auto ng = r;
