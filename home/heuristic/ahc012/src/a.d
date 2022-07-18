@@ -63,21 +63,19 @@ void problem() {
 
     long maxScore = -1;
     Line[] maxLines;
-    int[] badCount = new int[](10);
-
     Line[] lines;
     auto restX = rest;
-    auto desires = new int[](N);
+    auto desires = new int[](12);
     desires[1..11] = A.dup;
 
     auto psn = ps.length.to!int;
     auto psl = ps.map!"a.length.to!int".array;
     auto psi = new int[](psn);
     auto psiTb = new int[](psn);
-    int xTb = -LIMIT;
     auto count = new int[](psn);
     long bestScore;
-    int[int] addsTb;
+    int[12] addsTb;
+    int xTb = -LIMIT;
     int preX = -LIMIT;
 
     long calcScore() {
@@ -86,7 +84,9 @@ void problem() {
       foreach(c; count) if (c <= 10) t[c]++;
       foreach(i; 1..11) {
         if (desires[i] <= 0) continue;
-        ret += t[i] * (desires[i] + 3) / 4;
+
+        auto p = (desires[i] + 4) / 5;
+        ret += t[i] * p;
       }
       return ret;
     }
@@ -96,14 +96,14 @@ void problem() {
 
       foreach(i; 0..psn) {
         while(psi[i] < psl[i] && ps[i][psi[i]].x <= x) {
-          count[i]++;
+          if (count[i] <= 10) count[i]++;
           psi[i]++;
         }
       }
       
       if (bestScore.chmax(calcScore)) {
         psiTb = psi.dup;
-        int[int] adds;
+        int[12] adds;
         foreach(c; count) adds[c]++;
         addsTb = adds;
         xTb = x;
@@ -112,7 +112,7 @@ void problem() {
         lines ~= Line.atX(xTb);
         restX--;
         count[] = 0;
-        foreach(k, v; addsTb) desires[k] = max(0, desires[k] - v);
+        foreach(k; 1..11) desires[k] = max(0, desires[k] - addsTb[k]);
         bestScore = 0;
         psi = psiTb;
         preX = x = xTb;
@@ -122,27 +122,43 @@ void problem() {
     long eval = 10.iota.map!(i => A[i] - desires[i + 1]).sum * 10L^^6;
     if (maxScore.chmax(eval)) {
       maxLines = lines;
-      badCount = desires[1..11].dup;
     }
 
     ans ~= maxLines;
     const tested = maxScore / A.sum;
-    ans.length.writeln;
-    foreach(r; ans) r.writeln;
+    // ans.length.writeln;
+    // foreach(r; ans) r.writeln;
     return tuple(tested, ans);
   }
 
   Line[] bestAns;
   long best;
-  foreach(i; iota(100, 891, 7)) {
+  auto pp = A[6..10].enumerate(6).map!"a[0] * a[1]".sum / 3;
+  pp.deb;
+  int bestI;
+  foreach(i; iota(pp - 40, pp + 41)) {
     ratio = i;
     auto ret = solve();
-    if (best.chmax(ret[0])) bestAns = ret[1];
+    if (best.chmax(ret[0]))  {
+      bestAns = ret[1];
+      bestI = i;
+    }
+  }
+  foreach(i; iota(30, 701, 4)) {
+    ratio = i;
+    auto ret = solve();
+    if (best.chmax(ret[0]))  {
+      bestAns = ret[1];
+      bestI = i;
+    }
   }
 
+  // stderr.writeln(bestI);
   stderr.writeln(best);
-  bestAns.length.writeln;
-  foreach(r; bestAns) r.writeln;
+  debug {} else {
+    bestAns.length.writeln;
+    foreach(r; bestAns) r.writeln;
+  }
 }
 
 // ----------------------------------------------
