@@ -9,24 +9,24 @@ void problem() {
   auto B = scan!int(N);
 
   auto solve() {
-    auto scores = zip(A, B).array.enumerate.array;
+    auto scores = zip(A, B, N.iota).array;
     auto used = new bool[](N);
 
     void qualify(int n) {
       if (n == 0) return;
       foreach(s; scores) {
-        if (used[s.index]) continue;
+        if (used[s[2]]) continue;
 
-        used[s.index] = true;
+        used[s[2]] = true;
         if (--n == 0) break;
       }
     }
 
-    scores.multiSort!("a.value[0] > b.value[0]", "a.index < b.index");
+    scores.multiSort!("a[0] > b[0]", "a[2] < b[2]");
     qualify(X);
-    scores.multiSort!("a.value[1] > b.value[1]", "a.index < b.index");
+    scores.multiSort!("a[1] > b[1]", "a[2] < b[2]");
     qualify(Y);
-    scores.multiSort!("a.value[0] + a.value[1] > b.value[0] + b.value[1]", "a.index < b.index");
+    scores.multiSort!("a[0] + a[1] > b[0] + b[1]", "a[2] < b[2]");
     qualify(Z);
     
     return iota(1, N + 1).filter!(i => used[i - 1]);

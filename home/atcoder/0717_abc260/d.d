@@ -6,38 +6,29 @@ void problem() {
   auto P = scan!int(N);
 
   auto solve() {
+    if (K == 1) return N.iota.array.sort!((a, b) => P[a] < P[b]).map!"a + 1".array;
+
     auto graph = new int[](N + 1);
     auto rbt = (new int[](0)).redBlackTree;
-    auto uf = UnionFind(N + 1);
     auto counts = new int[](N + 1);
     counts[] = 1;
 
     auto ans = new int[](N + 1);
     ans[] = -1;
     foreach(int i, p; P) {
-      if (K == 1) {
-        ans[p] = i + 1;
-        continue;
-      }
-
       auto ub = rbt.upperBound(p);
       if (ub.empty) {
         rbt.insert(p);
+        continue;
+      }
+
+      auto f = ub.front;
+      rbt.removeKey(f);
+      graph[p] = f;
+      if ((counts[p] += counts[f]) == K) {
+        for(auto t = p; t != 0; t = graph[t]) ans[t] = i + 1;
       } else {
-        auto f = ub.front;
-        rbt.removeKey(f);
-        auto c = counts[uf.root(f)] + counts[uf.root(p)];
-        uf.unite(f, p);
-        counts[uf.root(f)] = c;
-        if (c == K) {
-          ans[p] = i + 1;
-          for(auto t = f; t != 0; t = graph[t]) {
-            ans[t] = i + 1;
-          }
-        } else {
-          rbt.insert(p);
-          graph[p] = f;
-        }
+        rbt.insert(p);
       }
     }
 
@@ -83,33 +74,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    if (rootX > rootY) swap(rootX, rootY);
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
-}

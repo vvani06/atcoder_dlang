@@ -6,13 +6,11 @@ void problem() {
   auto Y = scan!long;
 
   auto solve() {
-    if (N == 1) return 0;
-    
     auto r = new long[](11);
     auto b = new long[](11);
     r[N] = 1;
 
-    foreach_reverse(i; 2..N + 1) {
+    foreach(i; iota(N, 1, -1)) {
       r[i - 1] += r[i];
       b[i] += r[i] * X;
       r[i - 1] += b[i];
