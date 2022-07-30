@@ -7,7 +7,7 @@ struct SegTree(alias pred = "a + b", T = long) {
   this(T[] src, T monoid = T.init) {
     this.monoid = monoid;
 
-    for(long i = 2; i < 2L^^32; i *= 2) {
+    for(int i = 2; i < 2L^^32; i *= 2) {
       if (src.length <= i) {
         size = i;
         break;
@@ -44,4 +44,23 @@ struct SegTree(alias pred = "a + b", T = long) {
     T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
     return predFun(leftValue, rightValue);
   }
+}
+
+long countInvertions(T)(T[] arr) {
+  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
+  long ret;
+  long pre = -1;
+  int[] adds;
+  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
+    auto i = a[0];
+    auto n = a[1];
+    if (pre != n) {
+      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
+      adds.length = 0;
+    }
+    adds ~= i;
+    pre = n;
+    ret += segtree.sum(0, i);
+  }
+  return ret;
 }
