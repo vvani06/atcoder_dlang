@@ -69,9 +69,8 @@ void problem() {
     Move[] moves;
     Connection[] bestConnections;
 
-    foreach(k; 2..3) {
+    foreach(k; 1..K + 1) {
       auto perX = new int[][](N, 0);
-      
       foreach(x; 0..N) foreach(y; 0..N) {
         if (G[x][y] == k) perX[x] ~= y;
       }
@@ -85,7 +84,6 @@ void problem() {
             moves ~= Move(x, y, x-1, y);
             swap(G[x][y], G[x - 1][y]);
           } else if (x < N - 1 && G[x + 1][y] == 0) {
-            G[x][y].deb;
             moves ~= Move(x, y, x+1, y);
             swap(G[x][y], G[x + 1][y]);
           }
