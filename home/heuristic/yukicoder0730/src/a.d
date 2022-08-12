@@ -20,7 +20,7 @@ struct Spot {
     return "%s %s".format(type, id);
   }
 }
-enum long BOUNDARY = 10 ^^ 3;
+enum long BOUNDARY = 10 ^^ 3 + 1;
 
 Vector center(Vector[] arr) {
   long x = arr.map!"a.x".sum / arr.length;
@@ -52,32 +52,52 @@ void problem() {
     auto allCenter = center(P);
     auto targets = P.enumerate(1).map!(p => Spot(1, p[0], p[1])).array;
 
-    targets.sort!((a, b) => degComp(a, b, allCenter));
-    auto startIndex = targets.countUntil!(t => t.id == 1);
-    targets = targets[startIndex..$] ~ targets[0..startIndex];
+    // targets.sort!((a, b) => degComp(a, b, allCenter));
+    // auto startIndex = targets.countUntil!(t => t.id == 1);
+    // targets = targets[startIndex..$] ~ targets[0..startIndex];
+
+    Vector[] stationLocations;
+    auto targetsPerStation = new Spot[][](M, 0);
+    auto rest = targets.dup;
+    foreach(m; 0..M) {
+      long best = long.max;
+      long bestX, bestY;
+      foreach(x; iota(0, BOUNDARY, 10)) foreach(y; iota(0, BOUNDARY, 10)) {
+        auto base = Vector(x, y);
+        auto heap = (new long[](0)).heapify!"a > b";
+        foreach(r; rest) {
+          heap.insert(base.norm(r.location));
+        }
+        auto border = heap.take(13).array[$ - 1];
+        if (best.chmin(border)) {
+          bestX = x;
+          bestY = y;
+        }
+      }
+
+      auto base = Vector(bestX, bestY);
+      targetsPerStation[m] = rest.filter!(r => base.norm(r.location) <= best).array;
+      rest = rest.filter!(r => base.norm(r.location) > best).array;
+      stationLocations ~= base;
+    }
 
     auto stationIndicies = 0 ~ iota(1, M + 1).map!(m => N * m / M).array;
-    auto stations = M.iota.map!(i => Spot(2, i + 1, center(targets[stationIndicies[i]..stationIndicies[i + 1]])));
+    auto stations = stationLocations.enumerate(1).map!(s => Spot(2, s[0], s[1])).array;
 
     Spot[] routes;
     routes ~= targets[0];
-    foreach(si; 0..M) {
-      foreach(i; stationIndicies[si]..stationIndicies[si + 1]) {
-        auto d1 = routes[$ - 1].energy(stations[si]) + stations[si].energy(targets[i]);
-        auto d2 = routes[$ - 1].energy(targets[i]);
-        if (d1 < d2) {
-          routes ~= stations[si];
-          routes ~= targets[i];
-        } else {
-          routes ~= targets[i];
-        }
+    foreach(m; 0..M) {
+      foreach(t; targetsPerStation[m]) {
+        routes ~= stations[m];
+        routes ~= t;
       }
-      routes ~= stations[si];
     }
+    routes ~= rest;
     routes ~= targets[0];
 
     auto ri = iota(1, routes.length - 1).array;
-    foreach(i; 0..10^^6) {
+    auto rs = M.iota.array;
+    foreach(i; 0..10^^6 / 2) {
       auto a = ri.choice(rnd);
       auto b = ri.choice(rnd);
 
@@ -88,6 +108,31 @@ void problem() {
 
       if (efa + efb > eta + etb) swap(routes[a], routes[b]);
     }
+    // ri = iota(1, routes.length).array;
+    // foreach(i; 0..10^^5) {
+    //   auto a = ri.choice(rnd);
+    //   auto s = rs.choice(rnd);
+
+    //   auto ef = routes[a - 1].energy(routes[a]);
+    //   auto et = routes[a - 1].energy(stations[s]) + stations[s].energy(routes[a]);
+
+    //   if (ef > et) {
+    //     routes = routes[0..a] ~ stations[s] ~ routes[a..$];
+    //     ri ~= ri.length;
+    //   }
+    // }
+    // ri = iota(1, routes.length - 1).array;
+    // foreach(i; 0..10^^6 / 3) {
+    //   auto a = ri.choice(rnd);
+    //   auto b = ri.choice(rnd);
+
+    //   auto efa = routes[a - 1].energy(routes[a]) + routes[a].energy(routes[a + 1]);
+    //   auto efb = routes[b - 1].energy(routes[b]) + routes[b].energy(routes[b + 1]);
+    //   auto eta = routes[a - 1].energy(routes[b]) + routes[b].energy(routes[a + 1]);
+    //   auto etb = routes[b - 1].energy(routes[a]) + routes[a].energy(routes[b + 1]);
+
+    //   if (efa + efb > eta + etb) swap(routes[a], routes[b]);
+    // }
 
     Spot[] filtered;
     filtered ~= routes[0];
@@ -113,7 +158,7 @@ void problem() {
     ans ~= routes.length.to!string;
     ans ~= routes.map!"a.toString".array;
 
-    return ans;
+    debug {} else return ans;
   }
 
   outputForAtCoder(&solve);
