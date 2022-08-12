@@ -64,10 +64,8 @@ void problem() {
   auto K = scan!int;
   auto G = scan!string(N).map!(s => s.map!(c => c - '0').array).array;
 
-  auto solve() {
-    int bestScore;
+  Move[] executeMoves() {
     Move[] moves;
-    Connection[] bestConnections;
 
     foreach(k; 1..K + 1) {
       auto perX = new int[][](N, 0);
@@ -111,6 +109,14 @@ void problem() {
       }
     }
 
+    return moves;
+  }
+
+  auto solve() {
+    auto moves = executeMoves();
+
+    int bestScore;
+    Connection[] bestConnections;
     foreach(pattern; iota(1, K + 1).permutations) {
       int rest = K*100 - moves.length.to!int;
       Connection[] connections;
