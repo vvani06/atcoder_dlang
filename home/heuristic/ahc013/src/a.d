@@ -31,6 +31,25 @@ struct Connection {
   }
 }
 
+struct Move {
+  int sx, sy, ex, ey;
+
+  this(int sx, int sy, int ex, int ey) {
+    this.sx = sx;
+    this.sy = sy;
+    this.ex = ex;
+    this.ey = ey;
+  }
+
+  this(Point f, Point t) {
+    this(f.x, f.y, t.x, t.y);
+  }
+
+  string toString() {
+    return "%s %s %s %s".format(sx, sy, ex, ey);
+  }
+}
+
 int calcScore(UnionFind uf) {
   auto sizes = new int[](MAX_N * MAX_N);
   foreach(x; 0..MAX_N) foreach(y; 0..MAX_N) {
@@ -47,12 +66,59 @@ void problem() {
 
   auto solve() {
     int bestScore;
+    Move[] moves;
     Connection[] bestConnections;
 
+    foreach(k; 2..3) {
+      auto perX = new int[][](N, 0);
+      
+      foreach(x; 0..N) foreach(y; 0..N) {
+        if (G[x][y] == k) perX[x] ~= y;
+      }
+      foreach(x, arr; perX.enumerate(0).array.sort!"a[1].length < b[1].length") {
+        long up = x == 0 ? -1 : perX[x - 1].length;
+        long down = x == N - 1 ? -1 : perX[x + 1].length;
+        if (up < arr.length && down < arr.length) break;
+
+        foreach(y; arr) {
+          if (up >= down && G[x - 1][y] == 0) {
+            moves ~= Move(x, y, x-1, y);
+            swap(G[x][y], G[x - 1][y]);
+          } else if (x < N - 1 && G[x + 1][y] == 0) {
+            G[x][y].deb;
+            moves ~= Move(x, y, x+1, y);
+            swap(G[x][y], G[x + 1][y]);
+          }
+        }
+      }
+
+      auto perY = new int[][](N, 0);
+      foreach(x; 0..N) foreach(y; 0..N) {
+        if (G[x][y] == k) perY[y] ~= x;
+      }
+      foreach(y, arr; perY.enumerate(0).array.sort!"a[1].length < b[1].length") {
+        long up = y == 0 ? -1 : perY[y - 1].length;
+        long down = y == N - 1 ? -1 : perY[y + 1].length;
+        if (up < arr.length && down < arr.length) break;
+
+        foreach(x; arr) {
+          if (up >= down && G[x][y - 1] == 0) {
+            moves ~= Move(x, y, x, y - 1);
+            swap(G[x][y], G[x][y - 1]);
+          } else if (y < N - 1 && G[x][y + 1] == 0) {
+            moves ~= Move(x, y, x, y + 1);
+            swap(G[x][y], G[x][y + 1]);
+          }
+        }
+      }
+    }
+
     foreach(pattern; iota(1, K + 1).permutations) {
+      int rest = K*100 - moves.length.to!int;
       Connection[] connections;
       auto uf = UnionFind(MAX_N * MAX_N);
       auto visited = new bool[][](N, N);
+
       foreach(k; pattern) {
         Point[] starts;
         foreach(x; 0..N) foreach(y; 0..N) {
@@ -72,6 +138,9 @@ void problem() {
 
               if (np.of(G) == k) {
                 if (uf.same(p.toId, np.toId)) break;
+                if (rest <= 0) break;
+
+                rest--;
                 uf.unite(p.toId, np.toId);
                 connections ~= Connection(p, np);
                 foreach(d; 1..delta + 1) {
@@ -95,7 +164,8 @@ void problem() {
       }
     }
 
-    0.writeln;
+    moves.length.writeln;
+    moves.each!writeln;
     bestConnections.length.writeln;
     bestConnections.each!writeln;
     stderr.writeln(bestScore);
