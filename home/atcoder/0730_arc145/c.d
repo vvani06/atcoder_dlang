@@ -4,16 +4,9 @@ void problem() {
   auto N = scan!long;
 
   auto solve() {
-    MInt9 ans = 1;
-
-    for(auto tn = N * 2; tn > 0; tn -= 2) {
-      ans *= MInt9(tn);
-      ans *= MInt9(tn / 2);
-    }
-
-    long best = 6*5 + 4*3 + 2*1;
-    foreach(p; iota(1, 7).permutations) {
-      p.deb;
+    MInt9 ans = MInt9(2) ^^ N;
+    foreach(i; N + 1..N*2) {
+      ans *= MInt9(i + 1);
     }
 
     return ans;
