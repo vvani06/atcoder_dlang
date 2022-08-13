@@ -117,20 +117,21 @@ void problem() {
 
     int bestScore;
     Connection[] bestConnections;
-    foreach(pattern; iota(1, K + 1).permutations) {
-      int rest = K*100 - moves.length.to!int;
-      Connection[] connections;
-      auto uf = UnionFind(MAX_N * MAX_N);
-      auto visited = new bool[][](N, N);
+    auto globalVisited = new bool[][](N, N);
+    auto globalUf = UnionFind(MAX_N * MAX_N);
+    int rest = K*100 - moves.length.to!int;
 
-      foreach(k; pattern) {
-        Point[] starts;
-        foreach(x; 0..N) foreach(y; 0..N) {
-          auto p = Point(x, y);
-          if (p.of(G) == k) starts ~= p;
-        }
+    while(rest > 0) {
+      int bestSize;
+      Point bestPoint;
+      foreach(x; 0..N) foreach(y; 0..N) {
+        if (G[x][y] == 0 || globalVisited[x][y]) continue;
 
-        for(auto queue = new DList!Point(starts); !queue.empty;) {
+        auto k = G[x][y];
+        auto visited = globalVisited.map!"a.dup".array;
+        auto uf = globalUf.dup;
+        int size;
+        for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
           auto p = queue.front;
           queue.removeFront;
           foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
@@ -144,9 +145,9 @@ void problem() {
                 if (uf.same(p.toId, np.toId)) break;
                 if (rest <= 0) break;
 
-                rest--;
+                queue.insertBack(np);
                 uf.unite(p.toId, np.toId);
-                connections ~= Connection(p, np);
+                size++;
                 foreach(d; 1..delta + 1) {
                   auto dp = p;
                   dp.x += dir[0] * d;
@@ -161,12 +162,48 @@ void problem() {
             }
           }
         }
+
+        if (bestSize.chmax(size)) bestPoint = Point(x, y);
       }
 
-      if (bestScore.chmax(calcScore(uf))) {
-        bestConnections = connections;
+      if (bestSize == 0) break;
+
+      auto k = bestPoint.of(G);
+      for(auto queue = new DList!Point(bestPoint); !queue.empty;) {
+        auto p = queue.front;
+        queue.removeFront;
+        foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          foreach(delta; 1..N) {
+            auto np = p;
+            np.x += dir[0] * delta;
+            np.y += dir[1] * delta;
+            if (!np.valid(N)) break;
+
+            if (np.of(G) == k) {
+              if (globalUf.same(p.toId, np.toId)) break;
+              if (rest <= 0) break;
+
+              queue.insertBack(np);
+              globalUf.unite(p.toId, np.toId);
+              bestConnections ~= Connection(p, np);
+              rest--;
+              foreach(d; 1..delta + 1) {
+                auto dp = p;
+                dp.x += dir[0] * d;
+                dp.y += dir[1] * d;
+                globalVisited[dp.x][dp.y] = true;
+              }
+              break;
+            }
+
+            if (np.of(G) == 0 && !np.of(globalVisited)) continue;
+            if (np.of(G) != k) break;
+          }
+        }
       }
     }
+
+    bestScore = calcScore(globalUf);
 
     moves.length.writeln;
     moves.each!writeln;
@@ -236,5 +273,11 @@ struct UnionFind {
     int rootY = root(y);
 
     return rootX == rootY;
+  }
+
+  UnionFind dup() {
+    UnionFind d = UnionFind(parent.length.to!int);
+    d.parent = parent.dup;
+    return d;
   }
 }
