@@ -124,9 +124,11 @@ void problem() {
     while(rest > 0) {
       int bestSize;
       Point bestPoint;
+      Point[Point] bestWalls;
       foreach(x; 0..N) foreach(y; 0..N) {
         if (G[x][y] == 0 || globalVisited[x][y]) continue;
 
+        Point[Point] walls;
         auto k = G[x][y];
         auto visited = globalVisited.map!"a.dup".array;
         auto uf = globalUf.dup;
@@ -157,18 +159,71 @@ void problem() {
                 break;
               }
 
-              if (np.of(G) == 0 && !np.of(visited)) continue;
-              if (np.of(G) != k) break;
+              if (np.of(G) == 0) if (np.of(visited)) break; else continue;
+              if (np.of(G) != k) {
+                if (!np.of(visited)) walls[np] = p;
+                break;
+              }
             }
           }
         }
 
-        if (bestSize.chmax(size)) bestPoint = Point(x, y);
+        if (bestSize.chmax(size)) {
+          bestPoint = Point(x, y);
+          bestWalls = walls;
+        }
       }
 
       if (bestSize == 0) break;
 
       auto k = bestPoint.of(G);
+      int bestWallSize;
+      Point bestWall;
+      foreach(w; bestWalls.keys) {
+        auto bk = G[w.x][w.y];
+        G[w.x][w.y] = k;
+        auto visited = globalVisited.map!"a.dup".array;
+        auto uf = globalUf.dup;
+        int wallSize;
+        for(auto queue = new DList!Point(bestPoint); !queue.empty;) {
+          auto p = queue.front;
+          queue.removeFront;
+          foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            foreach(delta; 1..N) {
+              auto np = p;
+              np.x += dir[0] * delta;
+              np.y += dir[1] * delta;
+              if (!np.valid(N)) break;
+
+              if (np.of(G) == k) {
+                if (uf.same(p.toId, np.toId)) break;
+
+                queue.insertBack(np);
+                uf.unite(p.toId, np.toId);
+                wallSize++;
+                foreach(d; 1..delta + 1) {
+                  auto dp = p;
+                  dp.x += dir[0] * d;
+                  dp.y += dir[1] * d;
+                  visited[dp.x][dp.y] = true;
+                }
+                break;
+              }
+
+              if (np.of(G) == 0) if (np.of(visited)) break; else continue;
+              if (np.of(G) != k) break;
+            }
+          }
+        }
+
+        if (bestWallSize.chmax(wallSize)) bestWall = w;
+        G[w.x][w.y] = bk;
+      }
+      
+      if (bestWallSize > bestSize + 3) {
+        G[bestWall.x][bestWall.y] = k;
+      }
+
       for(auto queue = new DList!Point(bestPoint); !queue.empty;) {
         auto p = queue.front;
         queue.removeFront;
@@ -196,7 +251,7 @@ void problem() {
               break;
             }
 
-            if (np.of(G) == 0 && !np.of(globalVisited)) continue;
+            if (np.of(G) == 0) if (np.of(globalVisited)) break; else continue;
             if (np.of(G) != k) break;
           }
         }
@@ -249,9 +304,11 @@ enum YESNO = [true: "Yes", false: "No"];
 
 struct UnionFind {
   int[] parent;
+  int[] option;
 
   this(int size) {
     parent.length = size;
+    option.length = size;
     foreach(i; 0..size) parent[i] = i;
   }
 
@@ -278,6 +335,7 @@ struct UnionFind {
   UnionFind dup() {
     UnionFind d = UnionFind(parent.length.to!int);
     d.parent = parent.dup;
+    d.option = option.dup;
     return d;
   }
 }
