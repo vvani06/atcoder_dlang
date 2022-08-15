@@ -50,21 +50,69 @@ struct Move {
   }
 }
 
-int calcScore(UnionFind uf) {
-  auto sizes = new int[](MAX_N * MAX_N);
+int calcScore(UnionFind uf, int[] penalty) {
+  auto n = MAX_N * MAX_N;
+  auto sizes = new int[](n);
+  foreach(i; 0..n) sizes[i] -= penalty[i];
   foreach(x; 0..MAX_N) foreach(y; 0..MAX_N) {
     sizes[uf.root(MAX_N * x + y)]++;
   }
 
-  return sizes.map!(s => s*(s - 1) / 2).sum;
+  return n.iota.map!(i => sizes[i]*(sizes[i] - 1) / 2 - penalty[i] * sizes[i]).sum;
 }
 
 void problem() {
   auto N = scan!int;
   auto K = scan!int;
-  auto G = scan!string(N).map!(s => s.map!(c => c - '0').array).array;
+  auto G = scan!string(N).map!(s => s.map!(c => (c - '0').to!int).array).array;
 
-  Move[] executeMoves() {
+  int calcMaxSize(int[][] g) {
+    int ret;
+    auto visited = new bool[][](N, N);
+    auto uf = UnionFind(MAX_N * MAX_N);
+
+    foreach(x; 0..N) foreach(y; 0..N) {
+      if (visited[x][y]) continue;
+
+      auto k = g[x][y];
+      int size = 1;
+      for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
+        auto p = queue.front;
+        queue.removeFront;
+        foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          foreach(delta; 1..N) {
+            auto np = p;
+            np.x += dir[0] * delta;
+            np.y += dir[1] * delta;
+            if (!np.valid(N)) break;
+
+            if (np.of(G) == k) {
+              if (uf.same(p.toId, np.toId)) break;
+
+              queue.insertBack(np);
+              uf.unite(p.toId, np.toId);
+              size++;
+              foreach(d; 1..delta + 1) {
+                auto dp = p;
+                dp.x += dir[0] * d;
+                dp.y += dir[1] * d;
+                visited[dp.x][dp.y] = true;
+              }
+              break;
+            }
+
+            if (np.of(G) == 0) if (np.of(visited)) break; else continue;
+            if (np.of(G) != k) break;
+          }
+        }
+      }
+
+      ret += size * size;
+    }
+    return ret;
+  }
+
+  Move[] executeSortingMove() {
     Move[] moves;
 
     foreach(k; 1..K + 1) {
@@ -112,14 +160,22 @@ void problem() {
     return moves;
   }
 
-  auto solve() {
-    auto moves = executeMoves();
+  Move[] executeRandomMove() {
+    Move[] moves;
+    return moves;
+  }
 
-    int bestScore;
+  auto solve() {
+    calcMaxSize(G).deb;
+    auto moves = executeSortingMove();
+    calcMaxSize(G).deb;
+    // Move[] moves;
+
     Connection[] bestConnections;
     auto globalVisited = new bool[][](N, N);
     auto globalUf = UnionFind(MAX_N * MAX_N);
     int rest = K*100 - moves.length.to!int;
+    auto penalty = new int[](MAX_N * MAX_N);
 
     while(rest > 0) {
       int bestSize;
@@ -174,7 +230,7 @@ void problem() {
         }
       }
 
-      if (bestSize == 0) break;
+      if (bestSize <= 1) break;
 
       auto k = bestPoint.of(G);
       int bestWallSize;
@@ -221,9 +277,13 @@ void problem() {
       }
       
       if (bestWallSize > bestSize + 3) {
+        // [bestPoint, bestWall].deb;
+        // bestWall.of(globalVisited).deb;
         G[bestWall.x][bestWall.y] = k;
-      }
+        globalVisited[bestWall.x][bestWall.y] = true;
+      } else bestWallSize = 0;
 
+      globalVisited[bestPoint.x][bestPoint.y] = true;
       for(auto queue = new DList!Point(bestPoint); !queue.empty;) {
         auto p = queue.front;
         queue.removeFront;
@@ -256,9 +316,11 @@ void problem() {
           }
         }
       }
+
+      if (bestWallSize > 0) penalty[globalUf.root(bestPoint.toId)]++;
     }
 
-    bestScore = calcScore(globalUf);
+    auto bestScore = calcScore(globalUf, penalty);
 
     moves.length.writeln;
     moves.each!writeln;
