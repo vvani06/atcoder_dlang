@@ -3,6 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_N = 50;
+enum DIRS = zip([-1, 0, 1, 0], [0, -1, 0, 1]).array;
 
 struct Point {
   int x, y;
@@ -62,11 +63,16 @@ int calcScore(UnionFind uf, int[] penalty) {
 }
 
 void problem() {
+  auto StartTime = MonoTime.currTime();
   auto N = scan!int;
   auto K = scan!int;
   auto G = scan!string(N).map!(s => s.map!(c => (c - '0').to!int).array).array;
 
-  int calcMaxSize(int[][] g) {
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
+
+  int calcSimpleScore(int[][] g) {
     int ret;
     auto visited = new bool[][](N, N);
     auto uf = UnionFind(MAX_N * MAX_N);
@@ -75,11 +81,14 @@ void problem() {
       if (visited[x][y]) continue;
 
       auto k = g[x][y];
+      if (k == 0 || visited[x][y]) continue;
+      visited[x][y] = true;
+
       int size = 1;
       for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
         auto p = queue.front;
         queue.removeFront;
-        foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        foreach(dir; DIRS) {
           foreach(delta; 1..N) {
             auto np = p;
             np.x += dir[0] * delta;
@@ -107,7 +116,7 @@ void problem() {
         }
       }
 
-      ret += size * size;
+      ret += size * (size  - 1) / 2;
     }
     return ret;
   }
@@ -162,15 +171,53 @@ void problem() {
 
   Move[] executeRandomMove() {
     Move[] moves;
+    // if (G.map!(g => g.count(0)).sum > N*N / 10) return moves;
+
+    foreach_reverse(times; 0..500) {
+      if (moves.length >= K*50) break;
+      if (elapsed(2000)) break;
+
+      Point[] whites;
+      foreach(x; 0..N) foreach(y; 0..N) {
+        if (G[x][y] == 0) whites ~= Point(x, y);
+      }
+
+      int maxScore;
+      Move[] maxMoves;
+      DList!Move ml;
+      void dfs(Point p, Point pre, int t) {
+        if (maxScore.chmax(calcSimpleScore(G))) maxMoves = ml.array;
+        if (t == 0) return;
+
+        foreach(d; DIRS) {
+          auto np = Point(p.x + d[0], p.y + d[1]);
+          if (!np.valid(N) || np == pre || np.of(G) == 0) continue;
+
+          ml.insertBack(Move(np, p));
+          swap(G[p.x][p.y], G[np.x][np.y]);
+          dfs(np, p, t - 1);
+          swap(G[p.x][p.y], G[np.x][np.y]);
+          ml.removeBack;
+        }
+      }
+      foreach(p; whites.randomShuffle[0..min(120, $)]) {
+        dfs(p, p, 3);
+      }
+      if (calcSimpleScore(G) < maxScore) {
+        moves ~= maxMoves;
+        foreach(mm; maxMoves) swap(G[mm.sx][mm.sy], G[mm.ex][mm.ey]);
+        // maxScore.deb;
+      } else break;
+    }
+    moves.length.deb;
     return moves;
   }
 
   auto solve() {
-    calcMaxSize(G).deb;
-    auto moves = executeSortingMove();
-    calcMaxSize(G).deb;
-    // Move[] moves;
-
+    auto moves = executeRandomMove();
+    if (moves.empty) moves ~= executeSortingMove();
+    calcSimpleScore(G).deb;
+    
     Connection[] bestConnections;
     auto globalVisited = new bool[][](N, N);
     auto globalUf = UnionFind(MAX_N * MAX_N);
@@ -334,7 +381,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time, core.bitop, std.random;
+import std;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -356,8 +403,9 @@ void outputForAtCoder(T)(T delegate() fn) {
   else fn().writeln;
 }
 void runSolver() {
+  static import std.datetime.stopwatch;
   enum BORDER = "#==================================";
-  debug { BORDER.writeln; while(true) { "#<<< Process time: %s >>>".writefln(benchmark!problem(1)); BORDER.writeln; } }
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
