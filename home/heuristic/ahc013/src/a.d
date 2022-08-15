@@ -125,58 +125,10 @@ void problem() {
     return ret;
   }
 
-  Move[] executeSortingMove() {
-    Move[] moves;
-
-    foreach(k; 1..K + 1) {
-      auto perX = new int[][](N, 0);
-      foreach(x; 0..N) foreach(y; 0..N) {
-        if (G[x][y] == k) perX[x] ~= y;
-      }
-      foreach(x, arr; perX.enumerate(0).array.sort!"a[1].length < b[1].length") {
-        long up = x == 0 ? -1 : perX[x - 1].length;
-        long down = x == N - 1 ? -1 : perX[x + 1].length;
-        if (up < arr.length && down < arr.length) break;
-
-        foreach(y; arr) {
-          if (up >= down && G[x - 1][y] == 0) {
-            moves ~= Move(x, y, x-1, y);
-            swap(G[x][y], G[x - 1][y]);
-          } else if (x < N - 1 && G[x + 1][y] == 0) {
-            moves ~= Move(x, y, x+1, y);
-            swap(G[x][y], G[x + 1][y]);
-          }
-        }
-      }
-
-      auto perY = new int[][](N, 0);
-      foreach(x; 0..N) foreach(y; 0..N) {
-        if (G[x][y] == k) perY[y] ~= x;
-      }
-      foreach(y, arr; perY.enumerate(0).array.sort!"a[1].length < b[1].length") {
-        long up = y == 0 ? -1 : perY[y - 1].length;
-        long down = y == N - 1 ? -1 : perY[y + 1].length;
-        if (up < arr.length && down < arr.length) break;
-
-        foreach(x; arr) {
-          if (up >= down && G[x][y - 1] == 0) {
-            moves ~= Move(x, y, x, y - 1);
-            swap(G[x][y], G[x][y - 1]);
-          } else if (y < N - 1 && G[x][y + 1] == 0) {
-            moves ~= Move(x, y, x, y + 1);
-            swap(G[x][y], G[x][y + 1]);
-          }
-        }
-      }
-    }
-
-    return moves;
-  }
 
   Move[][] executeRandomMove() {
     Move[][] moves;
     int rest = K * 100;
-    // if (G.map!(g => g.count(0)).sum > N*N / 10) return moves;
 
     foreach(_; 0..1000) {
       if (rest <= K*50) break;
