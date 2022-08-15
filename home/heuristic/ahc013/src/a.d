@@ -116,7 +116,7 @@ void problem() {
         }
       }
 
-      ret += size * (size  - 1) / 2;
+      ret += size * (size - 1) / 2;
     }
     return ret;
   }
@@ -169,12 +169,13 @@ void problem() {
     return moves;
   }
 
-  Move[] executeRandomMove() {
-    Move[] moves;
+  Move[][] executeRandomMove() {
+    Move[][] moves;
+    int rest = K * 100;
     // if (G.map!(g => g.count(0)).sum > N*N / 10) return moves;
 
-    foreach_reverse(times; 0..500) {
-      if (moves.length >= K*50) break;
+    foreach(_; 0..1000) {
+      if (rest <= K*50) break;
       if (elapsed(2000)) break;
 
       Point[] whites;
@@ -189,34 +190,35 @@ void problem() {
         if (maxScore.chmax(calcSimpleScore(G))) maxMoves = ml.array;
         if (t == 0) return;
 
-        foreach(d; DIRS) {
+        static foreach(d; DIRS) {{
           auto np = Point(p.x + d[0], p.y + d[1]);
-          if (!np.valid(N) || np == pre || np.of(G) == 0) continue;
-
-          ml.insertBack(Move(np, p));
-          swap(G[p.x][p.y], G[np.x][np.y]);
-          dfs(np, p, t - 1);
-          swap(G[p.x][p.y], G[np.x][np.y]);
-          ml.removeBack;
-        }
+          if (np.valid(N) && np != pre && np.of(G) != 0) {
+            ml.insertBack(Move(np, p));
+            swap(G[p.x][p.y], G[np.x][np.y]);
+            dfs(np, p, t - 1);
+            swap(G[p.x][p.y], G[np.x][np.y]);
+            ml.removeBack;
+          }
+        }}
       }
       foreach(p; whites.randomShuffle[0..min(120, $)]) {
         dfs(p, p, 3);
       }
       if (calcSimpleScore(G) < maxScore) {
+        rest -= maxMoves.length;
         moves ~= maxMoves;
         foreach(mm; maxMoves) swap(G[mm.sx][mm.sy], G[mm.ex][mm.ey]);
         // maxScore.deb;
-      } else break;
+      } else {
+        break;
+      }
     }
-    moves.length.deb;
     return moves;
   }
 
   auto solve() {
-    auto moves = executeRandomMove();
+    auto moves = executeRandomMove().joiner.array;
     if (moves.empty) moves ~= executeSortingMove();
-    calcSimpleScore(G).deb;
     
     Connection[] bestConnections;
     auto globalVisited = new bool[][](N, N);
