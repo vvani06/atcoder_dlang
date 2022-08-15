@@ -46,6 +46,10 @@ struct Move {
     this(f.x, f.y, t.x, t.y);
   }
 
+  void apply(T)(T[][] grid) {
+    swap(grid[sx][sy], grid[ex][ey]);
+  }
+
   string toString() {
     return "%s %s %s %s".format(sx, sy, ex, ey);
   }
@@ -193,10 +197,11 @@ void problem() {
         static foreach(d; DIRS) {{
           auto np = Point(p.x + d[0], p.y + d[1]);
           if (np.valid(N) && np != pre && np.of(G) != 0) {
-            ml.insertBack(Move(np, p));
-            swap(G[p.x][p.y], G[np.x][np.y]);
+            auto move = Move(np, p);
+            ml.insertBack(move);
+            move.apply(G);
             dfs(np, p, t - 1);
-            swap(G[p.x][p.y], G[np.x][np.y]);
+            move.apply(G);
             ml.removeBack;
           }
         }}
@@ -207,8 +212,7 @@ void problem() {
       if (calcSimpleScore(G) < maxScore) {
         rest -= maxMoves.length;
         moves ~= maxMoves;
-        foreach(mm; maxMoves) swap(G[mm.sx][mm.sy], G[mm.ex][mm.ey]);
-        // maxScore.deb;
+        foreach(move; maxMoves) move.apply(G);
       } else {
         break;
       }
