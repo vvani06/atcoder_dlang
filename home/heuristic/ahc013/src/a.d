@@ -55,6 +55,121 @@ struct Move {
   }
 }
 
+struct Cluster {
+  int type;
+  Point[] points;
+
+  this(int type, Point[] points) {
+    this.type = type;
+    this.points = points;
+  }
+
+  Cluster recalc(int[][] grid) {
+    auto N = grid.length.to!int;
+    auto visited = new bool[][](N, N);
+    
+    foreach(pp; points) {
+      if (pp.of(grid) != type) continue;
+
+      for(auto queue = new DList!Point(pp); !queue.empty;) {
+        auto p = queue.front;
+        queue.removeFront;
+        visited[p.x][p.y] = true;
+
+        foreach(dir; DIRS) {
+          foreach(delta; 1..N) {
+            auto np = p;
+            np.x += dir[0] * delta;
+            np.y += dir[1] * delta;
+            if (!np.valid(N) || np.of(visited)) break;
+            if (np.of(grid) == 0) continue;
+
+            if (np.of(grid) == type) {
+              queue.insertBack(np);
+              points ~= np;
+              foreach(d; 1..delta + 1) {
+                auto dp = p;
+                dp.x += dir[0] * d;
+                dp.y += dir[1] * d;
+                visited[dp.x][dp.y] = true;
+              }
+            }
+            
+            break;
+          }
+        }
+      }
+
+      return Cluster(type, points);
+    }
+
+    return Cluster(type, []);
+  }
+
+  int score() {
+    auto size = points.length.to!int;
+    return size * (size - 1) / 2;
+  }
+}
+
+struct Evaluation {
+  Cluster[] clusters;
+  int score;
+
+  this(int[][] grid) {
+    auto N = grid.length.to!int;
+    auto visited = new bool[][](N, N);
+
+    foreach(x; 0..N) foreach(y; 0..N) {
+      if (visited[x][y]) continue;
+
+      auto k = grid[x][y];
+      if (k == 0 || visited[x][y]) continue;
+      visited[x][y] = true;
+
+      auto points = [Point(x, y)];
+      for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
+        auto p = queue.front;
+        queue.removeFront;
+        foreach(dir; DIRS) {
+          foreach(delta; 1..N) {
+            auto np = p;
+            np.x += dir[0] * delta;
+            np.y += dir[1] * delta;
+            if (!np.valid(N) || np.of(visited)) break;
+            if (np.of(grid) == 0) continue;
+
+            if (np.of(grid) == k) {
+              queue.insertBack(np);
+              points ~= np;
+              foreach(d; 1..delta + 1) {
+                auto dp = p;
+                dp.x += dir[0] * d;
+                dp.y += dir[1] * d;
+                visited[dp.x][dp.y] = true;
+              }
+            }
+            
+            break;
+          }
+        }
+      }
+
+      auto size = points.length.to!int;
+      if (size > 2) {
+        clusters ~= Cluster(k, points);
+        score += size * (size - 1) / 2;
+      }
+    }
+
+    clusters.sort!"a.score > b.score";
+  }
+
+  Cluster[] top2() {
+    return clusters[0..2];
+  }
+}
+
 int calcScore(UnionFind uf, int[] penalty) {
   auto n = MAX_N * MAX_N;
   auto sizes = new int[](n);
@@ -76,74 +191,26 @@ void problem() {
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
   }
 
-  int calcSimpleScore(int[][] g) {
-    int ret;
-    auto visited = new bool[][](N, N);
-    auto uf = UnionFind(MAX_N * MAX_N);
-
-    foreach(x; 0..N) foreach(y; 0..N) {
-      if (visited[x][y]) continue;
-
-      auto k = g[x][y];
-      if (k == 0 || visited[x][y]) continue;
-      visited[x][y] = true;
-
-      int size = 1;
-      for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
-        auto p = queue.front;
-        queue.removeFront;
-        foreach(dir; DIRS) {
-          foreach(delta; 1..N) {
-            auto np = p;
-            np.x += dir[0] * delta;
-            np.y += dir[1] * delta;
-            if (!np.valid(N)) break;
-
-            if (np.of(G) == k) {
-              if (uf.same(p.toId, np.toId)) break;
-
-              queue.insertBack(np);
-              uf.unite(p.toId, np.toId);
-              size++;
-              foreach(d; 1..delta + 1) {
-                auto dp = p;
-                dp.x += dir[0] * d;
-                dp.y += dir[1] * d;
-                visited[dp.x][dp.y] = true;
-              }
-              break;
-            }
-
-            if (np.of(G) == 0) if (np.of(visited)) break; else continue;
-            if (np.of(G) != k) break;
-          }
-        }
-      }
-
-      ret += size * (size - 1) / 2;
-    }
-    return ret;
-  }
-
-
   Move[][] executeRandomMove() {
     Move[][] moves;
     int rest = K * 100;
 
     foreach(_; 0..1000) {
-      if (rest <= K*50) break;
+      if (rest <= K*40) break;
       if (elapsed(2000)) break;
+
+      auto eval = Evaluation(G);
 
       Point[] whites;
       foreach(x; 0..N) foreach(y; 0..N) {
         if (G[x][y] == 0) whites ~= Point(x, y);
       }
 
-      int maxScore;
+      int maxScore = eval.top2.map!"a.score".sum;
       Move[] maxMoves;
       DList!Move ml;
       void dfs(Point p, Point pre, int t) {
-        if (maxScore.chmax(calcSimpleScore(G) - 3 + t)) maxMoves = ml.array;
+        if (t < 3 && maxScore.chmax(eval.top2.map!(c => c.recalc(G).score).sum)) maxMoves = ml.array;
         if (t == 0) return;
 
         static foreach(d; DIRS) {{
@@ -158,10 +225,10 @@ void problem() {
           }
         }}
       }
-      foreach(p; whites.randomShuffle[0..min(120, $)]) {
+      foreach(p; whites.randomShuffle[0..min(200, $)]) {
         dfs(p, p, 3);
       }
-      if (calcSimpleScore(G) < maxScore) {
+      if (maxScore > eval.top2.map!"a.score".sum) {
         rest -= maxMoves.length;
         moves ~= maxMoves;
         foreach(move; maxMoves) move.apply(G);
@@ -181,10 +248,10 @@ void problem() {
     Connection[] bestConnections;
     int bestScore;
 
-    foreach(moveIgnores; 0..10) {
+    foreach(moveIgnores; 0..randomMoves.length) {
       Move[] moves;
       G = init.map!"a.dup".array;
-      foreach(mm; randomMoves[0..max(0, $ - moveIgnores)]) {
+      foreach(mm; randomMoves[0..$ - moveIgnores]) {
         foreach(m; mm) swap(G[m.sx][m.sy], G[m.ex][m.ey]);
         moves ~= mm;
       }
