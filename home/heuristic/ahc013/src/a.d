@@ -75,7 +75,6 @@ struct Cluster {
         auto p = queue.front;
         queue.removeFront;
         visited[p.x][p.y] = true;
-
         foreach(dir; DIRS) {
           foreach(delta; 1..N) {
             auto np = p;
@@ -166,7 +165,7 @@ struct Evaluation {
   }
 
   Cluster[] top2() {
-    return clusters[0..2];
+    return clusters[0..min($, 2)];
   }
 }
 
