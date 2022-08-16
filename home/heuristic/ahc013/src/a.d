@@ -164,8 +164,24 @@ struct Evaluation {
     clusters.sort!"a.score > b.score";
   }
 
-  Cluster[] top2() {
+  Cluster[] top() {
     return clusters[0..min($, 2)];
+  }
+
+  int topScore() {
+    int ret;
+    foreach(i, c; top) {
+      ret += (top.length.to!int - i.to!int) * c.score;
+    }
+    return ret;
+  }
+ 
+  int topScoreRecalced(int[][] grid) {
+    int ret;
+    foreach(i, c; top) {
+      ret += (top.length.to!int - i.to!int) * c.recalc(grid).score;
+    }
+    return ret;
   }
 }
 
@@ -185,6 +201,7 @@ void problem() {
   auto N = scan!int;
   auto K = scan!int;
   auto G = scan!string(N).map!(s => s.map!(c => (c - '0').to!int).array).array;
+  auto rnd = Xorshift(unpredictableSeed);
 
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
@@ -194,22 +211,26 @@ void problem() {
     Move[][] moves;
     int rest = K * 100;
 
+    Point[] whites;
+    foreach(x; 0..N) foreach(y; 0..N) {
+      if (G[x][y] == 0) whites ~= Point(x, y);
+    }
+
     foreach(_; 0..1000) {
-      if (rest <= K*40) break;
+      if (rest <= 100) break;
       if (elapsed(2000)) break;
 
       auto eval = Evaluation(G);
 
-      Point[] whites;
-      foreach(x; 0..N) foreach(y; 0..N) {
-        if (G[x][y] == 0) whites ~= Point(x, y);
-      }
-
-      int maxScore = eval.top2.map!"a.score".sum;
+      int maxScore;
+      int maxi;
       Move[] maxMoves;
       DList!Move ml;
-      void dfs(Point p, Point pre, int t) {
-        if (t < 3 && maxScore.chmax(eval.top2.map!(c => c.recalc(G).score).sum)) maxMoves = ml.array;
+      void dfs(Point p, Point pre, int t, int i) {
+        if (t < 3 && maxScore.chmax(eval.topScoreRecalced(G))) {
+          maxMoves = ml.array;
+          maxi = i;
+        }
         if (t == 0) return;
 
         static foreach(d; DIRS) {{
@@ -218,21 +239,22 @@ void problem() {
             auto move = Move(np, p);
             ml.insertBack(move);
             move.apply(G);
-            dfs(np, p, t - 1);
+            dfs(np, p, t - 1, i);
             move.apply(G);
             ml.removeBack;
           }
         }}
       }
-      foreach(p; whites.randomShuffle[0..min(200, $)]) {
-        dfs(p, p, 3);
-      }
-      if (maxScore > eval.top2.map!"a.score".sum) {
+
+      whites = whites.randomShuffle(rnd).array;
+      foreach(i, p; whites[0..min(50, $)]) dfs(p, p, 3, i.to!int);
+      if (maxScore > eval.topScore) {
         rest -= maxMoves.length;
         moves ~= maxMoves;
         foreach(move; maxMoves) move.apply(G);
-      } else {
-        break;
+
+        whites[maxi].x = maxMoves[$ - 1].sx;
+        whites[maxi].y = maxMoves[$ - 1].sy;
       }
     }
     return moves;
