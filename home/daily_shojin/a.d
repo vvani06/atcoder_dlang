@@ -5,14 +5,21 @@ void problem() {
   auto A = scan!long(N);
 
   auto solve() {
-    long ans;
-    long pre = 0;
-    foreach_reverse(i, a; A) {
-      if (pre > a || a > i) return -1;
-      if (pre < a) ans += a;
-      // [i.to!long, a, pre, ans].deb;
+    auto segtree = SegTree!("a + b", long)(new long[](N));
 
-      pre = a - 1;
+    long ans;
+    long pre = -1;
+    int[] adds;
+    foreach(a; A.enumerate.array.sort!"a[1] > b[1]") {
+      auto i = a[0].to!int;
+      long n = a[1];
+      if (pre != n) {
+        foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
+        adds.length = 0;
+      }
+      ans += segtree.sum(0, i);
+      adds ~= i;
+      pre = n;
     }
 
     return ans;
@@ -58,36 +65,50 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct FermetCalculator(uint MD) {
-  long[] factrial; // 階乗
-  long[] inverse;  // 逆元
-  
-  this(long size) {
-    factrial = new long[size + 1];
-    inverse = new long[size + 1];
-    factrial[0] = 1;
-    inverse[0] = 1;
-    
-    for (long i = 1; i <= size; i++) {
-      factrial[i] = (factrial[i - 1] * i) % MD;  // 階乗を求める
-      inverse[i] = pow(factrial[i], MD - 2) % MD; // フェルマーの小定理で逆元を求める
-    }
-  }
-  
-  long combine(long n, long k) {
-    if (n < k) return 1;
-    return factrial[n] * inverse[k] % MD * inverse[n - k] % MD;
-  }
-  
-  long pow(long x, long n) { //x^n 計算量O(logn)
-    long ans = 1;
-    while (n > 0) {
-      if ((n & 1) == 1) {
-        ans = ans * x % MD;
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
       }
-      x = x * x % MD; //一周する度にx, x^2, x^4, x^8となる
-      n >>= 1; //桁をずらす n = n >> 1
     }
-    return ans;
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
   }
 }
