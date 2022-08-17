@@ -68,9 +68,11 @@ struct Cluster {
     auto N = grid.length.to!int;
     auto visited = new bool[][](N, N);
     
+    Point[] newPoints;
     foreach(pp; points) {
       if (pp.of(grid) != type) continue;
 
+      newPoints ~= pp;
       for(auto queue = new DList!Point(pp); !queue.empty;) {
         auto p = queue.front;
         queue.removeFront;
@@ -85,7 +87,7 @@ struct Cluster {
 
             if (np.of(grid) == type) {
               queue.insertBack(np);
-              points ~= np;
+              newPoints ~= np;
               foreach(d; 1..delta + 1) {
                 auto dp = p;
                 dp.x += dir[0] * d;
@@ -99,7 +101,7 @@ struct Cluster {
         }
       }
 
-      return Cluster(type, points);
+      return Cluster(type, newPoints);
     }
 
     return Cluster(type, []);
@@ -168,10 +170,15 @@ struct Evaluation {
     return clusters[0..min($, 2)];
   }
 
+  int innerCalc(int rank, int score) {
+    // return rank*rank*score;
+    return rank * score;
+  }
+
   int topScore() {
     int ret;
     foreach(i, c; top) {
-      ret += (top.length.to!int - i.to!int) * c.score;
+      ret += innerCalc(top.length.to!int - i.to!int, c.score);
     }
     return ret;
   }
@@ -179,7 +186,7 @@ struct Evaluation {
   int topScoreRecalced(int[][] grid) {
     int ret;
     foreach(i, c; top) {
-      ret += (top.length.to!int - i.to!int) * c.recalc(grid).score;
+      ret += innerCalc(top.length.to!int - i.to!int, c.recalc(grid).score);
     }
     return ret;
   }
@@ -221,7 +228,6 @@ void problem() {
       if (elapsed(2000)) break;
 
       auto eval = Evaluation(G);
-
       int maxScore;
       int maxi;
       Move[] maxMoves;
@@ -247,7 +253,8 @@ void problem() {
       }
 
       whites = whites.randomShuffle(rnd).array;
-      foreach(i, p; whites[0..min(50, $)]) dfs(p, p, 3, i.to!int);
+      foreach(i, p; whites[0..min(100, $)]) dfs(p, p, 3, i.to!int);
+      // [maxScore, eval.topScore].deb;
       if (maxScore > eval.topScore) {
         rest -= maxMoves.length;
         moves ~= maxMoves;
@@ -263,13 +270,14 @@ void problem() {
   auto solve() {
     auto init = G.map!"a.dup".array;
     auto randomMoves = executeRandomMove();
+    randomMoves.joiner.array.length.deb;
     // if (moves.empty) moves ~= executeSortingMove();
     
     Move[] bestMoves;
     Connection[] bestConnections;
     int bestScore;
 
-    foreach(moveIgnores; 0..randomMoves.length) {
+    foreach(moveIgnores; 0..randomMoves.length + 1) {
       Move[] moves;
       G = init.map!"a.dup".array;
       foreach(mm; randomMoves[0..$ - moveIgnores]) {
@@ -283,67 +291,43 @@ void problem() {
       int rest = K*100 - moves.length.to!int;
       auto penalty = new int[](MAX_N * MAX_N);
 
-      while(rest > 0) {
-        int bestSize;
+      auto eval = Evaluation(G);
+      eval.score.deb;
+      foreach(ci, c; eval.clusters) {
         Point bestPoint;
+        bestPoint.x = -1;
         Point[Point] bestWalls;
-        foreach(x; 0..N) foreach(y; 0..N) {
-          if (G[x][y] == 0 || globalVisited[x][y]) continue;
+        auto bestSize = c.points.length.to!int;
+        for(auto queue = new DList!Point(c.points); !queue.empty;) {
+          auto p = queue.front;
+          queue.removeFront;
+          if (p.of(G) != c.type) bestSize--;
+          if (p.of(globalVisited) || p.of(G) != c.type) continue;
 
-          Point[Point] walls;
-          auto k = G[x][y];
-          auto visited = globalVisited.map!"a.dup".array;
-          auto uf = globalUf.dup;
-          int size;
-          for(auto queue = new DList!Point(Point(x, y)); !queue.empty;) {
-            auto p = queue.front;
-            queue.removeFront;
-            foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-              foreach(delta; 1..N) {
-                auto np = p;
-                np.x += dir[0] * delta;
-                np.y += dir[1] * delta;
-                if (!np.valid(N)) break;
+          if (bestPoint.x == -1) bestPoint = p;
+          foreach(dir; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            foreach(delta; 1..N) {
+              auto np = p;
+              np.x += dir[0] * delta;
+              np.y += dir[1] * delta;
+              if (!np.valid(N) || np.of(globalVisited)) break;
 
-                if (np.of(G) == k) {
-                  if (uf.same(p.toId, np.toId)) break;
-                  if (rest <= 0) break;
-
-                  queue.insertBack(np);
-                  uf.unite(p.toId, np.toId);
-                  size++;
-                  foreach(d; 1..delta + 1) {
-                    auto dp = p;
-                    dp.x += dir[0] * d;
-                    dp.y += dir[1] * d;
-                    visited[dp.x][dp.y] = true;
-                  }
-                  break;
-                }
-
-                if (np.of(G) == 0) if (np.of(visited)) break; else continue;
-                if (np.of(G) != k) {
-                  if (!np.of(visited)) walls[np] = p;
-                  break;
-                }
+              if (np.of(G) == 0) continue;
+              if (np.of(G) != c.type) {
+                bestWalls[np] = p;
+                break;
               }
-            }
-          }
-
-          if (bestSize.chmax(size)) {
-            bestPoint = Point(x, y);
-            bestWalls = walls;
+            } 
           }
         }
 
-        if (bestSize <= 1) break;
+        if (bestPoint.x == -1) continue;
 
-        auto k = bestPoint.of(G);
         int bestWallSize;
         Point bestWall;
         foreach(w; bestWalls.keys) {
           auto bk = G[w.x][w.y];
-          G[w.x][w.y] = k;
+          G[w.x][w.y] = c.type;
           auto visited = globalVisited.map!"a.dup".array;
           auto uf = globalUf.dup;
           int wallSize;
@@ -357,7 +341,7 @@ void problem() {
                 np.y += dir[1] * delta;
                 if (!np.valid(N)) break;
 
-                if (np.of(G) == k) {
+                if (np.of(G) == c.type) {
                   if (uf.same(p.toId, np.toId)) break;
 
                   queue.insertBack(np);
@@ -373,7 +357,7 @@ void problem() {
                 }
 
                 if (np.of(G) == 0) if (np.of(visited)) break; else continue;
-                if (np.of(G) != k) break;
+                if (np.of(G) != c.type) break;
               }
             }
           }
@@ -382,11 +366,11 @@ void problem() {
           G[w.x][w.y] = bk;
         }
         
-        if (bestWallSize > bestSize + 3) {
-          // [bestPoint, bestWall].deb;
-          // bestWall.of(globalVisited).deb;
-          G[bestWall.x][bestWall.y] = k;
-          globalVisited[bestWall.x][bestWall.y] = true;
+        // [bestWallSize, bestSize].deb;
+        if (bestWallSize > bestSize + 2) {
+          G[bestWall.x][bestWall.y] = c.type;
+          // globalVisited[bestWall.x][bestWall.y] = true;
+          penalty[globalUf.root(bestPoint.toId)]++;
         } else bestWallSize = 0;
 
         globalVisited[bestPoint.x][bestPoint.y] = true;
@@ -398,9 +382,10 @@ void problem() {
               auto np = p;
               np.x += dir[0] * delta;
               np.y += dir[1] * delta;
-              if (!np.valid(N)) break;
+              if (!np.valid(N) || np.of(globalVisited)) break;
+              if (np.of(G) == 0) continue;
 
-              if (np.of(G) == k) {
+              if (np.of(G) == c.type) {
                 if (globalUf.same(p.toId, np.toId)) break;
                 if (rest <= 0) break;
 
@@ -414,16 +399,12 @@ void problem() {
                   dp.y += dir[1] * d;
                   globalVisited[dp.x][dp.y] = true;
                 }
-                break;
               }
-
-              if (np.of(G) == 0) if (np.of(globalVisited)) break; else continue;
-              if (np.of(G) != k) break;
+              break;
             }
           }
+          if (rest <= 0) break;
         }
-
-        if (bestWallSize > 0) penalty[globalUf.root(bestPoint.toId)]++;
       }
 
       if (bestScore.chmax(calcScore(globalUf, penalty))) {
