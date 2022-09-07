@@ -2,29 +2,29 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto LR = scan!int(2 * N).chunks(2);
+  auto LR = scan!long(2 * N).chunks(2);
 
   auto solve() {
-    auto base = LR[0];
-    long ans = long.max;
-    
-    foreach(x; base[0]..base[1] + 1) {
-      int[] xs = [x];
-      foreach(lr; LR[1..$]) {
-        if (lr[0] > x) xs ~= lr[0];
-        else if (lr[1] < x) xs ~= lr[1];
-        else xs ~= x;
+    long calc(long x) {
+      long[] xs;
+      long total;
+      foreach(lr; LR) {
+        auto p = lr[0] > x ? lr[0] : lr[1] < x ? lr[1] : x;
+        xs ~= p;
+        total += p;
       }
 
-      // [[x], xs].deb;
-      long tAns;
-      foreach(i; 0..N - 1) foreach(j; i + 1..N) {
-        tAns += abs(xs[i] - xs[j]);
+      long preSum, ret;
+      foreach(i, a; xs.sort.array) {
+        ret += total - preSum - (N - i)*a;
+        preSum += a;
       }
-
-      ans = min(ans, tAns);
+      
+      // [[x], [ret], xs].deb;
+      return ret;
     }
-    return ans;
+
+    return ternarySearch(&calc, LR.map!"a[0]".minElement, LR.map!"a[1]".maxElement)[1];
   }
 
   outputForAtCoder(&solve);
@@ -65,3 +65,32 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
+}

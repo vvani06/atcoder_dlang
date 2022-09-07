@@ -25,3 +25,32 @@ T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
  
   return ok;
 }
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
+}
