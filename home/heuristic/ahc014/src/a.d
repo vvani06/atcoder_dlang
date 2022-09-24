@@ -8,11 +8,27 @@ alias RBT = RedBlackTree!int;
 int N = 0;
 
 struct Coord {
-  int x, y;
-  int d() { return (x + y) % 2; }
+  int x, y, dimension;
+  this(int x, int y, int dimension = 0) {
+    this.x = x;
+    this.y = y;
+    this.dimension = dimension;
+  }
+
+  int d() { 
+    if (dimension != 0) assert("dont use `d` for rotated coord");
+    return (x + y) % 2;
+  }
   Coord rotate() {
-    if (d == 1) return Coord((y + x - 1) / 2, (y - x + N + 1) / 2);
-    return Coord((y + x) / 2, (y - x + N) / 2);
+    if (dimension == 0) {
+      if (d == 1) 
+        return Coord((y + x - 1) / 2, (y - x + N + 1) / 2, 2);
+      else
+        return Coord((y + x) / 2, (y - x + N) / 2, 1);
+    }
+    
+    const half = N / 2;
+    return Coord(x - y + half + dimension - 1, x + y - half);
   }
 }
 
@@ -24,77 +40,138 @@ struct State {
     ay = size.iota.map!(_ => redBlackTree!int([])).array;
     ux = size.iota.map!(_ => redBlackTree!int([-1, size])).array;
     uy = size.iota.map!(_ => redBlackTree!int([-1, size])).array;
-    
-    foreach(c; coords) {
-      ax[c.y].insert(c.x);
-      ay[c.x].insert(c.y);
+
+    if (type == 0) {
+      foreach(c; coords) {
+        ax[c.y].insert(c.x);
+        ay[c.x].insert(c.y);
+      }
+    } else {
+      foreach(cc; coords) {
+        if (cc.d + 1 == type) {
+          auto c = cc.rotate;
+          ax[c.y].insert(c.x);
+          ay[c.x].insert(c.y);
+        }
+      }
     }
+
+    const h = size / 2;
+    if (type == 1) {
+      foreach(t; 0..h + 1) {
+        ux[h + t].insert(-1 + t);
+        ux[h + t].insert(size - t);
+        ux[h - t].insert(-1 + t);
+        ux[h - t].insert(size - t);
+        uy[h + t].insert(-1 + t);
+        uy[h + t].insert(size - t);
+        uy[h - t].insert(-1 + t);
+        uy[h - t].insert(size - t);
+      }
+    } else if (type == 2) {
+      foreach(t; 0..h) {
+        ux[h + t + 1].insert(-1 + t);
+        ux[h + t + 1].insert(size - 1 - t);
+        ux[h - t].insert(-1 + t);
+        ux[h - t].insert(size - 1 - t);
+        uy[h + t].insert(t);
+        uy[h + t].insert(size - t);
+        uy[h - t - 1].insert(t);
+        uy[h - t - 1].insert(size - t);
+      }
+    }
+  }
+}
+
+struct Game {
+  State[] states;
+
+  this(Coord[] coords) {
+    states ~= State(coords, N, 0);
+    states ~= State(coords, N, 1);
+    states ~= State(coords, N, 2);
   }
 
   void addSquare(Square sq) {
     if (sq.empty) return;
 
-    const toAdd = sq.coords[0];
-    if (toAdd.x in ax[toAdd.y] || toAdd.y in ay[toAdd.x]) assert("already added");
+    foreach(dimension, ref s; states) {
+      if (dimension != 0 && sq.coords[0].d != dimension - 1) continue;
 
-    ax[toAdd.y].insert(toAdd.x);
-    ay[toAdd.x].insert(toAdd.y);
+      auto toAdd = dimension == 0 ? sq.coords[0] : sq.coords[0].rotate;
+      if (toAdd.x in s.ax[toAdd.y] || toAdd.y in s.ay[toAdd.x]) assert("already added");
 
-    foreach(x; min(sq.coords[0].x, sq.coords[2].x)..max(sq.coords[0].x, sq.coords[2].x)) {
-      ux[sq.coords[0].y].insert(x);
-      ux[sq.coords[2].y].insert(x);
+      s.ax[toAdd.y].insert(toAdd.x);
+      s.ay[toAdd.x].insert(toAdd.y);
     }
-    foreach(y; min(sq.coords[0].y, sq.coords[2].y)..max(sq.coords[0].y, sq.coords[2].y)) {
-      uy[sq.coords[0].x].insert(y);
-      uy[sq.coords[2].x].insert(y);
+
+    with(states[sq.dimension]) {
+      auto cds = sq.dimension == 0 ? sq.coords : sq.coords.map!"a.rotate".array;
+      foreach(x; min(cds[0].x, cds[2].x)..max(cds[0].x, cds[2].x)) {
+        ux[cds[0].y].insert(x);
+        ux[cds[2].y].insert(x);
+      }
+      foreach(y; min(cds[0].y, cds[2].y)..max(cds[0].y, cds[2].y)) {
+        uy[cds[0].x].insert(y);
+        uy[cds[2].x].insert(y);
+      }
     }
   }
 
-  Square searchFrom(Coord from) {
-    int[] lefts, rights, ups, downs;
-    {
-      auto leftLimit = ux[from.y].lowerBound(from.x).back;
-      foreach_reverse(t; ax[from.y].lowerBound(from.x)) {
-        if (leftLimit >= t) break;
-        lefts ~= t; break;
-      }
-      auto rightLimit = ux[from.y].upperBound(from.x - 1).front;
-      foreach(t; ax[from.y].upperBound(from.x)) {
-        if (rightLimit <= t) break;
-        rights ~= t; break;
-      }
+  Square searchFrom(Coord fromCoord, bool[] dimensions = [1, 1, 1]) {
+    foreach(dimension, state; states) {
+      if (!dimensions[dimension]) continue;
+      if (dimension != 0 && fromCoord.d != dimension - 1) continue;
 
-      auto downLimit = uy[from.x].lowerBound(from.y).back;
-      foreach_reverse(t; ay[from.x].lowerBound(from.y)) {
-        if (downLimit >= t) break;
-        downs ~= t; break;
-      }
+      auto from = dimension == 0 ? fromCoord : fromCoord.rotate;
+      with(state) {
+        int[] lefts, rights, ups, downs;
+        {
+          auto leftLimit = ux[from.y].lowerBound(from.x).back;
+          foreach_reverse(t; ax[from.y].lowerBound(from.x)) {
+            if (leftLimit >= t) break;
+            lefts ~= t; break;
+          }
+          auto rightLimit = ux[from.y].upperBound(from.x - 1).front;
+          foreach(t; ax[from.y].upperBound(from.x)) {
+            if (rightLimit < t) break;
+            rights ~= t; break;
+          }
 
-      auto upLimit = uy[from.x].upperBound(from.y - 1).front;
-      foreach(t; ay[from.x].upperBound(from.y)) {
-        if (upLimit <= t) break;
-        ups ~= t; break;
-      }
-    }
-    
-    foreach(x; lefts ~ rights) {
-      foreach(y; downs ~ ups) {
-        if (x in ax[y]) continue;
-        
-        auto l = min(x, from.x);
-        auto r = max(x, from.x);
-        auto b = min(y, from.y);
-        auto t = max(y, from.y);
-        if (ux[b].upperBound(l - 1).front < r) continue;
-        if (ux[t].upperBound(l - 1).front < r) continue;
-        if (uy[l].upperBound(b - 1).front < t) continue;
-        if (uy[r].upperBound(b - 1).front < t) continue;
-        if (ax[b].upperBound(l).front < r) continue;
-        if (ax[t].upperBound(l).front < r) continue;
-        if (ay[l].upperBound(b).front < t) continue;
-        if (ay[r].upperBound(b).front < t) continue;
+          auto downLimit = uy[from.x].lowerBound(from.y).back;
+          foreach_reverse(t; ay[from.x].lowerBound(from.y)) {
+            if (downLimit >= t) break;
+            downs ~= t; break;
+          }
 
-        return Square(Coord(x, y), from);
+          auto upLimit = uy[from.x].upperBound(from.y - 1).front;
+          foreach(t; ay[from.x].upperBound(from.y)) {
+            if (upLimit < t) break;
+            ups ~= t; break;
+          }
+        }
+
+        // [lefts, rights, downs, ups].deb;
+        foreach(x; lefts ~ rights) {
+          foreach(y; downs ~ ups) {
+            if (x in ax[y]) continue;
+            
+            auto l = min(x, from.x);
+            auto r = max(x, from.x);
+            auto b = min(y, from.y);
+            auto t = max(y, from.y);
+            if (ux[b].upperBound(l - 1).front < r) continue;
+            if (ux[t].upperBound(l - 1).front < r) continue;
+            if (uy[l].upperBound(b - 1).front < t) continue;
+            if (uy[r].upperBound(b - 1).front < t) continue;
+            if (!ax[b].upperBound(l).empty && ax[b].upperBound(l).front < r) continue;
+            if (!ax[t].upperBound(l).empty && ax[t].upperBound(l).front < r) continue;
+            if (!ay[l].upperBound(b).empty && ay[l].upperBound(b).front < t) continue;
+            if (!ay[r].upperBound(b).empty && ay[r].upperBound(b).front < t) continue;
+
+            return Square(Coord(x, y, dimension.to!int), from);
+          }
+        }
       }
     }
 
@@ -107,7 +184,12 @@ struct Square {
 
   this(Coord[] c) { coords = c; }
   this(Coord a, Coord b) {
-    coords = [a, Coord(a.x, b.y), b, Coord(b.x, a.y)];
+    if (a.dimension != 0) {
+      const d = a.dimension;
+      coords = [a.rotate, Coord(a.x, b.y, d).rotate, b.rotate, Coord(b.x, a.y, d).rotate];
+    } else {
+      coords = [a, Coord(a.x, b.y), b, Coord(b.x, a.y)];
+    }
   }
 
   bool empty() { return coords.empty; }
@@ -116,33 +198,62 @@ struct Square {
   int maxX() { return max(coords[0].x, coords[2].x); }
   int maxY() { return max(coords[0].y, coords[2].y); }
   int size() { return empty ? int.max : maxX - minX + maxY - minY; }
+  int dimension() {
+    if (coords[0].x == coords[1].x) return 0;
+    return coords[0].d + 1;
+  }
   string toString() {
     return coords.map!(c => [c.x, c.y]).joiner.toAnswerString;
   }
 }
 
 void problem() {
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
+
   N = scan!int;
   const M = scan!int;
   auto P = M.iota.map!(_ => Coord(scan!int, scan!int)).array;
 
+  long calcScore() {
+    real score = 0;
+    const c = N / 2;
+    foreach(p; P) {
+      score += (p.x - c)^^2 + (p.y - c)^^2 + 1;
+    }
+    score *= 10^^6;
+    long total;
+    foreach(x; 0..N) foreach(y; 0..N) total += (x - c)^^2 + (y - c)^^2 + 1;
+    score *= N;
+    score *= N;
+    score /= total * M;
+    return score.to!long;
+  }
+
   auto solve() {
-    auto state = State(P, N, 0);
+    auto game = Game(P);
     Square[] ans;
 
-    MAIN: while(true) {
+    while(true) {
+      if (elapsed(4500)) break;
+
       Square square;
       foreach(coord; P) {
-        auto candidate = state.searchFrom(coord);
-        if (square.size > candidate.size) square = candidate;
+        auto candidate = game.searchFrom(coord);
+        if (candidate.empty) continue;
+        
+        if (square.empty || square.size > candidate.size) square = candidate;
       }
 
       if (square.empty) break;
-      state.addSquare(square);
+      game.addSquare(square);
       ans ~= square;
       P ~= square.coords[0];
     }
 
+    stderr.writeln(calcScore());
     ans.length.writeln;
     return ans;
   }
