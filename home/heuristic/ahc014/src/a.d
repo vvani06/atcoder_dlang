@@ -15,6 +15,12 @@ struct Coord {
     this.dimension = dimension;
   }
 
+  int score() {
+    auto t = dimension == 0 ? this : rotate();
+    const half = N / 2;
+    return abs(t.x - half)^^2 + abs(t.y - half)^^2 + 1;
+  }
+
   int d() { 
     if (dimension != 0) assert("dont use `d` for rotated coord");
     return (x + y) % 2;
@@ -29,6 +35,35 @@ struct Coord {
     
     const half = N / 2;
     return Coord(x - y + half + dimension - 1, x + y - half);
+  }
+}
+
+struct Square {
+  Coord[] coords;
+
+  this(Coord[] c) { coords = c; }
+  this(Coord a, Coord b) {
+    if (a.dimension != 0) {
+      const d = a.dimension;
+      coords = [a.rotate, Coord(a.x, b.y, d).rotate, b.rotate, Coord(b.x, a.y, d).rotate];
+    } else {
+      coords = [a, Coord(a.x, b.y), b, Coord(b.x, a.y)];
+    }
+  }
+
+  bool empty() { return coords.empty; }
+  int minX() { return min(coords[0].x, coords[2].x); }
+  int minY() { return min(coords[0].y, coords[2].y); }
+  int maxX() { return max(coords[0].x, coords[2].x); }
+  int maxY() { return max(coords[0].y, coords[2].y); }
+  int size() { return empty ? int.max : maxX - minX + maxY - minY; }
+  int score() { return empty ? 0 : coords[0].score; }
+  int dimension() {
+    if (coords[0].x == coords[1].x) return 0;
+    return coords[0].d + 1;
+  }
+  string toString() {
+    return coords.map!(c => [c.x, c.y]).joiner.toAnswerString;
   }
 }
 
@@ -179,34 +214,6 @@ struct Game {
   }
 }
 
-struct Square {
-  Coord[] coords;
-
-  this(Coord[] c) { coords = c; }
-  this(Coord a, Coord b) {
-    if (a.dimension != 0) {
-      const d = a.dimension;
-      coords = [a.rotate, Coord(a.x, b.y, d).rotate, b.rotate, Coord(b.x, a.y, d).rotate];
-    } else {
-      coords = [a, Coord(a.x, b.y), b, Coord(b.x, a.y)];
-    }
-  }
-
-  bool empty() { return coords.empty; }
-  int minX() { return min(coords[0].x, coords[2].x); }
-  int minY() { return min(coords[0].y, coords[2].y); }
-  int maxX() { return max(coords[0].x, coords[2].x); }
-  int maxY() { return max(coords[0].y, coords[2].y); }
-  int size() { return empty ? int.max : maxX - minX + maxY - minY; }
-  int dimension() {
-    if (coords[0].x == coords[1].x) return 0;
-    return coords[0].d + 1;
-  }
-  string toString() {
-    return coords.map!(c => [c.x, c.y]).joiner.toAnswerString;
-  }
-}
-
 void problem() {
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
@@ -217,10 +224,10 @@ void problem() {
   const M = scan!int;
   auto P = M.iota.map!(_ => Coord(scan!int, scan!int)).array;
 
-  long calcScore() {
+  long calcScore(Coord[] coords) {
     real score = 0;
     const c = N / 2;
-    foreach(p; P) {
+    foreach(p; coords) {
       score += (p.x - c)^^2 + (p.y - c)^^2 + 1;
     }
     score *= 10^^6;
@@ -233,27 +240,61 @@ void problem() {
   }
 
   auto solve() {
-    auto game = Game(P);
-    Square[] ans;
+    Square[] ans, ans2;
+    long score, score2;
 
-    while(true) {
-      if (elapsed(4500)) break;
+    {
+      auto game = Game(P);
+      auto coords = P.dup;
+      while(true) {
+        if (elapsed(4500)) break;
 
-      Square square;
-      foreach(coord; P) {
-        auto candidate = game.searchFrom(coord);
-        if (candidate.empty) continue;
-        
-        if (square.empty || square.size > candidate.size) square = candidate;
+        Square square;
+        foreach(coord; coords) {
+          auto candidate = game.searchFrom(coord);
+          if (candidate.empty) continue;
+          
+          if (square.empty || square.size > candidate.size) square = candidate;
+        }
+
+        if (square.empty) break;
+        game.addSquare(square);
+        ans ~= square;
+        coords ~= square.coords[0];
       }
-
-      if (square.empty) break;
-      game.addSquare(square);
-      ans ~= square;
-      P ~= square.coords[0];
+      score = calcScore(coords);
     }
 
-    stderr.writeln(calcScore());
+    {
+      auto game = Game(P);
+      auto coords = P.dup;
+      while(true) {
+        if (elapsed(4500)) break;
+
+        Square square;
+        int bestScore;
+        foreach(coord; coords) {
+          auto candidate = game.searchFrom(coord);
+          if (candidate.empty) continue;
+          
+          if (bestScore.chmax(candidate.score)) square = candidate;
+        }
+
+        if (square.empty) break;
+        game.addSquare(square);
+        ans2 ~= square;
+        coords ~= square.coords[0];
+      }
+      score2 = calcScore(coords);
+    }
+
+    [score, score2].deb;
+    if (score < score2) {
+      score = score2;
+      ans = ans2;
+    }
+
+    stderr.writeln(score);
     ans.length.writeln;
     return ans;
   }
