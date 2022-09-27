@@ -6,32 +6,16 @@ void problem() {
   auto A = scan!int(K).assumeSorted;
 
   auto solve() {
-    int ans = int.min;
-    auto dp = new int[][](N + 1, N + 1);
-    foreach(i, ref d; dp) {
-      d[] = i % 2 == 0 ? int.max : int.min;
-    }
-    dp[0][N] = 0;
+    int calc(bool positive, int rest) {
+      auto availables = A.lowerBound(rest + 1);
+      if (availables.empty) return 0;
 
-    foreach(i; 0..N) {
-      foreach(from; 1..N + 1 - i) {
-        const score = dp[i][from];
-        if (score == int.min || score == int.max) continue;
-
-        auto best = A.lowerBound(from + 1).back;
-        if (i % 2 == 0) {
-          dp[i + 1][from - best].chmax(score + best);
-        } else {
-          dp[i + 1][from - best].chmin(score - best);
-        }
-
-        if (from - best == 0) {
-          ans = max(ans, dp[i + 1][from - best]);
-        }
-      }
+      return positive ? 
+        availables.map!(a => memoize!calc(!positive, rest - a) + a).maxElement:
+        availables.map!(a => memoize!calc(!positive, rest - a) - a).minElement;
     }
 
-    return (N + ans) / 2;
+    return (calc(true, N) + N) / 2;
   }
 
 
