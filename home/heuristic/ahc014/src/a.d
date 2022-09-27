@@ -52,12 +52,16 @@ struct Square {
   }
 
   bool empty() { return coords.empty; }
-  int minX() { return min(coords[0].x, coords[2].x); }
-  int minY() { return min(coords[0].y, coords[2].y); }
-  int maxX() { return max(coords[0].x, coords[2].x); }
-  int maxY() { return max(coords[0].y, coords[2].y); }
-  int size() { return empty ? int.max : maxX - minX + maxY - minY; }
-  int score() { return empty ? 0 : coords[0].score; }
+  int minX() { return coords.map!"a.x".minElement; }
+  int minY() { return coords.map!"a.y".minElement; }
+  int maxX() { return coords.map!"a.x".maxElement; }
+  int maxY() { return coords.map!"a.y".maxElement; }
+  int size() { return empty ? int.max : (maxX - minX + maxY - minY) / (dimension == 0 ? 1 : 2); }
+  real score() {
+    if (empty) return -1;
+
+    return coords[0].score() - size()*50;
+  }
   int dimension() {
     if (coords[0].x == coords[1].x) return 0;
     return coords[0].d + 1;
@@ -153,7 +157,8 @@ struct Game {
     }
   }
 
-  Square searchFrom(Coord fromCoord, bool[] dimensions = [1, 1, 1]) {
+  Square[] searchFrom(Coord fromCoord, bool[] dimensions = [1, 1, 1]) {
+    Square[] ret;
     foreach(dimension, state; states) {
       if (!dimensions[dimension]) continue;
       if (dimension != 0 && fromCoord.d != dimension - 1) continue;
@@ -204,13 +209,13 @@ struct Game {
             if (!ay[l].upperBound(b).empty && ay[l].upperBound(b).front < t) continue;
             if (!ay[r].upperBound(b).empty && ay[r].upperBound(b).front < t) continue;
 
-            return Square(Coord(x, y, dimension.to!int), from);
+            ret ~= Square(Coord(x, y, dimension.to!int), from);
           }
         }
       }
     }
 
-    return Square([]);
+    return ret;
   }
 }
 
@@ -219,6 +224,7 @@ void problem() {
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
   }
+  auto rnd = Xorshift(unpredictableSeed);
 
   N = scan!int;
   const M = scan!int;
@@ -240,8 +246,8 @@ void problem() {
   }
 
   auto solve() {
-    Square[] ans, ans2;
-    long score, score2;
+    Square[] ans;
+    long score;
 
     {
       auto game = Game(P);
@@ -251,10 +257,12 @@ void problem() {
 
         Square square;
         foreach(coord; coords) {
-          auto candidate = game.searchFrom(coord);
-          if (candidate.empty) continue;
-          
-          if (square.empty || square.size > candidate.size) square = candidate;
+          auto candidates = game.searchFrom(coord);
+          if (candidates.empty) continue;
+
+          foreach(candidate; candidates) {
+            if (square.empty || square.score < candidate.score) square = candidate;
+          }
         }
 
         if (square.empty) break;
@@ -265,34 +273,6 @@ void problem() {
       score = calcScore(coords);
     }
 
-    {
-      auto game = Game(P);
-      auto coords = P.dup;
-      while(true) {
-        if (elapsed(4500)) break;
-
-        Square square;
-        int bestScore;
-        foreach(coord; coords) {
-          auto candidate = game.searchFrom(coord);
-          if (candidate.empty) continue;
-          
-          if (bestScore.chmax(candidate.score)) square = candidate;
-        }
-
-        if (square.empty) break;
-        game.addSquare(square);
-        ans2 ~= square;
-        coords ~= square.coords[0];
-      }
-      score2 = calcScore(coords);
-    }
-
-    [score, score2].deb;
-    if (score < score2) {
-      score = score2;
-      ans = ans2;
-    }
 
     stderr.writeln(score);
     ans.length.writeln;
