@@ -60,7 +60,8 @@ struct Square {
   real score() {
     if (empty) return -1;
 
-    return coords[0].score() - size()*50;
+    // return coords[0].score() - size()*0;
+    return coords[0].score() - size()*100;
   }
   int dimension() {
     if (coords[0].x == coords[1].x) return 0;
@@ -157,11 +158,12 @@ struct Game {
     }
   }
 
-  Square[] searchFrom(Coord fromCoord, bool[] dimensions = [1, 1, 1]) {
+  Square[] searchFrom(Coord fromCoord, int[] dimensions = [3, 1, 1]) {
     Square[] ret;
     foreach(dimension, state; states) {
       if (!dimensions[dimension]) continue;
       if (dimension != 0 && fromCoord.d != dimension - 1) continue;
+      if (dimension == 0 && (2^^fromCoord.d & dimensions[0]) == 0) continue;
 
       auto from = dimension == 0 ? fromCoord : fromCoord.rotate;
       with(state) {
@@ -250,27 +252,32 @@ void problem() {
     long score;
 
     {
+      Square[] tAns;
       auto game = Game(P);
       auto coords = P.dup;
       while(true) {
         if (elapsed(4500)) break;
 
         Square square;
-        foreach(coord; coords) {
-          auto candidates = game.searchFrom(coord);
-          if (candidates.empty) continue;
+        foreach(dimensions; [[0, 1, 1], [1, 0, 0], [2, 0, 0]]) {
+          foreach(coord; coords) {
+            auto candidates = game.searchFrom(coord, dimensions);
+            if (candidates.empty) continue;
 
-          foreach(candidate; candidates) {
-            if (square.empty || square.score < candidate.score) square = candidate;
+            foreach(candidate; candidates) {
+              if (square.empty || square.score < candidate.score) square = candidate;
+            }
           }
         }
 
         if (square.empty) break;
+
         game.addSquare(square);
-        ans ~= square;
+        tAns ~= square;
         coords ~= square.coords[0];
       }
-      score = calcScore(coords);
+
+      if (score.chmax(calcScore(coords))) ans = tAns;
     }
 
 
