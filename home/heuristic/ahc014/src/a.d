@@ -60,7 +60,7 @@ struct Square {
   real score() {
     if (empty) return -1;
 
-    // return coords[0].score() - size()*0;
+    // return coords[0].score() - size()* 0;
     return coords[0].score() - size()*100;
   }
   int dimension() {
@@ -73,51 +73,38 @@ struct Square {
 }
 
 struct State {
-  RBT[] ax, ay, ux, uy;
+  bool[][] a, ux, uy;
 
   this(Coord[] coords, int size, int type) {
-    ax = size.iota.map!(_ => redBlackTree!int([])).array;
-    ay = size.iota.map!(_ => redBlackTree!int([])).array;
-    ux = size.iota.map!(_ => redBlackTree!int([-1, size])).array;
-    uy = size.iota.map!(_ => redBlackTree!int([-1, size])).array;
+    a = new bool[][](size, size);
+    ux = new bool[][](size, size);
+    uy = new bool[][](size, size);
 
     if (type == 0) {
-      foreach(c; coords) {
-        ax[c.y].insert(c.x);
-        ay[c.x].insert(c.y);
-      }
+      foreach(c; coords) a[c.y][c.x] = true;
     } else {
       foreach(cc; coords) {
         if (cc.d + 1 == type) {
           auto c = cc.rotate;
-          ax[c.y].insert(c.x);
-          ay[c.x].insert(c.y);
+          a[c.y][c.x] = true;
         }
       }
     }
 
-    const h = size / 2;
-    if (type == 1) {
-      foreach(t; 0..h + 1) {
-        ux[h + t].insert(-1 + t);
-        ux[h + t].insert(size - t);
-        ux[h - t].insert(-1 + t);
-        ux[h - t].insert(size - t);
-        uy[h + t].insert(-1 + t);
-        uy[h + t].insert(size - t);
-        uy[h - t].insert(-1 + t);
-        uy[h - t].insert(size - t);
+    foreach(ref uu; ux) uu[] = true;
+    foreach(ref uu; uy) uu[] = true;
+    foreach(y; 0..size - 1) foreach(x; 0..size - 1) {
+      if (type == 0) {
+        ux[y][x] = false;
+        uy[y][x] = false;
+        continue;
       }
-    } else if (type == 2) {
-      foreach(t; 0..h) {
-        ux[h + t + 1].insert(-1 + t);
-        ux[h + t + 1].insert(size - 1 - t);
-        ux[h - t].insert(-1 + t);
-        ux[h - t].insert(size - 1 - t);
-        uy[h + t].insert(t);
-        uy[h + t].insert(size - t);
-        uy[h - t - 1].insert(t);
-        uy[h - t - 1].insert(size - t);
+
+      auto c = Coord(x, y);
+      if (c.d == type - 1) {
+        auto rotated = c.rotate();
+        ux[rotated.y][rotated.x] = false;
+        uy[rotated.y][rotated.x] = false;
       }
     }
   }
@@ -139,22 +126,20 @@ struct Game {
       if (dimension != 0 && sq.coords[0].d != dimension - 1) continue;
 
       auto toAdd = dimension == 0 ? sq.coords[0] : sq.coords[0].rotate;
-      if (toAdd.x in s.ax[toAdd.y] || toAdd.y in s.ay[toAdd.x]) assert("already added");
+      if (s.a[toAdd.y][toAdd.x]) assert("already added");
 
-      s.ax[toAdd.y].insert(toAdd.x);
-      s.ay[toAdd.x].insert(toAdd.y);
+      s.a[toAdd.y][toAdd.x] = true;
     }
 
-    with(states[sq.dimension]) {
-      auto cds = sq.dimension == 0 ? sq.coords : sq.coords.map!"a.rotate".array;
-      foreach(x; min(cds[0].x, cds[2].x)..max(cds[0].x, cds[2].x)) {
-        ux[cds[0].y].insert(x);
-        ux[cds[2].y].insert(x);
-      }
-      foreach(y; min(cds[0].y, cds[2].y)..max(cds[0].y, cds[2].y)) {
-        uy[cds[0].x].insert(y);
-        uy[cds[2].x].insert(y);
-      }
+    auto cds = sq.dimension == 0 ? sq.coords : sq.coords.map!"a.rotate".array;
+    auto s = states[sq.dimension];
+    foreach(x; min(cds[0].x, cds[2].x)..max(cds[0].x, cds[2].x)) {
+      s.ux[cds[0].y][x] = true;
+      s.ux[cds[2].y][x] = true;
+    }
+    foreach(y; min(cds[0].y, cds[2].y)..max(cds[0].y, cds[2].y)) {
+      s.uy[cds[0].x][y] = true;
+      s.uy[cds[2].x][y] = true;
     }
   }
 
@@ -169,47 +154,49 @@ struct Game {
       with(state) {
         int[] lefts, rights, ups, downs;
         {
-          auto leftLimit = ux[from.y].lowerBound(from.x).back;
-          foreach_reverse(t; ax[from.y].lowerBound(from.x)) {
-            if (leftLimit >= t) break;
-            lefts ~= t; break;
+          for(auto x = from.x - 1; x >= 0; x--) {
+            if (ux[from.y][x]) break;
+            if (a[from.y][x]) {
+              lefts ~= x;
+              break;
+            }
           }
-          auto rightLimit = ux[from.y].upperBound(from.x - 1).front;
-          foreach(t; ax[from.y].upperBound(from.x)) {
-            if (rightLimit < t) break;
-            rights ~= t; break;
+          for(auto x = from.x + 1; x < N; x++) {
+            if (ux[from.y][x - 1]) break;
+            if (a[from.y][x]) {
+              rights ~= x;
+              break;
+            }
           }
-
-          auto downLimit = uy[from.x].lowerBound(from.y).back;
-          foreach_reverse(t; ay[from.x].lowerBound(from.y)) {
-            if (downLimit >= t) break;
-            downs ~= t; break;
+          for(auto y = from.y - 1; y >= 0; y--) {
+            if (uy[from.x][y]) break;
+            if (a[y][from.x]) {
+              ups ~= y;
+              break;
+            }
           }
-
-          auto upLimit = uy[from.x].upperBound(from.y - 1).front;
-          foreach(t; ay[from.x].upperBound(from.y)) {
-            if (upLimit < t) break;
-            ups ~= t; break;
+          for(auto y = from.y + 1; y < N; y++) {
+            if (uy[from.x][y - 1]) break;
+            if (a[y][from.x]) {
+              downs ~= y;
+              break;
+            }
           }
         }
 
-        // [lefts, rights, downs, ups].deb;
+        // [lefts, rights, ups, downs].deb;
         foreach(x; lefts ~ rights) {
-          foreach(y; downs ~ ups) {
-            if (x in ax[y]) continue;
+          foreach(y; ups ~ downs) {
+            if (a[y][x]) continue;
             
             auto l = min(x, from.x);
             auto r = max(x, from.x);
             auto b = min(y, from.y);
             auto t = max(y, from.y);
-            if (ux[b].upperBound(l - 1).front < r) continue;
-            if (ux[t].upperBound(l - 1).front < r) continue;
-            if (uy[l].upperBound(b - 1).front < t) continue;
-            if (uy[r].upperBound(b - 1).front < t) continue;
-            if (!ax[b].upperBound(l).empty && ax[b].upperBound(l).front < r) continue;
-            if (!ax[t].upperBound(l).empty && ax[t].upperBound(l).front < r) continue;
-            if (!ay[l].upperBound(b).empty && ay[l].upperBound(b).front < t) continue;
-            if (!ay[r].upperBound(b).empty && ay[r].upperBound(b).front < t) continue;
+            if (iota(l, r).any!(t => ux[y][t])) continue;
+            if (iota(b, t).any!(t => uy[x][t])) continue;
+            if (iota(l, r + 1).count!(t => a[y][t]) > 1) continue;
+            if (iota(b, t + 1).count!(t => a[t][x]) > 1) continue;
 
             ret ~= Square(Coord(x, y, dimension.to!int), from);
           }
