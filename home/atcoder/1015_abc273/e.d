@@ -4,51 +4,36 @@ void problem() {
   auto QN = scan!int;
   
   auto solve() {
-    alias Item = Tuple!(int, "n", int, "size", int, "refs", int, "pre");
-    Item[] items;
-    int[int] saved;
+    auto froms = new int[](QN + 1);
+    auto node = new int[](QN + 1);
+    node[0] = -1;
 
     int[] ans;
-    items ~= Item(-1, -1, -1, -1);
-    int id = 1;
-    foreach(qn; 0..QN) {
+    int cur, curMax;
+    int[int] saved;
+    foreach(_; 0..QN) {
       auto command = scan;
       int num = command == "DELETE" ? 0 : scan!int;
-      auto last = items[$ - 1];
 
-      if (command == "DELETE") {
-        auto s = max(-1, last.size - 1);
-        int refs = -1;
-        if (s >= 0) foreach(i; 1..items.length) {
-          if (items[$ - i].size == s) {
-            refs = items[$ - i].n;
-            break;
-          }
-        }
-        items ~= Item(-1, max(-1, s), refs, id - 1);
-        id++;
-      } else if (command == "ADD") {
-        items ~= Item(num, last.size + 1, num, id - 1);
-        id++;
+      if (command == "ADD") {
+        const next = curMax + 1;
+        node[next] = num;
+        froms[next] = cur;
+        cur = next;
+      } else if (command == "DELETE") {
+        cur = froms[cur];
       } else if (command == "SAVE") {
-        saved[num] = id - 1;
+        saved[num] = cur;
       } else if (command == "LOAD") {
-        if (num in saved) {
-          auto pre = saved[num];
-          items ~= Item(0, 0, 0, pre);
-          items ~= Item(-1, -1, -1, id);
-          id += 2;
-        } else {
-          items ~= Item(0, 0, 0, 0);
-          items ~= Item(-1, -1, -1, id);
-          id += 2;
-        }
+        cur = num in saved ? saved[num] : 0;
       }
 
-      ans ~= items[$ - 1].refs;
+      ans ~= node[cur];
+      curMax = max(curMax, cur);
     }
 
-    return ans;
+    // refs.deb;
+    return ans.toAnswerString;
   }
 
   outputForAtCoder(&solve);
