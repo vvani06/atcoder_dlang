@@ -2,22 +2,44 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = MInt9(scan!long);
-  auto P = scan!int(N).map!"a - 1".array;
+  auto A = scan!int;
+  auto WXV = scan!int(3 * N).chunks(3).array;
+
+  struct Fish {
+    int value;
+    real x, v;
+    
+    void sim(real t) {
+      x += t * v;
+    }
+  }
 
   auto solve() {
-    auto uf = UnionFind(N);
-    MInt9 ans;
-    int rest = N;
-    auto mPairs = M*(M - MInt9(1)) / MInt9(2);
-    foreach(i; 0..N) {
-      if (uf.same(i, P[i])) continue;
+    auto fishes = WXV.map!(f => Fish(f[0], f[1], f[2])).array;
 
-      ans += M^^(rest - 2) * mPairs;
-      rest--;
-      uf.unite(i, P[i]);
+    int calc(real t) {
+      auto moved = fishes.dup;
+      foreach(ref f; moved) f.sim(t);
+
+      moved.sort!"a.x < b.x";
+      int left;
+      int total;
+      int ret;
+      foreach(i, f; moved) {
+        total += f.value;
+        while(moved[left].x < f.x - A) {
+          total -= moved[left].value;
+          left++;
+        }
+        ret = max(ret, total);
+      }
+
+      return ret;
     }
 
+    long ans;
+    ans = max(ans, ternarySearch(&calc, 1.0, 0.0, TernarySearchTarget.Max)[1]);
+    ans = max(ans, ternarySearch(&calc, 0.0, 1000000.0, TernarySearchTarget.Max)[1]);
     return ans;
   }
 
@@ -26,13 +48,15 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
-import core.bitop;
+import std.stdio, std.conv, std.array, std.string, std.algorithm, std.container, std.range, core.stdc.stdlib, std.math, std.typecons, std.numeric, std.traits, std.functional, std.bigint, std.datetime.stopwatch, core.time, core.bitop;
+import std.algorithm.setops;
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(T t){ debug writeln(t); }
+alias Point = Tuple!(long, "x", long, "y");
+Point invert(Point p) { return Point(p.y, p.x); }
 long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
@@ -53,40 +77,39 @@ void outputForAtCoder(T)(T delegate() fn) {
   else fn().writeln;
 }
 void runSolver() {
-  static import std.datetime.stopwatch;
   enum BORDER = "==================================";
-  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(benchmark!problem(1)); BORDER.writeln; } }
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-10, 1e-10);
+    } else {
+      return low != high;
+    }
   }
 
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
   }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
+ 
+  return tuple(low, fn(low));
 }

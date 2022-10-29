@@ -2,22 +2,61 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = MInt9(scan!long);
-  auto P = scan!int(N).map!"a - 1".array;
+  auto M = scan!int;
+  auto XY = scan!real(2 * (N + M)).chunks(2).array;
 
+  struct Point {
+    real x, y;
+    real distance(Point other) {
+      return sqrt((x - other.x) * (x - other.x) + (y - other.y) * (y - other.y));
+    }
+  }
+
+  int speed(int state) {
+    auto rest = state / (2^^N);
+    int ret = 1;
+    foreach(_; 0..M) {
+      if (rest % 2 == 1) ret *= 2;
+      rest /= 2;
+    }
+    return ret;
+  }
+  
   auto solve() {
-    auto uf = UnionFind(N);
-    MInt9 ans;
-    int rest = N;
-    auto mPairs = M*(M - MInt9(1)) / MInt9(2);
-    foreach(i; 0..N) {
-      if (uf.same(i, P[i])) continue;
+    enum BASE = Point(0, 0);
+    auto points = XY.map!(xy => Point(xy[0], xy[1])).array;
+    auto NM = N + M;
+    auto dp = new real[][](2^^NM, NM);
+    foreach(ref d; dp) d[] = long.max;
+    foreach(int i, p; points) dp[2^^i][i] = p.distance(BASE);
 
-      ans += M^^(rest - 2) * mPairs;
-      rest--;
-      uf.unite(i, P[i]);
+    foreach(state; 1..2^^NM) {
+      foreach(to; 0..NM) {
+        if ((2^^to & state) == 0) continue;
+
+        auto preState = state ^ (2^^to);
+        auto sp = speed(preState);
+        foreach(from; 0..NM) {
+          if ((2^^from & preState) == 0) continue;
+
+          auto fromPoint = points[from];
+          auto toPoint = points[to];
+          dp[state][to].chmin(dp[preState][from] + fromPoint.distance(toPoint) / sp);
+        }
+      }
     }
 
+    real ans = long.max;
+    auto satisfy = 2^^N - 1;
+    foreach(state; 1..2^^NM) {
+      if ((state & satisfy) != satisfy) continue;
+
+      auto sp = speed(state);
+      foreach(from; 0..NM) {
+        auto candidate = dp[state][from];
+        ans = min(ans, candidate + points[from].distance(BASE) / sp);
+      }
+    }
     return ans;
   }
 
@@ -26,8 +65,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
-import core.bitop;
+import std, core.bitop;
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
@@ -61,32 +99,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
-}

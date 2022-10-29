@@ -1,24 +1,17 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = MInt9(scan!long);
-  auto P = scan!int(N).map!"a - 1".array;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto C = scan!string(H);
 
   auto solve() {
-    auto uf = UnionFind(N);
-    MInt9 ans;
-    int rest = N;
-    auto mPairs = M*(M - MInt9(1)) / MInt9(2);
-    foreach(i; 0..N) {
-      if (uf.same(i, P[i])) continue;
-
-      ans += M^^(rest - 2) * mPairs;
-      rest--;
-      uf.unite(i, P[i]);
+    long[] ans;
+    foreach(i; 0..W) {
+      ans ~= C.count!(c => c[i] == '#');
     }
 
-    return ans;
+    return ans.toAnswerString;
   }
 
   outputForAtCoder(&solve);
@@ -27,7 +20,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
@@ -61,32 +53,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
-}

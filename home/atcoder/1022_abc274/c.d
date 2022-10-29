@@ -2,24 +2,28 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = MInt9(scan!long);
-  auto P = scan!int(N).map!"a - 1".array;
+  auto A = scan!int(N);
 
   auto solve() {
-    auto uf = UnionFind(N);
-    MInt9 ans;
-    int rest = N;
-    auto mPairs = M*(M - MInt9(1)) / MInt9(2);
-    foreach(i; 0..N) {
-      if (uf.same(i, P[i])) continue;
-
-      ans += M^^(rest - 2) * mPairs;
-      rest--;
-      uf.unite(i, P[i]);
+    auto graph = new int[][](2 * N + 2);
+    foreach(int i, a; A) {
+      graph[a] ~= (2 * i + 2);
+      graph[a] ~= (2 * i + 3);
     }
 
-    return ans;
+    // graph.deb;
+    auto ans = new int[](2 * N + 2);
+    void dfs(int pre, int cur, int depth) {
+      ans[cur] = depth;
+      foreach(next; graph[cur]) {
+        if (next != pre) dfs(cur, next, depth + 1);
+      }
+    }
+    dfs(1, 1, 0);
+
+    return ans[1..$];
   }
+
 
   outputForAtCoder(&solve);
 }
@@ -27,8 +31,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
-T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -62,31 +64,13 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
+struct Vector2(T) {
+  T x, y;
+  Vector2 add(Vector2 other) { return Vector2(x + other.x, y + other.y ); }
+  Vector2 sub(Vector2 other) { return Vector2(x - other.x, y - other.y ); }
+  Vector2 opBinary(string op:"+")(Vector2 other) { return add(other); }
+  Vector2 opBinary(string op:"-")(Vector2 other) { return sub(other); }
+  T norm(Vector2 other) {return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
+  T dot(Vector2 other) {return x*other.y - y*other.x; }
+  Vector2 normalize() {if (x == 0 || y == 0) return Vector2(x == 0 ? 0 : x/x.abs, y == 0 ? 0 : y/y.abs);const gcd = x.abs.gcd(y.abs);return Vector2(x / gcd, y / gcd);}
 }
