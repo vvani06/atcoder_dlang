@@ -6,24 +6,26 @@ void problem() {
 
   auto solve() {
     long subSolve(long a, long b) {
-      if (b < a) return a - b;
-      if (b % a == 0) return 0;
+      long limit;
+      while(limit ^^ 2 < max(a, b)) limit++;
+      limit++;
+
+      auto ans = long.max;
+      foreach(t; a..limit) {
+        // A + X = t と固定
+        auto x = t - a;
+        auto y = b % t == 0 ? 0 : t - b % t;
+        ans = min(ans, x + y);
+      }
       
-      bool isOk(long limit) {
-        long pre = long.max;
-        foreach(t; 0..limit) {
-          long y = ;
-          long mod = (y + b) % (a + t);
-          if (y + mod + t <= limit) return true;
-
-          if (mod >= pre) break;
-          pre = mod;
-        }
-
-        return false;
+      foreach(t; 1..limit) {
+        // Z = t と固定
+        auto x = b >= t*a ? (b - t*a + t - 1) / t : 0;
+        auto y = t*(a + x) - b;
+        ans = min(ans, x + y);
       }
 
-      return binarySearch(&isOk, b - a, 0);
+      return ans;
     }
 
     foreach(ab; AB) {
