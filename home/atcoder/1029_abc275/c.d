@@ -4,8 +4,7 @@ void problem() {
   auto G = scan!string(9);
 
   auto solve() {
-    int ans;
-    alias Coord = Tuple!(int, "x", int, "y");
+    alias Coord = Vector2!int;
     auto pawns = new Coord[](0);
     foreach(x; 0..9) foreach(y; 0..9) {
       if (G[y][x] == '#') pawns ~= Coord(x, y);
@@ -13,27 +12,23 @@ void problem() {
 
     if (pawns.length < 4) return 0;
 
-    // pawns.each!deb;
-    foreach(comb; pawns.combinations(4)) foreach(p; comb.permutations) {
-      auto dx = p[1].x - p[0].x;
-      auto dy = p[1].y - p[0].y;
-      auto ex = p[2].x - p[0].x;
-      auto ey = p[2].y - p[0].y;
+    int ans;
+    auto n = pawns.length;
+    foreach(i; 0..n - 1) foreach(j; i + 1..n) {
+      auto d = pawns[j].sub(pawns[i]);
+      auto t = pawns[j];
 
-      if (ex == dy && ey == -dx) {
-        if (p[3].x - p[2].x == dx && p[3].y - p[2].y == dy) {
-          ans++;
-          break;
-        }
-      } else if (ex == -dy && ey == dx) {
-        if (p[3].x - p[2].x == dx && p[3].y - p[2].y == dy) {
-          ans++;
-          break;
-        }
+      bool isOk = true;
+      foreach(_; 0..4) {
+        d = d.rotate();
+        t = t.add(d);
+        if (t.min < 0 || t.max >= 9 || G[t.y][t.x] == '.') isOk = false;
       }
+
+      ans += isOk;
     }
 
-    return ans;
+    return ans / 2;
   }
 
 
@@ -76,54 +71,16 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct CombinationRange(T) {
-  private {
-    int combinationSize;
-    int elementSize;
-    int pointer;
-    int[] cursor;
-    T[] elements;
-    T[] current;
-  }
-
-  public:
-
-  this(T[] t, int combinationSize) {
-    this.combinationSize = combinationSize;
-    this.elementSize = cast(int)t.length;
-    pointer = combinationSize - 1;
-    cursor = new int[combinationSize];
-    current = new T[combinationSize];
-    elements = t.dup;
-    foreach(i; 0..combinationSize) {
-      cursor[i] = i;
-      current[i] = elements[i];
-    }
-  }
-
-  @property T[] front() {
-    return current;
-  }
-
-  void popFront() {
-    if (pointer == -1) return;
-
-    if (cursor[pointer] == elementSize + pointer - combinationSize) {
-      pointer--;
-      popFront();
-      if (pointer < 0) return;
-
-      pointer++;
-      cursor[pointer] = cursor[pointer - 1];
-      current[pointer] = elements[cursor[pointer]];
-    }
-
-    cursor[pointer]++;
-    current[pointer] = elements[cursor[pointer]];
-  }
-
-  bool empty() {
-    return pointer == -1;
-  }
+struct Vector2(T) {
+  T x, y;
+  Vector2 add(Vector2 other) { return Vector2(x + other.x, y + other.y ); }
+  Vector2 opAdd(Vector2 other) { return add(other); }
+  Vector2 sub(Vector2 other) { return Vector2(x - other.x, y - other.y ); }
+  Vector2 opSub(Vector2 other) { return sub(other); }
+  T norm(Vector2 other) { return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
+  T dot(Vector2 other) { return x*other.y - y*other.x; }
+  Vector2 normalize() { if (x == 0 || y == 0) return Vector2(x == 0 ? 0 : x/x.abs, y == 0 ? 0 : y/y.abs);const gcd = x.abs.gcd(y.abs);return Vector2(x / gcd, y / gcd);}
+  Vector2 rotate() { return Vector2(-y, x); }
+  T min() { return .min(x, y); }
+  T max() { return .max(x, y); }
 }
-CombinationRange!T combinations(T)(T[] t, int size) { return CombinationRange!T(t, size); }
