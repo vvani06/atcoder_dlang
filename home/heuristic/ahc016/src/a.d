@@ -2,175 +2,51 @@ void main() { runSolver(); }
 
 // ----------------------------------------------
 
-enum SIZE = 10;
-enum SIZE2 = SIZE * SIZE;
-enum ROT = "FBLR";
+void problem() {
+  auto M = scan!int;
+  auto E = scan!real;
 
-class State {
-  byte[] p;
-  this() { p = new byte[](SIZE2); }
-  this(byte[] pp) { p = pp; }
+  struct Graph {
+    int size;
+    bool[] edges;
 
-  int idx(int x, int y) { return y * SIZE + x; }
+    static int triangle(int k) { return k * (k - 1) / 2; }
 
-  State rotate(int r) {
-    return 
-      r == 0 ? rotateFront() :
-      r == 1 ? rotateBack() :
-      r == 2 ? rotateLeft() : rotateRight();
-  }
-
-  State rotateFront() {
-    auto r = new byte[](SIZE2);
-    foreach(x; 0..SIZE) {
-      int t;
-      foreach(y; 0..SIZE) {
-        if (p[SIZE * y + x] != 0) {
-          r[SIZE * t + x] = p[SIZE * y + x];
-          t++;
+    this(string s) {
+      edges = s.map!(c => c == '1').array;
+      const l = s.length;
+      foreach(i; 4..101) {
+        if (triangle(i) == l) {
+          size = i;
+          break;
         }
       }
     }
-    return new State(r);
-  }
 
-  State rotateBack() {
-    auto r = new byte[](SIZE2);
-    foreach(x; 0..SIZE) {
-      int t = SIZE - 1;
-      foreach_reverse(y; 0..SIZE) {
-        if (p[SIZE * y + x] != 0) {
-          r[SIZE * t + x] = p[SIZE * y + x];
-          t--;
-        }
-      }
+    this(int size) {
+      this(triangle(size).iota.map!(_ => cast(dchar)('0' + uniform(0, 2))).to!string);
     }
-    return new State(r);
-  }
 
-  State rotateLeft() {
-    auto r = new byte[](SIZE2);
-    foreach(y; 0..SIZE) {
-      int t;
-      foreach(x; 0..SIZE) {
-        if (p[SIZE * y + x] != 0) {
-          r[SIZE * y + t] = p[SIZE * y + x];
-          t++;
-        }
-      }
-    }
-    return new State(r);
-  }
-
-  State rotateRight() {
-    auto r = new byte[](SIZE2);
-    foreach(y; 0..SIZE) {
-      int t = SIZE - 1;
-      foreach_reverse(x; 0..SIZE) {
-        if (p[SIZE * y + x] != 0) {
-          r[SIZE * y + t] = p[SIZE * y + x];
-          t--;
-        }
-      }
-    }
-    return new State(r);
-  }
-
-  void store(byte to, byte type) {
-    int dec = -1;
-    foreach(i; 0..SIZE2) {
-      if (p[i] != 0) {
-        dec++;
-      } else if (i - dec == to) {
-        p[i] = type;
-        // [to, i].deb;
-        break;
-      }
-    }
-  }
-
-  long calcScore() {
-    long score;
-    foreach(type; 1..4) {
-      auto visited = new bool[](SIZE2);
-      foreach(x; 0..SIZE) foreach(y; 0..SIZE) {
-        if (visited[idx(x, y)] || p[idx(x, y)] != type) continue;
-
-        long count;
-        void dfs(int x, int y) {
-          if (visited[idx(x, y)]) return;
-          visited[idx(x, y)] = true;
-
-          if (p[idx(x, y)] == type) count++;
-          foreach(d; [1, 0, -1, 0].zip([0, 1, 0, -1])) {
-            const dx = x + d[0];
-            const dy = y + d[1];
-            if (min(dx, dy) < 0 || max(dx, dy) >= SIZE) continue;
-
-            if (p[idx(dx, dy)] == 0 || p[idx(dx, dy)] == type) {
-              dfs(dx, dy);
-            }
+    int[] degrees() {
+      auto ret = new int[](size);
+      const base = triangle(size);
+      foreach(i; 0..size - 1) {
+        const offset = base - triangle(size - i);
+        foreach(j; i + 1..size) {
+          if (edges[offset + j - i - 1]) {
+            ret[i]++;
+            ret[j]++;
           }
         }
-
-        dfs(x, y);
-        score += count ^^ 2;
       }
+
+      ret.sort;
+      return ret;
     }
-
-    return 10^^6 * score;
   }
-}
-
-void problem() {
-  auto F = scan!byte(SIZE2);
-  auto fc = new int[](4);
-  foreach(f; F) fc[f]++;
-
-  auto fcs = fc.enumerate(0).array.sort!"a[1] > b[1]";
-  auto rank = new int[](4);
-  foreach(i; 0..3) rank[fcs[i][0]] = i; 
-
-  const diff = fc[1..$].maxElement - fc[1..$].minElement;
-  auto table = [0, 1, 1];
   
   auto solve() {
-    auto state = new State();
-    int cont;
-    foreach(i; 0..SIZE2) {
-      const p = scan!byte;
-      const cur = F[i];
-      state.store(p, cur);
-
-      int rot;
-      if (i < SIZE2 - 1) {
-        const next = F[i + 1];
-
-        if (i < 78 - diff/4 || rank[next] == 0) {
-          rot = table[rank[next]];
-        } else {
-          long bestExp;
-          foreach(r; 0..4) {
-            auto exState = state.rotate(r);
-            long exp;
-            foreach(ti; 1..SIZE2 - i) {
-              exState.store(ti.to!byte, next);
-              exp += exState.calcScore;
-              exState.store(ti.to!byte, 0);
-            }
-            if (bestExp.chmax(exp)) rot = r;
-          }
-        }
-      }
-
-      state = state.rotate(rot);
-      ROT[rot].writeln;
-      stdout.flush();
-    }
-
-    // state.p.chunks(SIZE).each!deb;
-    const score = state.calcScore() / fc.map!"a ^^ 2".sum;
-    stderr.writeln(score);
+    
   }
 
   solve();
@@ -207,32 +83,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
