@@ -2,27 +2,43 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!long(N);
+  auto M = scan!int;
+  auto Q = scan!int;
+  auto E = scan!int(3 * M).chunks(3);
+  auto X = scan!int(Q);
 
   auto solve() {
-    auto segtree = SegTree!("a + b", long)(new long[](N));
-
-    long ans;
-    long pre = -1;
-    int[] adds;
-    foreach(a; A.enumerate.array.sort!"a[1] > b[1]") {
-      auto i = a[0].to!int;
-      long n = a[1];
-      if (pre != n) {
-        foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-        adds.length = 0;
-      }
-      ans += segtree.sum(0, i);
-      adds ~= i;
-      pre = n;
+    alias Edge = Tuple!(int, "to", int, "cost");
+    auto graph = new Edge[][](N, 0);
+    foreach(e; E) {
+      e[0]--; e[1]--;
+      graph[e[0]] ~= Edge(e[1], e[2]);
+      graph[e[1]] ~= Edge(e[0], e[2]);
     }
 
-    return ans;
+    graph.deb;
+
+    int ans = 1;
+    auto visited = new bool[](N);
+    visited[0] = true;
+    auto queue = graph[0].heapify!"a.cost > b.cost";
+    foreach(x; X) {
+      Edge[] nexts;
+      while(!queue.empty && queue.front.cost <= x) {
+        auto p = queue.front;
+        queue.removeFront;
+        if (visited[p.to]) continue;
+
+        ans++;
+        visited[p.to] = true;
+        foreach(e; graph[p.to]) {
+          if (!visited[e.to]) nexts ~= e;
+        }
+      }
+
+      foreach(n; nexts) queue.insert(n);
+      ans.writeln;
+    }
   }
 
   outputForAtCoder(&solve);
@@ -46,7 +62,7 @@ struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);
 void outputForAtCoder(T)(T delegate() fn) {
-  static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
+  static if (is(T == float) || is(T == double) || is(T == real)) "%.20f".writefln(fn());
   else static if (is(T == void)) fn();
   else static if (is(T == string)) fn().writeln;
   else static if (isInputRange!T) {
@@ -64,51 +80,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
