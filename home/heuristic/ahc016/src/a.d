@@ -7,12 +7,15 @@ void problem() {
   auto E = scan!real;
 
   struct Graph {
+    string sourceString;
     int size;
     bool[] edges;
+    int[] dg;
 
     static int triangle(int k) { return k * (k - 1) / 2; }
 
     this(string s) {
+      sourceString = s;
       edges = s.map!(c => c == '1').array;
       const l = s.length;
       foreach(i; 4..101) {
@@ -28,6 +31,8 @@ void problem() {
     }
 
     int[] degrees() {
+      if (!dg.empty) return dg;
+
       auto ret = new int[](size);
       const base = triangle(size);
       foreach(i; 0..size - 1) {
@@ -41,12 +46,58 @@ void problem() {
       }
 
       ret.sort;
+      return dg = ret;
+    }
+
+    long distance(Graph other) {
+      long ret;
+      foreach(a, b; zip(degrees, other.degrees)) {
+        ret += (a - b) ^^ 2;
+      }
+
       return ret;
+    }
+
+    string toString() {
+      return sourceString;
     }
   }
   
   auto solve() {
-    
+    int graphSize = 20.iota.countUntil!(i => i * (i + 1) / 2 >= M).to!int;
+    auto er = max(1.0, (E / 0.4) * 4);
+    Graph[] graphs;
+    graphs ~= Graph('0'.repeat(Graph.triangle(graphSize)).to!string);
+    graphs ~= Graph('1'.repeat(Graph.triangle(graphSize)).to!string);
+    foreach(_; 2..M) {
+      Graph best;
+      long bestScore = -1;
+      foreach(t; 0..400) {
+        auto c = Graph(graphSize);
+        auto minDistance = graphs.map!(g => g.distance(c)).minElement;
+        if (bestScore.chmax(minDistance)) best = c;
+      }
+      graphs ~= best;
+      bestScore.deb;
+    }
+
+    graphSize.writeln();
+    graphs.each!writeln();
+    stdout.flush();
+
+    foreach(k; 0..100) {
+      auto graph = Graph(scan);
+
+      long ans;
+      long bestScore = long.max;
+      foreach(i, g; graphs) {
+        const d = graph.distance(g);
+        if (bestScore.chmin(d)) ans = i;
+      }
+
+      ans.writeln;
+      stdout.flush();
+    }
   }
 
   solve();
