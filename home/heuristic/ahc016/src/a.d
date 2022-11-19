@@ -5,6 +5,7 @@ void main() { runSolver(); }
 void problem() {
   auto M = scan!int;
   auto E = scan!real;
+  auto RANDOM = Xorshift(unpredictableSeed);
 
   struct Graph {
     string sourceString;
@@ -27,7 +28,7 @@ void problem() {
     }
 
     this(int size) {
-      this(triangle(size).iota.map!(_ => cast(dchar)('0' + uniform(0, 2))).to!string);
+      this(triangle(size).iota.map!(_ => cast(dchar)('0' + uniform(0, 2, RANDOM))).to!string);
     }
 
     int[] degrees() {
@@ -49,6 +50,19 @@ void problem() {
       return dg = ret;
     }
 
+    Graph simulate(real r) {
+      string s;
+      foreach(c; sourceString) {
+        auto rand = uniform(0.0f, 1.0f, RANDOM);
+        if (rand < r) {
+          s ~= c == '0' ? '1' : '0';
+        } else {
+          s ~= c;
+        }
+      }
+      return Graph(s);
+    }
+
     long distance(Graph other) {
       long ret;
       foreach(a, b; zip(degrees, other.degrees)) {
@@ -64,21 +78,37 @@ void problem() {
   }
   
   auto solve() {
-    int graphSize = 20.iota.countUntil!(i => i * (i + 1) / 2 >= M).to!int;
-    auto er = max(1.0, (E / 0.4) * 4);
+    int graphSize;
+    if (M <= 11) graphSize = 4;
+    else if (M <= 31) graphSize = 5;
+    else graphSize = 6;
+
+    if (E >= 0.2) graphSize *= 2.5;
+    else if (E >= 0.1) graphSize *= 2.0;
+    else if (E >  0.0) graphSize *= 1.5;
+
     Graph[] graphs;
-    graphs ~= Graph('0'.repeat(Graph.triangle(graphSize)).to!string);
-    graphs ~= Graph('1'.repeat(Graph.triangle(graphSize)).to!string);
-    foreach(_; 2..M) {
-      Graph best;
-      long bestScore = -1;
-      foreach(t; 0..400) {
-        auto c = Graph(graphSize);
-        auto minDistance = graphs.map!(g => g.distance(c)).minElement;
-        if (bestScore.chmax(minDistance)) best = c;
+    while(true) {
+      graphs ~= Graph('0'.repeat(Graph.triangle(graphSize)).to!string);
+      graphs ~= Graph('1'.repeat(Graph.triangle(graphSize)).to!string);
+      foreach(_; 2..M) {
+        Graph best;
+        long bestScore;
+        foreach(t; 0..8000/graphSize) {
+          auto c = Graph(graphSize);
+          auto minDistance = graphs.map!(g => g.distance(c)).minElement;
+          if (bestScore.chmax(minDistance)) best = c;
+        }
+        if (bestScore == 0) break;
+        graphs ~= best;
       }
-      graphs ~= best;
-      bestScore.deb;
+
+      if (graphs.length == M) {
+        break;
+      } else {
+        graphs.length = 0;
+        graphSize++;
+      }
     }
 
     graphSize.writeln();
@@ -88,14 +118,21 @@ void problem() {
     foreach(k; 0..100) {
       auto graph = Graph(scan);
 
-      long ans;
-      long bestScore = long.max;
-      foreach(i, g; graphs) {
-        const d = graph.distance(g);
-        if (bestScore.chmin(d)) ans = i;
+      auto samples = new int[](M);
+      auto distances = new long[](M);
+      foreach(t; 0..2000/M) {
+        long ans;
+        long bestScore = long.max;
+        foreach(i, g; graphs) {
+          const d = graph.distance(g.simulate(E));
+          distances[i] += d;
+          if (bestScore.chmin(d)) ans = i;
+        }
+        samples[ans]++;
       }
 
-      ans.writeln;
+      // samples.maxIndex.writeln;
+      distances.minIndex.writeln;
       stdout.flush();
     }
   }
@@ -128,7 +165,7 @@ void outputForAtCoder(T)(T delegate() fn) {
 }
 void runSolver() {
   enum BORDER = "#==================================";
-  debug { BORDER.writeln; while(true) { "#<<< Process time: %s >>>".writefln(benchmark!problem(1)); BORDER.writeln; } }
+  debug { BORDER.writeln; { "#<<< Process time: %s >>>".writefln(benchmark!problem(1)); BORDER.writeln; } }
   else problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
