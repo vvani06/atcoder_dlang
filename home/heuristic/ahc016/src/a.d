@@ -66,7 +66,7 @@ void problem() {
     real distance(Graph other) {
       real ret = 0;
       foreach(a, b; zip(degrees, other.degrees)) {
-        ret += pow(2.0, (a - b).abs);
+        ret += pow(3.1415, (a - b).abs);
       }
 
       return ret;
@@ -131,7 +131,7 @@ void problem() {
 
       auto distances = new real[](M);
       distances[] = 0.0;
-      foreach(t; 0..1000/M) {
+      foreach(t; 0..1600/M) {
         long ans;
         real bestScore = real.max;
         foreach(i, g; graphs) {
