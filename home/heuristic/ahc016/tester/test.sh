@@ -1,0 +1,12 @@
+ldmd2 -O -release ../src/a.d -of ./a
+./tester ./a < in/0000.txt > out/0000.txt
+./tester ./a < in/0001.txt > out/0001.txt
+./tester ./a < in/0002.txt > out/0002.txt
+./tester ./a < in/0003.txt > out/0003.txt
+./tester ./a < in/0004.txt > out/0004.txt
+./tester ./a < in/0005.txt > out/0005.txt
+./tester ./a < in/0006.txt > out/0006.txt
+./tester ./a < in/0007.txt > out/0007.txt
+./tester ./a < in/0008.txt > out/0008.txt
+./tester ./a < in/0009.txt > out/0009.txt
+./tester ./a < in/0010.txt > out/0010.txt
