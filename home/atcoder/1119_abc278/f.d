@@ -13,15 +13,47 @@ void problem() {
         if (s[$ - 1] == t[0]) graph[i] ~= j.to!int;
       }
     }
-    
-    bool[][] visited = new bool[][](2^^N, N);
-    foreach(i; 0..N) visited[2^^i][i] = true;
 
-    foreach(toState; 3..2^^N) {
+    enum BN = 16.iota.map!"2^^a".array;
+    bool[][] available = new bool[][](2^^N, N);
+    foreach(i; 0..N) available[2^^i][i] = true;
+
+    foreach(fromState; 1..2^^N) {
       foreach(from; 0..N) {
-        
+        if (!available[fromState][from]) continue;
+        if ((BN[from] & fromState) != BN[from]) continue;
+
+        foreach(to; graph[from]) {
+          if ((BN[to] & fromState) == BN[to]) continue;
+
+          available[fromState | BN[to]][to] = true;
+        }
       }
     }
+
+    bool[][] win = new bool[][](2^^N, N);
+    foreach_reverse(fromState; 1..2^^N) {
+      auto second = fromState.popcnt % 2;
+
+      foreach(from; 0..N) {
+        if (!available[fromState][from]) continue;
+        if ((BN[from] & fromState) != BN[from]) continue;
+
+        bool[] ways;
+        foreach(to; graph[from]) {
+          if ((BN[to] & fromState) == BN[to]) continue;
+
+          ways ~= win[fromState | BN[to]][to];
+        }
+
+        if (second && !ways.canFind(false)) win[fromState][from] = true;
+        if (!second && ways.canFind(true)) win[fromState][from] = true;
+      }
+    }
+
+    // win.deb;
+    bool ans = N.iota.any!(i => win[2^^i][i]);
+    return ans ? "First" : "Second";
   }
 
   outputForAtCoder(&solve);
@@ -29,7 +61,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
+import std, core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -62,51 +94,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
