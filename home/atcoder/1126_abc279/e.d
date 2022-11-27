@@ -4,29 +4,23 @@ void problem() {
   auto N = scan!int;
   auto M = scan!int;
   auto A = scan!int(M);
-  
-  auto solve_naive() {
-    int[] ans;
-    foreach(i; 0..M) {
-      int pos = 1;
-      foreach(k; 0..M) {
-        if (k == i) continue;
-
-        if (A[k] == pos) {
-          pos++;
-        } else if (A[k] == pos - 1) {
-          pos--;
-        }
-      }
-
-      ans ~= pos;
-    }
-
-    return ans.toAnswerString;
-  }
 
   auto solve() {
-    return solve_naive();
+    auto sim = iota(1, N + 1).array;
+    foreach(a; A) swap(sim[a - 1], sim[a]);
+    auto inv = sim.enumerate(1).map!"a.reverse".assocArray;
+
+    auto arr = iota(1, N + 1).array;
+    int[] ans;
+    foreach(i; 0..M) {
+      auto x = arr[A[i] - 1];
+      auto y = arr[A[i]];
+
+      ans ~= inv[min(x, y) != 1 ? 1 : max(x, y)];
+      swap(arr[A[i] - 1], arr[A[i]]);
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
