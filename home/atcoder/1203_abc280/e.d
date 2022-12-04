@@ -2,25 +2,22 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto P = MInt9(scan!int);
-  auto R = MInt9(100 - P.v);
+  auto P = scan!int;
   
   auto solve() {
-    auto fermet = new FermetCalculator(N + 1);
-    MInt9 ans;
-    MInt9 total;
+    auto dp = new MInt9[](N + 1);
+    dp[1..$] = MInt9(1);
+    auto p = MInt9(P) / MInt9(100);
+    auto q = MInt9(1) - p;
 
-    foreach(cr; 0..(N + 3) / 2) {
-      auto times = cr + max(0, N - cr * 2);
-      auto rate = P^^cr * R^^(times - cr);
-      auto comb = MInt9(fermet.combine(times, cr));
-
-      [times, cr].deb;
-      total += MInt9(100)^^times * comb;
-      ans += MInt9(times) * rate * comb;
+    foreach(i; 2..N + 1) {
+      dp[i] += dp[max(0, i - 2)] * p;
+      dp[i] += dp[i - 1] * q;
     }
 
-    return ans / total;
+    dp.deb;
+
+    return dp[N];
   }
 
   outputForAtCoder(&solve);
@@ -62,38 +59,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-enum MOD = 998_244_353;
-class FermetCalculator {
-  long[] factrial; //階乗を保持
-  long[] inverse;  //逆元を保持
-  
-  this(long size) {
-    factrial = new long[size + 1];
-    inverse = new long[size + 1];
-    factrial[0] = 1;
-    inverse[0] = 1;
-    
-    for (long i = 1; i <= size; i++) {
-      factrial[i] = (factrial[i - 1] * i) % MOD;  //階乗を求める
-      inverse[i] = pow(factrial[i], MOD - 2) % MOD; // フェルマーの小定理で逆元を求める
-    }
-  }
-  
-  long combine(long n, long k) {
-    if (n < k) return 1;
-    return factrial[n] * inverse[k] % MOD * inverse[n - k] % MOD;
-  }
-  
-  long pow(long x, long n) { //x^n 計算量O(logn)
-    long ans = 1;
-    while (n > 0) {
-      if ((n & 1) == 1) {
-        ans = ans * x % MOD;
-      }
-      x = x * x % MOD; //一周する度にx, x^2, x^4, x^8となる
-      n >>= 1; //桁をずらす n = n >> 1
-    }
-    return ans;
-  }
-}
