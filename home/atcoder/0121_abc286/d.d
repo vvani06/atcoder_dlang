@@ -7,18 +7,16 @@ void problem() {
 
   auto solve() {
     auto dp = new bool[](X + 1);
-    auto pre = new bool[](X + 1);
     dp[0] = true;
     foreach(c; C) {
-      pre = dp.dup;
+      auto pre = dp.dup;
       auto a = c[0];
       auto b = c[1];
-      foreach_reverse(from; 0..X) {
+      foreach(from; 0..X) {
         if (!pre[from]) continue;
 
         foreach(t; 1..b + 1) {
           if (from + t*a > X) break;
-
           dp[from + t*a] = true;
         }
       }
