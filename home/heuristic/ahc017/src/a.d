@@ -3,7 +3,17 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 struct Edge {
-  int u, v; long w;
+  int id, u, v; long w;
+
+  inout int opCmp(Edge other) {
+    if (w < other.w) return 1;
+    if (w > other.w) return -1;
+    if (u < other.u) return 1;
+    if (u > other.u) return -1;
+    if (v < other.v) return 1;
+    if (v > other.v) return -1;
+    return 0;
+  }
 }
 
 void problem() {
@@ -11,14 +21,50 @@ void problem() {
   auto M = scan!int;
   auto D = scan!int;
   auto K = scan!int;
-  auto E = M.iota.map!(_ => Edge(scan!int - 1, scan!int - 1, scan!long)).array;
+  auto E = M.iota.map!(i => Edge(i, scan!int - 1, scan!int - 1, scan!long)).array;
   auto P = scan!long(2 * N).chunks(2).array;
   
   auto solve() {
-    auto perDay = min(K, (M + D - 1) / D);
-    
-    int[] ans = iota(1, D + 1).map!(d => d.repeat(perDay)).joiner.array;
-    ans[0..M].toAnswerString.writeln;
+    auto city = new Edge[][](N, 0);
+    foreach(e; E) {
+      city[e.u] ~= Edge(e.id, e.u, e.v, e.w);
+      city[e.v] ~= Edge(e.id, e.v, e.u, e.w);
+    }
+
+    auto et = E.redBlackTree;
+    int[][] schedule;
+
+    while(!et.empty) {
+      auto used = new bool[](N);
+      int[] targets;
+      foreach(e; et.array) {
+        if (used[e.u] || used[e.v]) continue;
+
+        used[e.u] = used[e.v] = true;
+        targets ~= e.id;
+        et.removeKey(e);
+      }
+
+      schedule ~= targets;
+    }
+
+
+
+    auto ans = new int[](M);
+    const perDay = min(K, (M + D - 1) / D);
+    int day = 1, count = 0;
+    foreach(s; schedule) {
+      foreach(r; s) {
+        ans[r] = day;
+        if (++count == perDay) {
+          day++; count = 0;
+        }
+      }
+      // day++; count = 0;
+    }
+
+    // schedule.map!"a.length".deb;
+    ans.toAnswerString.writeln;
   }
 
   solve();
@@ -55,32 +101,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct UnionFind {
-  int[] parent;
-
-  this(int size) {
-    parent.length = size;
-    foreach(i; 0..size) parent[i] = i;
-  }
-
-  int root(int x) {
-    if (parent[x] == x) return x;
-    return parent[x] = root(parent[x]);
-  }
-
-  int unite(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    if (rootX == rootY) return rootY;
-    return parent[rootX] = rootY;
-  }
-
-  bool same(int x, int y) {
-    int rootX = root(x);
-    int rootY = root(y);
-
-    return rootX == rootY;
-  }
-}
