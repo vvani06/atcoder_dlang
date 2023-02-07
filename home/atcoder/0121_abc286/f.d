@@ -3,9 +3,7 @@ void main() { runSolver(); }
 void problem() {
 
   auto solve() {
-    auto N = scan!int;
-
-    int[] conv(int m, int[] arr) {
+    int[] conv(int N, int m, int[] arr) {
       auto ret = iota(1, m + 1).array;
       foreach(_; 0..N) {
         auto t = new int[](m);
@@ -19,7 +17,7 @@ void problem() {
       return ret;
     }
 
-    long[] seeds = [2, 3, 5, 7, 11, 13, 17, 19, 23];
+    long[] seeds = [4, 9, 5, 7, 11, 13, 17, 19, 23];
     const M = seeds.sum.to!int;
     int[][] A;
     int offset = 1;
@@ -32,7 +30,8 @@ void problem() {
     A.joiner.toAnswerString.writeln;
     stdout.flush;
 
-    // conv(M, A.joiner.array).toAnswerString.deb;
+    conv(4, M, A.joiner.array).toAnswerString.deb;
+
     auto response = scan!int(M);
     int[][] B;
     offset = 0;
@@ -42,22 +41,13 @@ void problem() {
     }
 
     long[] shifts;
-    foreach(a, b; zip(A, B)) {
-      shifts ~= b.countUntil(a[0]);
+    foreach(a, b, s; zip(A, B, seeds)) {
+      shifts ~= (s - b.countUntil(a[$ - 1])) % s;
     }
     
-    auto ans = crt(seeds, shifts);
+    shifts.deb;
+    auto ans = crt(shifts, seeds);
     ans[0].writeln;
-    stdout.flush;
-
-    // long s;
-    // long m = 1;
-    // foreach(n; [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]) {
-    //   s += n;
-    //   m *= n;
-    //   deb([n, s, m]);
-    //   if (m >= 10^^9) "YES".deb;
-    // }
   }
 
   outputForAtCoder(&solve);
