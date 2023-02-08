@@ -2,19 +2,22 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto A = scan!long(N);
+  auto A = scan!long(N).sort;
 
   auto solve() {
-    foreach_reverse(b; 0..31) {
-      const bn = 2L ^^ b;
-      auto contains = A.count!(a => (a & bn) == bn);
+    long dfs(int bit, typeof(A) arr) {
+      if (bit == -1) return 0;
 
-      if (A.map!(a => a ^ bn).maxElement <= A.maxElement) {
-        foreach(ref a; A) a ^= bn;
-      }
+      const bn = 2L ^^ bit;
+      auto s = arr.lowerBound(bn);
+      auto t = arr.upperBound(bn - 1).map!(a => a - bn).array.assumeSorted;
+
+      if (s.empty) return dfs(bit - 1, t);
+      if (t.empty) return dfs(bit - 1, s);
+      return min(dfs(bit - 1, s), dfs(bit - 1, t)) | bn;
     }
-
-    return A.maxElement;
+    
+    return dfs(30, A);
   }
 
   outputForAtCoder(&solve);
