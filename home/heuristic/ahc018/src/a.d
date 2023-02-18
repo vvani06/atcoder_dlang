@@ -20,7 +20,16 @@ void problem() {
       costs[i / N][i % N] = 10;
     }
 
-    foreach(x; 0..N) foreach(y; 0..N) {
+    auto xty = N.iota.map!(_ => new int[](0).redBlackTree).array;
+    auto ytx = N.iota.map!(_ => new int[](0).redBlackTree).array;
+    foreach(p; G) {
+      xty[p[1]].insert(p[0]);
+      ytx[p[0]].insert(p[1]);
+    }
+
+    foreach(y; 0..N) foreach(x; 0..N) {
+      if (xty[y].empty && ytx[x].empty) continue;
+
       int sum;
       for(auto e = 1;; e *= 2) {
         auto power = min(POWER_MAX - sum, e * costs[y][x]);
