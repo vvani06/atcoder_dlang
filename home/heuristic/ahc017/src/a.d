@@ -2,17 +2,89 @@ void main() { runSolver(); }
 
 // ----------------------------------------------
 
+enum long INF = 10 ^^ 9;
+
 struct Edge {
   int id, u, v; long w;
 
   inout int opCmp(Edge other) {
     if (w < other.w) return 1;
     if (w > other.w) return -1;
-    if (u < other.u) return 1;
-    if (u > other.u) return -1;
-    if (v < other.v) return 1;
-    if (v > other.v) return -1;
+    if (id < other.id) return 1;
+    if (id > other.id) return -1;
     return 0;
+  }
+}
+
+struct Evaluation {
+  City city;
+  int start;
+  int[] from;
+  long[] costs;
+  bool[] disabled;
+
+  this(City city, int start) {
+    this.city = city;
+    this.start = start;
+    disabled = new bool[](city.M);
+    
+    auto c = computeDistances();
+    costs = c[0];
+    from = c[1];
+  }
+
+  Tuple!(long[], int[]) computeDistances() {
+    auto ret = new long[](city.N);
+    ret[] = 10 ^^ 9;
+    ret[start] = 0;
+
+    auto from = new int[](city.N);
+    from[] = -1;
+
+    alias Exam = Tuple!(int, "node", long, "cost");
+    for(auto queue = [Exam(start, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+      auto p = queue.front; queue.removeFront;
+      if (ret[p.node] != p.cost) continue;
+      
+      foreach(e; city.graph[p.node]) {
+        if (disabled[e.id]) continue;
+
+        const d = p.cost + e.w;
+        if (ret[e.v].chmin(d)) {
+          from[e.v] = e.id;
+          queue.insert(Exam(e.v, d));
+        }
+      }
+    }
+
+    return tuple(ret, from);
+  }
+
+  long setDisabled(int edgeId) {
+    auto edge = city.E[edgeId];
+
+    
+
+    return 0;
+  }
+}
+
+struct City {
+  int N, M;
+  Edge[] E;
+  Edge[][] graph;
+
+  long[][] dist0;
+
+  this(int N, int M, Edge[] E) {
+    this.N = N;
+    this.M = M;
+    this.E = E;
+    graph = new Edge[][](N, 0);
+    foreach(e; E) {
+      graph[e.u] ~= Edge(e.id, e.u, e.v, e.w);
+      graph[e.v] ~= Edge(e.id, e.v, e.u, e.w);
+    }
   }
 }
 
@@ -25,34 +97,61 @@ void problem() {
   auto P = scan!long(2 * N).chunks(2).array;
   
   auto solve() {
-    auto city = new Edge[][](N, 0);
-    foreach(e; E) {
-      city[e.u] ~= Edge(e.id, e.u, e.v, e.w);
-      city[e.v] ~= Edge(e.id, e.v, e.u, e.w);
-    }
+    auto city = City(N, M, E);
 
-    auto et = E.redBlackTree;
+    auto evaluation = Evaluation(city, 0);
+    evaluation.from.deb;
+
+    const limit = min(K, (M + D - 1) / D);
     int[][] schedule;
-
+    auto finished = new bool[](M);
+    auto et = city.E.redBlackTree; // E.filter!(e => must[e.id] == inMst).redBlackTree;
     while(!et.empty) {
-      auto used = new bool[](N);
       int[] targets;
-      foreach(e; et.array) {
-        if (used[e.u] || used[e.v]) continue;
+      auto available = city.graph.map!"a.length.to!int".array;
+      auto used = new int[](N);
 
-        used[e.u] = used[e.v] = true;
-        targets ~= e.id;
+      void construct(Edge e) {
         et.removeKey(e);
+        targets ~= e.id;
+        finished[e.id] = true;
+        available[e.u]--;
+        available[e.v]--;
+        used[e.u]++;
+        used[e.v]++;
       }
 
+      while(targets.length < limit) {
+        auto cur = et.front;
+        int curBest = int.max;
+        foreach(e; et.array) {
+          if (curBest.chmin(used[e.u] + used[e.v])) cur = e;
+        }
+        while(targets.length < limit) {
+          construct(cur);
+
+          int best = int.max;
+          Edge bestEdge = cur;
+          foreach(next; city.graph[cur.v]) {
+            if (finished[next.id]) continue;
+            if (used[next.v] > 0) continue;
+            
+            bestEdge = next;
+            break;
+          }
+          cur = bestEdge;
+          if (finished[cur.id]) break;
+        }
+      }
       schedule ~= targets;
     }
 
-
-
     auto ans = new int[](M);
-    const perDay = min(K, (M + D - 1) / D);
+    auto perDay = min(K, (M + D - 1) / D);
     int day = 1, count = 0;
+
+    schedule.map!"a.length".deb;
+    perDay = min(K, (schedule.map!"a.length".sum + D - 1) / D);
     foreach(s; schedule) {
       foreach(r; s) {
         ans[r] = day;
@@ -63,6 +162,7 @@ void problem() {
       // day++; count = 0;
     }
 
+    // iota(1, D+1).map!(d => ans.count(d)).deb;
     // schedule.map!"a.length".deb;
     ans.toAnswerString.writeln;
   }
