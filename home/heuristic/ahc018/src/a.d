@@ -13,34 +13,54 @@ void problem() {
   auto K = scan!int;
   auto C = scan!int;
   auto G = scan!int(2 * (W + K)).chunks(2).array;
-  
+
+  class State {
+    bool[N][N] excavated;
+    bool finished;
+    int totalCost;
+
+    int excavate(int x, int y) {
+      if (excavated[y][x]) return 0;
+
+      int limit = POWER_MAX;
+      int sum;
+      for(int e = 4;; e *= 1.5) {
+        int power = min(limit - sum, 7 + e);
+        sum += power;
+        writefln("%s %s %s", y, x, power);
+        stdout.flush;
+
+        const r = scan!int;
+        if (r == 2) finished = true;
+        if (r >= 1) return sum;
+        if (r != 0) assert(false, "bad request");
+      }
+      return 0;
+    }
+  }
+
   auto solve() {
     auto costs = new int[N][N];
     foreach(i; 0..N * N) {
-      costs[i / N][i % N] = 10;
+      costs[i / N][i % N] = uniform(COST_MIN, COST_MAX + 1);
     }
 
     auto xty = N.iota.map!(_ => new int[](0).redBlackTree).array;
     auto ytx = N.iota.map!(_ => new int[](0).redBlackTree).array;
     foreach(p; G) {
-      xty[p[1]].insert(p[0]);
-      ytx[p[0]].insert(p[1]);
+      xty[p[0]].insert(p[1]);
+      ytx[p[1]].insert(p[0]);
     }
+
+    auto scores = new int[](2 ^^ (K + C));
+
+    auto state = new State();
 
     foreach(y; 0..N) foreach(x; 0..N) {
       if (xty[y].empty && ytx[x].empty) continue;
-
-      int sum;
-      for(auto e = 1;; e *= 2) {
-        auto power = min(POWER_MAX - sum, e * costs[y][x]);
-        sum += power;
-        writefln("%s %s %s", x, y, power);
-        stdout.flush;
-
-        const result = scan!int;
-        if (result == -1 || result == 2) return;
-        if (result == 1) break;
-      }
+      
+      state.excavate(x, y);
+      if (state.finished) return;
     }
   }
 

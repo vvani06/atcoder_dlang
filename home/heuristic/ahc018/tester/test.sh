@@ -1,3 +1,5 @@
+#!/bin/bash -e
+
 ldmd2 -O -release ../src/a.d -of ./a
 rm score
 date && ./tester ./a < in/0000.txt > /dev/null 2>> score
