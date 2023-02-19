@@ -9,15 +9,77 @@ void problem() {
   enum POWER_MAX = 5000;
   enum N = 200;
 
+  enum DIRS = zip([0, 1, 2, 3], [-1, 0, 1, 0], [0, -1, 0, 1]);
+  enum DIRS_ARR = zip([0, 1, 2, 3], [-1, 0, 1, 0], [0, -1, 0, 1]).array;
+
+  enum POWERS_ARR = [
+    [272, 460, 151, 268, 174, 275, 153, 316, 340, 373, 71, 130, 168, 258, 259, 633, 104, 370, 225], // C = 1, cost = 11807342041331
+    [140, 161, 148, 260, 187, 366, 93, 214, 271, 165, 218, 364, 97, 147, 60, 121, 212, 447, 394, 790, 145], // C = 2, cost = 11807134932636
+    [432, 18, 333, 104, 286, 27, 166, 376, 151, 129, 388, 203, 109, 266, 267, 199, 190, 311, 307, 211, 527], // C = 4, cost = 13117907878667
+    [255, 252, 380, 250, 244, 210, 38, 39, 292, 54, 373, 344, 406, 235, 662, 597, 369], // C = 8, cost = 15357974426220
+    [358, 176, 130, 281, 274, 143, 220, 349, 193, 466, 182, 547, 143, 222, 303, 255, 758], // C = 16, cost = 18618405784988
+    [388, 363, 329, 240, 396, 268, 211, 543, 294, 352, 138, 398, 410, 670], // C = 32, cost = 24490263086455
+    [480, 422, 457, 404, 366, 410, 449, 373, 348, 597, 456, 238], // C = 64, cost = 33971655344755
+    [661, 572, 497, 611, 502, 479, 346, 386, 369, 577], // C = 128, cost = 49421868289711
+  ];
+
+  struct Coord {
+    int x, y, cost;
+
+    this(int x, int y, int cost) {
+      this(x, y); this.cost = cost;
+    }
+    this(int x, int y) {
+      this.x = x; this.y = y;
+    }
+  }
+
+  struct Calculation {
+    Coord from;
+    int[N][N] costs;
+    int[N][N] froms;
+
+    Coord[] bestRoute(bool[N][N] ex) {
+      int best = int.max;
+      Coord bestCoord;
+
+      foreach(y; 0..N) foreach(x; 0..N) {
+        if (!ex[y][x]) continue;
+
+        if (best.chmin(costs[y][x])) {
+          bestCoord = Coord(x, y);
+        }
+      }
+
+      return route(bestCoord);
+    }
+
+    Coord[] route(Coord to) {
+      Coord[] ret;
+
+      int y = to.y;
+      int x = to.x;
+      while (froms[y][x] != -1) {
+        ret ~= Coord(x, y);
+        const d = froms[y][x];
+        x -= DIRS_ARR[d][1];
+        y -= DIRS_ARR[d][2];
+      }
+
+      ret ~= from;
+      return ret;
+    }
+  }
+
   scan!int; // N = 200
   auto W = scan!int;
   auto K = scan!int;
   auto C = scan!int;
   const WK = W + K;
-  auto G = scan!int(2 * WK).chunks(2).array;
-
-  enum DIRS = zip([0, 1, 2, 3], [-1, 0, 1, 0], [0, -1, 0, 1]);
-  enum DIRSARR = zip([0, 1, 2, 3], [-1, 0, 1, 0], [0, -1, 0, 1]).array;
+  auto G = scan!int(2 * WK).chunks(2).map!(c => Coord(c[1], c[0])).array;
+  int[] POWERS; {
+    for(int i = 0; i < 8; i++) if (C == 2^^i) POWERS = POWERS_ARR[i];
+  }
 
   class State {
     bool[N][N] excavated;
@@ -25,24 +87,26 @@ void problem() {
     int totalCost;
 
     int[N][N] assumedCosts;
-    int[N][N][16] calcedCosts;
-    int[N][N][16] calcedCostFrom;
+    int[N][N] currentCosts;
+    Calculation[] calced;
 
     this() {
       foreach(i; 0..N * N) {
-        assumedCosts[i / N][i % N] = uniform(COST_MIN * 6, COST_MAX / 3 + 1);
+        const c = uniform(COST_MIN * 6, COST_MAX / 3 + 1);
+        assumedCosts[i / N][i % N] = c;
+        currentCosts[i / N][i % N] = c;
       }
 
       foreach(i; 0..G.length) {
-        auto c = calcCostsFrom(i.to!int);
-        calcedCosts[i] = c[0];
-        calcedCostFrom[i] = c[1];
+        calced ~= calcCostsFrom(G[i]);
       }
     }
 
-    Tuple!(int[N][N], int[N][N]) calcCostsFrom(int from) {
-      const fromX = G[from][1];
-      const fromY = G[from][0];
+    Calculation calcCostsFrom(Coord from, Coord[] exd = []) {
+      const fromX = from.x;
+      const fromY = from.y;
+
+      foreach(c; exd) currentCosts[c.y][c.x] = 0;
 
       int[N][N] costs;
       int[N][N] froms;
@@ -50,8 +114,7 @@ void problem() {
       foreach(ref c; froms) c[] = -1;
       costs[fromY][fromX] = 0;
 
-      alias Calc = Tuple!(int, "x", int, "y", int, "cost");
-      for (auto queue = [Calc(fromX, fromY, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+      for (auto queue = [Coord(fromX, fromY, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
         auto p = queue.front; queue.removeFront;
         if (costs[p.y][p.x] != p.cost) continue;
 
@@ -61,39 +124,27 @@ void problem() {
           if (min(x, y) >= 0 && max(x, y) < N) {
             if (costs[y][x].chmin(p.cost + assumedCosts[y][x])) {
               froms[y][x] = dir;
-              queue.insert(Calc(x, y, costs[y][x]));
+              queue.insert(Coord(x, y, costs[y][x]));
             }
           }
         }}
       }
 
-      return tuple(costs, froms);
+      foreach(c; exd) currentCosts[c.y][c.x] = assumedCosts[c.y][c.x];
+      return Calculation(from, costs, froms);
     }
 
-    int[][] route(int from, int to) {
-      int[][] ret;
-
-      int y = G[to][0];
-      int x = G[to][1];
-      while (calcedCostFrom[from][y][x] != -1) {
-        ret ~= [x, y];
-        const d = calcedCostFrom[from][y][x];
-        x -= DIRSARR[d][1];
-        y -= DIRSARR[d][2];
-      }
-
-      ret ~= [x, y];
-      return ret;
-    }
-
-    int excavate(int x, int y) {
+    int excavate(Coord p) {
+      const x = p.x;
+      const y = p.y;
       if (excavated[y][x]) return 0;
+
+      assumedCosts[y][x] = 0;
+      currentCosts[y][x] = 0;
       excavated[y][x] = true;
 
-      int limit = POWER_MAX;
       int sum;
-      for(int e = 4;; e *= 1.5) {
-        int power = min(limit - sum, 7 + e);
+      foreach(power; POWERS) {
         sum += power;
         writefln("%s %s %s", y, x, power);
         stdout.flush;
@@ -113,7 +164,7 @@ void problem() {
     auto routes = new int[][][](2 ^^ WK, WK, 0);
     foreach(ref s; costs) s[] = INF;
     foreach(st; 0..WK) {
-      costs[2 ^^ st][st] = state.assumedCosts[G[st][0]][G[st][1]];
+      costs[2 ^^ st][st] = state.assumedCosts[G[st].y][G[st].x];
       routes[2 ^^ st][st] ~= st;
     }
 
@@ -129,7 +180,7 @@ void problem() {
           if ((fromState & (2^^to)) != 0) continue;
 
           const toState = fromState | (2^^to);
-          const cost = costs[fromState][from] + state.calcedCosts[from][G[to][0]][G[to][1]];
+          const cost = costs[fromState][from] + state.calced[from].costs[G[to].y][G[to].x];
           costs[toState][to].chmin(cost);
           routes[toState][to] = routes[fromState][from] ~ to;
 
@@ -140,14 +191,13 @@ void problem() {
       }
     }
 
-    // state.route(0, 1).deb;
-    
     int from = bestRoute[0];
+    state.excavate(G[from]);
     foreach(to; bestRoute[1..$]) {
-      foreach(p; state.route(from, to)) {
-        state.excavate(p[0], p[1]);
+      auto calc = state.calcCostsFrom(G[to]);
+      foreach(p; calc.bestRoute(state.excavated)) {
+        state.excavate(p);
       }
-
       from = to;
     }
   }
