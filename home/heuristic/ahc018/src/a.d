@@ -91,11 +91,40 @@ void problem() {
     Calculation[] calced;
 
     this() {
+      Coord[] mountains;
+      foreach(i; 0..WK - 2) foreach(j; i + 1..WK - 1) foreach(k; j + 1..WK) {
+        int x = (G[i].x + G[j].x + G[k].x) / 3;
+        int y = (G[i].y + G[j].y + G[k].y) / 3;
+        mountains ~= Coord(x, y);
+      }
+
+      int[N][N] rate;
+      int rmin = int.max;
+      int rmax = int.min;
+      foreach(x; 0..N) foreach(y; 0..N) {
+        foreach(m; mountains) {
+          auto d = abs(m.x - x) + abs(m.y - y);
+          rate[y][x] += max(0, 5 - d);
+        }
+        foreach(m; G) {
+          auto d = abs(m.x - x) + abs(m.y - y);
+          rate[y][x] -= max(0, 25 - d);
+        }
+
+        rmax = max(rmax, rate[y][x]);
+        rmin = min(rmin, rate[y][x]);
+      }
       foreach(i; 0..N * N) {
-        const c = uniform(COST_MIN * 6, COST_MAX / 3 + 1);
+        int r = rate[i / N][i % N];
+        r -= rmin;
+        r *= 2000;
+        r /= rmax;
+        const c = max(10, r);
         assumedCosts[i / N][i % N] = c;
         currentCosts[i / N][i % N] = c;
       }
+
+      assumedCosts.deb;
 
       foreach(i; 0..G.length) {
         calced ~= calcCostsFrom(G[i]);
