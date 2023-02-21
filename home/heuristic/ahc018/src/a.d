@@ -151,7 +151,7 @@ void problem() {
           const x = p.x + dx;
           const y = p.y + dy;
           if (min(x, y) >= 0 && max(x, y) < N) {
-            if (costs[y][x].chmin(p.cost + assumedCosts[y][x])) {
+            if (costs[y][x].chmin(p.cost + assumedCosts[y][x] + C)) {
               froms[y][x] = dir;
               queue.insert(Coord(x, y, costs[y][x]));
             }
