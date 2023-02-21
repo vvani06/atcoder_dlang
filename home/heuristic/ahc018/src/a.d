@@ -173,7 +173,8 @@ void problem() {
       excavated[y][x] = true;
 
       int sum;
-      foreach(power; POWERS) {
+      int power = max(10, C);
+      while(true) {
         sum += power;
         writefln("%s %s %s", y, x, power);
         stdout.flush;
@@ -182,6 +183,7 @@ void problem() {
         if (r == 2) finished = true;
         if (r >= 1) return sum;
         if (r != 0) assert(false, "bad request");
+        power += max(10, C);
       }
       return 0;
     }
