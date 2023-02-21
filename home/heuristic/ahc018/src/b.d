@@ -10,18 +10,21 @@ void problem() {
 
   long[] sample(long overhead) {
     long[] arr;
+    long pre;
     while(arr.sum < H_MAX) {
-      arr ~= min(H_MAX - arr.sum, uniform(P_MIN + overhead, P_MAX / 6));
+      auto r = uniform(max(pre, P_MIN + overhead), max(pre + 1, P_MAX / 8));
+      arr ~= min(H_MAX - arr.sum, r);
+      pre = r;
     }
     return arr;
   }
 
-  long calc(long[] arr, long overhead) {
+  auto calc(long[] arr, long overhead) {
     auto acc = (0L ~ arr.cumulativeFold!"a + b".array).assumeSorted;
-    long cost;
+    long cost = 0;
     foreach(h; H_MIN..H_MAX + 1) {
       auto t = acc.lowerBound(h).length;
-      cost += (t*overhead + acc[t] - h) * (6000 - h)^^2;
+      cost += ((t*overhead + acc[t] - h) * 10000000) / h;
     }
     return cost;
   }
@@ -31,8 +34,8 @@ void problem() {
     enum first = [11L, 13, 16, 20, 26, 35, 49, 70, 101, 148, 218, 323, 481, 718, 1073, 1606, 92];
     foreach(overhead; [1L, 2L, 4L, 8L, 16L, 32L, 64L, 128L]) {
       long[] bestArr = first;
-      long best = calc(bestArr, overhead);
-      foreach(_; 0..50_000_000) {
+      auto best = calc(bestArr, overhead);
+      foreach(_; 0..5_000_000) {
         auto arr = sample(overhead);
         if (best.chmin(calc(arr, overhead))) bestArr = arr;
         "\r".write;
