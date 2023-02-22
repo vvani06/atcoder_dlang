@@ -35,7 +35,7 @@ void problem() {
     foreach(overhead; [1L, 2L, 4L, 8L, 16L, 32L, 64L, 128L]) {
       long[] bestArr = first;
       auto best = calc(bestArr, overhead);
-      foreach(_; 0..5_000_000) {
+      foreach(_; 0..100_000_000) {
         auto arr = sample(overhead);
         if (best.chmin(calc(arr, overhead))) bestArr = arr;
         "\r".write;
