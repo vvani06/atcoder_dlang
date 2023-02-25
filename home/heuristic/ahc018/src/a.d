@@ -99,20 +99,34 @@ void problem() {
       }
 
       auto mid = N / WK;
-      foreach(y; iota(mid, N, mid)) foreach(x; iota(mid, N, mid)) {
-        auto h = excavate(Coord(x, y), true);
-
+      bool[N][N] toTest;
+      bool[N][N] covered;
+      foreach(c; G) {
+        toTest[c.y][c.x] = true;
         foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
-          if (min(y + dy, x + dx) < 0 || max(y + dy, x + dx) >= N) continue;
-          
-          auto r = mid - abs(dy) - abs(dx);
-          assumedCosts[y + dy][x + dx] *= (mid - r);
-          assumedCosts[y + dy][x + dx] += r * h;
-          assumedCosts[y + dy][x + dx] /= mid;
+          auto cy = c.y + dy;
+          auto cx = c.x + dx;
+          if (min(cx, cy) < 0 || max(cx, cy) >= N) continue;
+          covered[cy][cx] = true;
+        }
+      }
+      foreach(c; G) {
+        foreach(y; iota(c.y - mid * 2, c.y + mid * 2, mid)) foreach(x; iota(c.x - mid * 2, c.x + mid * 2, mid)) {
+          if (min(x, y) < 0 || max(x, y) >= N || covered[y][x]) continue;
+          toTest[y][x] = true;
+          foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
+            auto cy = y + dy;
+            auto cx = x + dx;
+            if (min(cx, cy) < 0 || max(cx, cy) >= N) continue;
+            covered[cy][cx] = true;
+          }
         }
       }
 
-      foreach(c; G[W..$]) {
+      foreach(y; 0..N) foreach(x; 0..N) {
+        if (!toTest[y][x]) continue;
+        
+        auto c = Coord(x, y);
         auto h = excavate(c, true);
         if (h == -1) continue;
 
