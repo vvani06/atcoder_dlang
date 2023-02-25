@@ -210,7 +210,7 @@ void problem() {
       }
 
       int sum;
-      int incr = max(10, C, aroundCount >= 2 ? ((aroundSum / aroundCount)*1.0 + C).to!int : 0);
+      int incr = max(10, C, aroundCount >= 2 ? (aroundSum / aroundCount).to!int : 0);
 
       // foreach (power; POWERS) {
       for (int power = incr; sum < COST_MAX; power += incr) {
