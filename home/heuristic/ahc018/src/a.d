@@ -209,6 +209,10 @@ void problem() {
         if (r == 2) finished = true;
         if (r >= 1) return sum;
         if (r != 0) assert(false, "bad request");
+        if (sum > 1000 && isTest) {
+          tested[y][x] = false;
+          return 10000;
+        }
       }
       return sum;
     }
