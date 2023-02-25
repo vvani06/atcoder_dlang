@@ -35,11 +35,11 @@ void problem() {
   }
 
   struct Calculation {
-    Coord from;
+    Coord from = Coord(-1, -1);
     int[N][N] costs;
     int[N][N] froms;
 
-    Coord[] bestRoute(bool[N][N] ex) {
+    Coord bestTarget(bool[N][N] ex) {
       int best = int.max;
       Coord bestCoord;
 
@@ -47,11 +47,11 @@ void problem() {
         if (!ex[y][x]) continue;
 
         if (best.chmin(costs[y][x])) {
-          bestCoord = Coord(x, y);
+          bestCoord = Coord(x, y, costs[y][x]);
         }
       }
 
-      return route(bestCoord);
+      return bestCoord;
     }
 
     Coord[] route(Coord to) {
@@ -189,48 +189,83 @@ void problem() {
   }
 
   auto solve() {
+    auto uf = UnionFind(WK);
+    int[N][N] wid;
+    foreach(ref w; wid) w[] = 255;
+
     auto state = new State();
-    auto costs = new int[][](2 ^^ WK, WK);
-    auto routes = new int[][][](2 ^^ WK, WK, 0);
-    foreach(ref s; costs) s[] = INF;
-    foreach(st; 0..WK) {
-      costs[2 ^^ st][st] = state.assumedCosts[G[st].y][G[st].x];
-      routes[2 ^^ st][st] ~= st;
+    foreach(i, c; G[0..W]) {
+      state.excavate(c);
+      wid[c.y][c.x] = i.to!int;
     }
 
-    const satisfy = iota(W, W + K).map!"2 ^^ a".sum;
-
-    int bestCost = INF;
-    int[] bestRoute;
-    foreach(fromState; 1..2 ^^ WK) {
+    while(true) {
+      int bestCost = int.max;
+      Coord[] bestRoute;
+      int bestFrom;
       foreach(from; 0..WK) {
-        if ((fromState & (2^^from)) == 0) continue;
+        if (uf.root(from) < W) continue;
 
-        foreach(to; 0..WK) {
-          if ((fromState & (2^^to)) != 0) continue;
-
-          const toState = fromState | (2^^to);
-          const cost = costs[fromState][from] + state.calced[from].costs[G[to].y][G[to].x];
-          if (costs[toState][to].chmin(cost)) {
-            routes[toState][to] = routes[fromState][from] ~ to;
-          }
-
-          if (toState > satisfy && bestCost.chmin(cost)) {
-            bestRoute = routes[toState][to];
-          }
+        auto fc = G[from];
+        auto calc = state.calcCostsFrom(fc);
+        auto best = calc.bestTarget(state.excavated);
+        if (bestCost.chmin(best.cost)) {
+          bestFrom = from;
+          bestRoute = calc.route(best);
         }
       }
+
+      auto w = wid[bestRoute[0].y][bestRoute[0].x];
+      uf.unite(w, bestFrom);
+      foreach(c; bestRoute) {
+        wid[c.y][c.x] = w;
+        state.excavate(c);
+        if (state.finished) return;
+      }
     }
 
-    int from = bestRoute[0];
-    state.excavate(G[from]);
-    foreach(to; bestRoute[1..$]) {
-      auto calc = state.calcCostsFrom(G[to]);
-      foreach(p; calc.bestRoute(state.excavated)) {
-        state.excavate(p);
-      }
-      from = to;
-    }
+
+    // auto costs = new int[][](2 ^^ WK, WK);
+    // auto routes = new int[][][](2 ^^ WK, WK, 0);
+    // foreach(ref s; costs) s[] = INF;
+    // foreach(st; 0..WK) {
+    //   costs[2 ^^ st][st] = state.assumedCosts[G[st].y][G[st].x];
+    //   routes[2 ^^ st][st] ~= st;
+    // }
+
+    // const satisfy = iota(W, W + K).map!"2 ^^ a".sum;
+
+    // int bestCost = INF;
+    // int[] bestRoute;
+    // foreach(fromState; 1..2 ^^ WK) {
+    //   foreach(from; 0..WK) {
+    //     if ((fromState & (2^^from)) == 0) continue;
+
+    //     foreach(to; 0..WK) {
+    //       if ((fromState & (2^^to)) != 0) continue;
+
+    //       const toState = fromState | (2^^to);
+    //       const cost = costs[fromState][from] + state.calced[from].costs[G[to].y][G[to].x];
+    //       if (costs[toState][to].chmin(cost)) {
+    //         routes[toState][to] = routes[fromState][from] ~ to;
+    //       }
+
+    //       if (toState > satisfy && bestCost.chmin(cost)) {
+    //         bestRoute = routes[toState][to];
+    //       }
+    //     }
+    //   }
+    // }
+
+    // int from = bestRoute[0];
+    // state.excavate(G[from]);
+    // foreach(to; bestRoute[1..$]) {
+    //   auto calc = state.calcCostsFrom(G[to]);
+    //   foreach(p; calc.bestRoute(state.excavated)) {
+    //     state.excavate(p);
+    //   }
+    //   from = to;
+    // }
   }
 
   solve();
@@ -267,3 +302,33 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct UnionFind {
+  int[] parent;
+
+  this(int size) {
+    parent.length = size;
+    foreach(i; 0..size) parent[i] = i;
+  }
+
+  int root(int x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  int unite(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+
+    if (rootX == rootY) return rootY;
+    if (rootX < rootY) swap(rootX, rootY);
+    return parent[rootX] = rootY;
+  }
+
+  bool same(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+
+    return rootX == rootY;
+  }
+}
