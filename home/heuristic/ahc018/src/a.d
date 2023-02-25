@@ -84,12 +84,14 @@ void problem() {
   class State {
     bool[N][N] excavated;
     bool[N][N] tested;
-    bool finished;
-    int totalCost;
 
     int[N][N] assumedCosts;
     int[N][N] currentCosts;
+    int[N][N] actualCosts;
     Calculation[] calced;
+
+    bool finished;
+    int totalCost;
 
     this() {
       foreach(x; 0..N) foreach(y; 0..N) {
@@ -195,8 +197,21 @@ void problem() {
         if (tested[y][x]) return 0;
       }
 
+      int aroundCount;
+      int aroundSum;
+      foreach(dir, dx, dy; DIRS) {
+        auto px = x + dx;
+        auto py = y + dy;
+        if (min(px, py) < 0 || max(px, py) >= N) continue;
+        if (actualCosts[py][px] == 0) continue;
+
+        aroundCount++;
+        aroundSum += actualCosts[py][px];
+      }
+
       int sum;
-      int incr = max(10, C);
+      int incr = max(10, C, aroundCount >= 2 ? ((aroundSum / aroundCount)*1.0 + C).to!int : 0);
+
       // foreach (power; POWERS) {
       for (int power = incr; sum < COST_MAX; power += incr) {
         debug {} else {
@@ -204,14 +219,16 @@ void problem() {
           stdout.flush;
         }
         sum += power;
+        actualCosts[y][x] += power;
 
         const r = scan!int;
         if (r == 2) finished = true;
         if (r >= 1) return sum;
         if (r != 0) assert(false, "bad request");
-        if (sum > 1000 && isTest) {
+        if (sum > 500 && isTest) {
           tested[y][x] = false;
-          return 10000;
+          actualCosts[y][x] = 5000;
+          return 5000;
         }
       }
       return sum;
@@ -251,7 +268,9 @@ void problem() {
 
       auto w = wid[bestRoute[0].y][bestRoute[0].x];
       uf.unite(w, bestFrom);
-      foreach(c; bestRoute) {
+
+      foreach(i; iota(0, bestRoute.length, 2).array ~ iota(1, bestRoute.length, 2).array) {
+        auto c = bestRoute[i];
         wid[c.y][c.x] = w;
         state.excavate(c);
       }
