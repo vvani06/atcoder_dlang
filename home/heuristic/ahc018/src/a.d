@@ -83,6 +83,7 @@ void problem() {
 
   class State {
     bool[N][N] excavated;
+    bool[N][N] tested;
     bool finished;
     int totalCost;
 
@@ -91,40 +92,56 @@ void problem() {
     Calculation[] calced;
 
     this() {
-      Coord[] mountains;
-      foreach(i; 0..WK - 2) foreach(j; i + 1..WK - 1) foreach(k; j + 1..WK) {
-        int x = (G[i].x + G[j].x + G[k].x) / 3;
-        int y = (G[i].y + G[j].y + G[k].y) / 3;
-        mountains ~= Coord(x, y);
+      foreach(x; 0..N) foreach(y; 0..N) {
+        assumedCosts[y][x] = 2500;
       }
 
-      int[N][N] rate;
+      auto mid = N / WK;
+      foreach(y; iota(mid, N, mid)) foreach(x; iota(mid, N, mid)) {
+        auto h = excavate(Coord(x, y), true);
+
+        foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
+          if (min(y + dy, x + dx) < 0 || max(y + dy, x + dx) >= N) continue;
+          
+          auto r = mid - abs(dy) - abs(dx);
+          assumedCosts[y + dy][x + dx] *= (mid - r);
+          assumedCosts[y + dy][x + dx] += r * h;
+          assumedCosts[y + dy][x + dx] /= mid;
+        }
+      }
+
+      foreach(c; G[W..$]) {
+        auto h = excavate(c, true);
+        if (h == -1) continue;
+
+        foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
+          if (min(c.y + dy, c.x + dx) < 0 || max(c.y + dy, c.x + dx) >= N) continue;
+
+          auto r = mid - abs(dy) - abs(dx);
+          assumedCosts[c.y + dy][c.x + dx] *= (mid - r);
+          assumedCosts[c.y + dy][c.x + dx] += r * h;
+          assumedCosts[c.y + dy][c.x + dx] /= mid;
+        }
+      }
+
       int rmin = int.max;
       int rmax = int.min;
       foreach(x; 0..N) foreach(y; 0..N) {
-        foreach(m; mountains) {
-          auto d = abs(m.x - x) + abs(m.y - y);
-          rate[y][x] += max(0, 6 - d);
-        }
-        foreach(m; G) {
-          auto d = abs(m.x - x) + abs(m.y - y);
-          rate[y][x] -= max(0, 40 - d);
-        }
-
-        rmax = max(rmax, rate[y][x]);
-        rmin = min(rmin, rate[y][x]);
+        rmax = max(rmax, assumedCosts[y][x]);
+        rmin = min(rmin, assumedCosts[y][x]);
       }
+
+      [rmax, rmin].deb;
+
       foreach(i; 0..N * N) {
-        int r = rate[i / N][i % N];
-        r -= rmin;
-        r *= 2000;
-        r /= rmax;
-        const c = max(10, r);
-        assumedCosts[i / N][i % N] = c;
-        currentCosts[i / N][i % N] = c;
+        assumedCosts[i / N][i % N] -= rmin;
+        assumedCosts[i / N][i % N] *= 5000;
+        assumedCosts[i / N][i % N] /= rmax;
+        assumedCosts[i / N][i % N].chmax(10);
+        currentCosts[i / N][i % N] = assumedCosts[i / N][i % N];
       }
 
-      assumedCosts.deb;
+      // assumedCosts.deb;
 
       foreach(i; 0..G.length) {
         calced ~= calcCostsFrom(G[i]);
@@ -163,28 +180,37 @@ void problem() {
       return Calculation(from, costs, froms);
     }
 
-    int excavate(Coord p) {
+    int excavate(Coord p, bool isTest = false) {
       const x = p.x;
       const y = p.y;
       if (excavated[y][x]) return 0;
 
-      assumedCosts[y][x] = 0;
-      currentCosts[y][x] = 0;
-      excavated[y][x] = true;
+      if (isTest) {
+        if (tested[y][x]) return -1;
+        tested[y][x] = true;
+      } else {
+        assumedCosts[y][x] = 0;
+        currentCosts[y][x] = 0;
+        excavated[y][x] = true;
+        if (tested[y][x]) return 0;
+      }
 
       int sum;
       int incr = max(10, C);
-      for(int power = incr; sum < COST_MAX; power += incr) {
-        writefln("%s %s %s", y, x, min(COST_MAX - sum, power));
+      // foreach (power; POWERS) {
+      for (int power = incr; sum < COST_MAX; power += incr) {
+        debug {} else {
+          writefln("%s %s %s", y, x, min(COST_MAX - sum, power));
+          stdout.flush;
+        }
         sum += power;
-        stdout.flush;
 
         const r = scan!int;
         if (r == 2) finished = true;
         if (r >= 1) return sum;
         if (r != 0) assert(false, "bad request");
       }
-      return 0;
+      return sum;
     }
   }
 
@@ -194,8 +220,9 @@ void problem() {
     foreach(ref w; wid) w[] = 255;
 
     auto state = new State();
+
     foreach(i, c; G[0..W]) {
-      state.excavate(c);
+      state.excavated[c.y][c.x] = true;
       wid[c.y][c.x] = i.to!int;
     }
 
@@ -203,6 +230,7 @@ void problem() {
       int bestCost = int.max;
       Coord[] bestRoute;
       int bestFrom;
+      
       foreach(from; 0..WK) {
         if (uf.root(from) < W) continue;
 
@@ -215,57 +243,27 @@ void problem() {
         }
       }
 
+      if (bestCost == int.max) break;
+
       auto w = wid[bestRoute[0].y][bestRoute[0].x];
       uf.unite(w, bestFrom);
       foreach(c; bestRoute) {
         wid[c.y][c.x] = w;
         state.excavate(c);
-        if (state.finished) return;
       }
     }
 
+    foreach(c; G[0..W]) {
+      state.excavated[c.y][c.x] = false;
+      foreach(_, x, y; DIRS) {
+        auto dx = c.x + x;
+        auto dy = c.y + y;
+        if (min(dx, dy) < 0 || max(dx, dy) >= N) continue;
 
-    // auto costs = new int[][](2 ^^ WK, WK);
-    // auto routes = new int[][][](2 ^^ WK, WK, 0);
-    // foreach(ref s; costs) s[] = INF;
-    // foreach(st; 0..WK) {
-    //   costs[2 ^^ st][st] = state.assumedCosts[G[st].y][G[st].x];
-    //   routes[2 ^^ st][st] ~= st;
-    // }
-
-    // const satisfy = iota(W, W + K).map!"2 ^^ a".sum;
-
-    // int bestCost = INF;
-    // int[] bestRoute;
-    // foreach(fromState; 1..2 ^^ WK) {
-    //   foreach(from; 0..WK) {
-    //     if ((fromState & (2^^from)) == 0) continue;
-
-    //     foreach(to; 0..WK) {
-    //       if ((fromState & (2^^to)) != 0) continue;
-
-    //       const toState = fromState | (2^^to);
-    //       const cost = costs[fromState][from] + state.calced[from].costs[G[to].y][G[to].x];
-    //       if (costs[toState][to].chmin(cost)) {
-    //         routes[toState][to] = routes[fromState][from] ~ to;
-    //       }
-
-    //       if (toState > satisfy && bestCost.chmin(cost)) {
-    //         bestRoute = routes[toState][to];
-    //       }
-    //     }
-    //   }
-    // }
-
-    // int from = bestRoute[0];
-    // state.excavate(G[from]);
-    // foreach(to; bestRoute[1..$]) {
-    //   auto calc = state.calcCostsFrom(G[to]);
-    //   foreach(p; calc.bestRoute(state.excavated)) {
-    //     state.excavate(p);
-    //   }
-    //   from = to;
-    // }
+        if (state.excavated[dy][dx]) state.excavate(c);
+        if (state.finished) return;
+      }
+    }
   }
 
   solve();
