@@ -219,6 +219,7 @@ void problem() {
         aroundSum += actualCosts[py][px];
       }
 
+      aroundSum *= 1.02;
       int sum;
       int incr = max(C, aroundCount >= 2 ? (aroundSum / aroundCount).to!int : 0);
 
@@ -229,6 +230,7 @@ void problem() {
         sum += power;
         actualCosts[y][x] += power;
         [assumedCosts[y][x], actualCosts[y][x]].deb;
+        if (aroundCount >= 2) (aroundSum / aroundCount).to!int.deb;
 
         const r = scan!int;
         if (r == 2) finished = true;
@@ -240,7 +242,7 @@ void problem() {
         if (r != 0) assert(false, "bad request");
         if (sum > 500 && isTest) {
           tested[y][x] = false;
-          actualCosts[y][x] = 5000;
+          actualCosts[y][x] = sum;
           return 5000;
         }
       }
