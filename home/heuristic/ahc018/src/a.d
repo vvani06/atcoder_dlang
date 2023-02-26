@@ -101,25 +101,26 @@ void problem() {
       auto mid = N / WK;
       bool[N][N] toTest;
       bool[N][N] covered;
-      foreach(c; G) {
-        toTest[c.y][c.x] = true;
+
+      void addTest(int x, int y) {
+        if (min(x, y) < 0 || max(x, y) >= N) return;
+        if (covered[y][x]) return;
+
+        toTest[y][x] = true;
         foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
-          auto cy = c.y + dy;
-          auto cx = c.x + dx;
+          if (abs(dx) + abs(dy) > mid/2) continue;
+
+          auto cy = y + dy;
+          auto cx = x + dx;
           if (min(cx, cy) < 0 || max(cx, cy) >= N) continue;
           covered[cy][cx] = true;
         }
       }
+      
+      foreach(c; G) addTest(c.x, c.y);
       foreach(c; G) {
         foreach(y; iota(c.y - mid * 2, c.y + mid * 2, mid)) foreach(x; iota(c.x - mid * 2, c.x + mid * 2, mid)) {
-          if (min(x, y) < 0 || max(x, y) >= N || covered[y][x]) continue;
-          toTest[y][x] = true;
-          foreach(dy; -mid/2..mid/2) foreach(dx; -mid/2..mid/2) {
-            auto cy = y + dy;
-            auto cx = x + dx;
-            if (min(cx, cy) < 0 || max(cx, cy) >= N) continue;
-            covered[cy][cx] = true;
-          }
+          addTest(x, y);
         }
       }
 
@@ -137,6 +138,7 @@ void problem() {
           assumedCosts[c.y + dy][c.x + dx] *= (mid - r);
           assumedCosts[c.y + dy][c.x + dx] += r * h;
           assumedCosts[c.y + dy][c.x + dx] /= mid;
+          // [h, assumedCosts[c.y + dy][c.x + dx]].deb;
         }
       }
 
@@ -147,8 +149,6 @@ void problem() {
         rmin = min(rmin, assumedCosts[y][x]);
       }
 
-      [rmax, rmin].deb;
-
       foreach(i; 0..N * N) {
         assumedCosts[i / N][i % N] -= rmin;
         assumedCosts[i / N][i % N] *= 5000;
@@ -156,8 +156,6 @@ void problem() {
         assumedCosts[i / N][i % N].chmax(10);
         currentCosts[i / N][i % N] = assumedCosts[i / N][i % N];
       }
-
-      // assumedCosts.deb;
 
       foreach(i; 0..G.length) {
         calced ~= calcCostsFrom(G[i]);
@@ -205,8 +203,6 @@ void problem() {
         if (tested[y][x]) return -1;
         tested[y][x] = true;
       } else {
-        assumedCosts[y][x] = 0;
-        currentCosts[y][x] = 0;
         excavated[y][x] = true;
         if (tested[y][x]) return 0;
       }
@@ -224,20 +220,23 @@ void problem() {
       }
 
       int sum;
-      int incr = max(10, C, aroundCount >= 2 ? (aroundSum / aroundCount).to!int : 0);
+      int incr = max(C, aroundCount >= 2 ? (aroundSum / aroundCount).to!int : 0);
 
       // foreach (power; POWERS) {
-      for (int power = incr; sum < COST_MAX; power += incr) {
-        debug {} else {
-          writefln("%s %s %s", y, x, min(COST_MAX - sum, power));
-          stdout.flush;
-        }
+      for (int power = max(10, incr); sum < COST_MAX; power += incr) {
+        writefln("%s %s %s", y, x, min(COST_MAX - sum, power));
+        stdout.flush;
         sum += power;
         actualCosts[y][x] += power;
+        [assumedCosts[y][x], actualCosts[y][x]].deb;
 
         const r = scan!int;
         if (r == 2) finished = true;
-        if (r >= 1) return sum;
+        if (r >= 1) {
+          assumedCosts[y][x] = 0;
+          currentCosts[y][x] = 0;
+          return sum;
+        }
         if (r != 0) assert(false, "bad request");
         if (sum > 500 && isTest) {
           tested[y][x] = false;
