@@ -4,63 +4,51 @@ void problem() {
   auto N = scan!int;
   auto M = scan!int;
   auto S = scan!string(N);
+  enum INF = 10^^6;
 
   auto solve() {
-    auto visited = new bool[](N);
-    auto queued = new bool[](N);
-    auto queue = DList!int(0);
-    auto ans = new int[](N);
-    auto froms = new int[][](N, 0);
-    froms[0] ~= 0;
+    auto distances(int[][] g, int start) {
+      auto ret = INF.repeat(g.length).array;
 
-    int steps;
-    while(!queue.empty) {
-      auto qi = queue.array;
-      queue.clear;
-      foreach(p; qi) {
-        if (visited[p]) continue;
-        visited[p] = true;
-        ans[p] = steps;
+      for(auto queue = DList!(int[])([[start, 0]]); !queue.empty;) {
+        auto p = queue.front; queue.removeFront;
+        ret[p[0]] = p[1];
 
-        foreach(i, c; S[p].enumerate(1)) {
-          if (c == '0') continue;
-          const t = p + i;
-          froms[t] ~= p;
-          if (queued[t]) continue;
+        foreach(q; g[p[0]]) {
+          if (ret[q] != INF) continue;
 
-          queued[t] = true;
-          queue.insertBack(t);
+          ret[q] = p[1] + 1;
+          queue.insertBack([q, ret[q]]);
         }
       }
-      steps++;
+      return ret;
     }
 
-    ans.deb;
-    froms.deb;
+    auto graph = new int[][](N, 0);
+    auto revGraph = new int[][](N, 0);
+    foreach(from, s; S.enumerate(0)) {
+      foreach(add; 0..M) {
+        if (s[add] == '0') continue;
 
-    auto tos = new int[][](N);
-    foreach (i; 0..N) {
-      if (!froms[i].empty) tos[froms[i][0]] ~= i;
-    }
-
-    froms.deb;
-    tos.deb;
-
-    foreach (k; 1..N - 1) {
-      int ansK = ans[$ - 1];
-      int eff = 10000000;
-      if (tos[k].empty) {
-        eff = 0;
-      } else {
-        foreach(to; tos[k]) {
-          foreach(f; froms[to][0..min($, 10)]) {
-            if (f == k) continue;
-            eff.chmin(ans[k] - ans[f]);
-          }
-        }
+        const to = from + add + 1;
+        graph[from] ~= to;
+        revGraph[to] ~= from;
       }
+    }
 
-      max(-1, ansK - eff).writeln;
+    auto dl = distances(graph, 0);
+    auto dr = distances(revGraph, N - 1);
+
+    foreach(k; 1..N - 1) {
+      int ans = INF;
+
+      foreach(l; max(0, k - M)..k) foreach(r; k + 1..min(k + M, N)) {
+        const add = r - l;
+        if (add > M) break;
+
+        if (S[l][add - 1] == '1') ans = min(ans, dl[l] + dr[r] + 1);
+      }
+      writeln(ans >= INF ? -1 : ans);
     }
   }
 
