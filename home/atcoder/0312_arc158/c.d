@@ -7,6 +7,15 @@ void problem() {
   auto solve() {
     long ans;
 
+    foreach(k; 1..18) {
+      const keta = 10L ^^ k;
+      auto mods = A.map!(a => a % keta).array.sort;
+
+      foreach(m; mods) {
+        ans -= 9 * mods.upperBound(keta - m - 1).length;
+      }
+    }
+
     foreach(_; 0..18) {
       auto counts = new long[](10);
       foreach(ref a; A) {
@@ -63,31 +72,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}
