@@ -1,44 +1,10 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto Q = scan!int;
-  auto E = scan!int(3 * M).chunks(3);
-  auto X = scan!int(Q);
+  auto S = scan.map!(c => (c - '0').to!int).array;
 
   auto solve() {
-    alias Edge = Tuple!(int, "to", int, "cost");
-    auto graph = new Edge[][](N, 0);
-    foreach(e; E) {
-      e[0]--; e[1]--;
-      graph[e[0]] ~= Edge(e[1], e[2]);
-      graph[e[1]] ~= Edge(e[0], e[2]);
-    }
-
-    graph.deb;
-
-    int ans = 1;
-    auto visited = new bool[](N);
-    visited[0] = true;
-    auto queue = graph[0].heapify!"a.cost > b.cost";
-    foreach(x; X) {
-      Edge[] nexts;
-      while(!queue.empty && queue.front.cost <= x) {
-        auto p = queue.front;
-        queue.removeFront;
-        if (visited[p.to]) continue;
-
-        ans++;
-        visited[p.to] = true;
-        foreach(e; graph[p.to]) {
-          if (!visited[e.to]) nexts ~= e;
-        }
-      }
-
-      foreach(n; nexts) queue.insert(n);
-      ans.writeln;
-    }
+    return YESNO[S[0..$ - 1].chunks(2).fold!((s, c) => s + c[0]*3 + c[1])(0) % 10 == S[$ - 1]];
   }
 
   outputForAtCoder(&solve);
@@ -49,8 +15,7 @@ void problem() {
 import std;
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
-T scan(T)(){ return scan.to!T; }
-T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
+T scan(T)(){ return scan.to!T; }T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(T t){ debug writeln(t); }
 long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
