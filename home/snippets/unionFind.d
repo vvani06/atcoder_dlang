@@ -12,6 +12,10 @@ struct UnionFind {
     if (parent[x] == x) return x;
     return parent[x] = root(parent[x]);
   }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
  
   int unite(int x, int y) {
     int rootX = root(x);
