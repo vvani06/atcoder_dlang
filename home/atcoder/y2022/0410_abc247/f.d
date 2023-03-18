@@ -1,72 +1,28 @@
 void main() { runSolver(); }
 
-enum long MOD = 998_244_353;
-class FermetCalculator {
-  long[] factrial; //階乗を保持
-  long[] inverse;  //逆元を保持
-  
-  this(long size) {
-    factrial = new long[size + 1];
-    inverse = new long[size + 1];
-    factrial[0] = 1;
-    inverse[0] = 1;
-    
-    for (long i = 1; i <= size; i++) {
-      factrial[i] = (factrial[i - 1] * i) % MOD;  //階乗を求める
-      inverse[i] = pow(factrial[i], MOD - 2) % MOD; // フェルマーの小定理で逆元を求める
-    }
-  }
-  
-  long combine(long n, long k) {
-    if (n < k) return 1;
-    return factrial[n] * inverse[k] % MOD * inverse[n - k] % MOD;
-  }
-  
-  long pow(long x, long n) { //x^n 計算量O(logn)
-    long ans = 1;
-    while (n > 0) {
-      if ((n & 1) == 1) {
-        ans = ans * x % MOD;
-      }
-      x = x * x % MOD; //一周する度にx, x^2, x^4, x^8となる
-      n >>= 1; //桁をずらす n = n >> 1
-    }
-    return ans;
-  }
-}
-
 void problem() {
-  auto N = scan!long;
-  auto P = scan!long(N);
-  auto Q = scan!long(N);
+  auto N = scan!int;
+  auto P = scan!int(N);
+  auto Q = scan!int(N);
 
   auto solve() {
-    alias Card = Tuple!(long, long);
-    auto cards = N.iota.map!(i => Card(P[i], Q[i])).filter!"a[0] != a[1]".array;
-    N = cards.length;
-    long countReversed() {
-      long reversed;
-      bool[Card] used;
-      foreach(c; cards) {
-        if (Card(c[1], c[0]) in used) reversed++;
-        used[c] = true;
-      }
-      return reversed;
-    }
-    long reversed = countReversed;
-    long essential = (N + 1) / 2;
-    [essential, reversed].deb;
-
-    auto fermet = new FermetCalculator(N + 1);
-    long ans = 1;
-    foreach(n; essential..N) {
-      if (n == reversed * 2) {
-        ans += powmod(2UL, reversed.unsigned, MOD.unsigned);
-      } else {
-        ans += fermet.combine(N - reversed, n) * (reversed + 1);
-      }
+    auto uf = UnionFind(N);
+    foreach(p, q; zip(P, Q)) {
+      uf.unite(p - 1, q - 1);
     }
 
+    auto sizes = new int[](N);
+    foreach(i; 0..N) sizes[uf.root(i)] = uf.size(i);
+
+    auto Ln = new MInt9[](N + 1);
+    Ln[0] = MInt9(2);
+    Ln[1] = MInt9(1);
+    foreach(i; 2..N + 1) Ln[i] = Ln[i - 1] + Ln[i - 2];
+    
+    MInt9 ans = 1;
+    foreach(s; sizes) {
+      if (s >= 1) ans *= Ln[s];
+    }
     return ans;
   }
 
@@ -111,29 +67,43 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
+struct UnionFind {
+  int[] parent;
+  int[] sizes;
  
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
+  this(int size) {
+    parent = size.iota.array;
+    sizes = 1.repeat(size).array;
+  }
+ 
+  int root(int x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+ 
+  int unite(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    if (rootX == rootY) return rootY;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      sizes[rootY] += sizes[rootX];
+      return parent[rootX] = rootY;
     } else {
-      return abs(ng - ok) > 1;
+      sizes[rootX] += sizes[rootY];
+      return parent[rootY] = rootX;
     }
   }
  
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
+  bool same(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
  
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
+    return rootX == rootY;
   }
- 
-  return ok;
 }
