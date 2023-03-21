@@ -32,6 +32,7 @@ void problem() {
     bool valid() { return min >= 0 && max < D; }
 
     int of(MATRIX matrix) { return matrix[x][z][y]; }
+    int set(ref MATRIX matrix, int value) { return matrix[x][z][y] = value; }
 
     enum AX = Coord(1, 0, 0);
     enum AY = Coord(0, 1, 0);
@@ -44,7 +45,7 @@ void problem() {
 
   struct State {
    MATRIX[2] v;
-   int[100000] size;
+   int[5000] size;
    int vid;
 
     void update(int i, Coord c, int value) {
@@ -54,7 +55,7 @@ void problem() {
     this(int d) {
       // v = new int[][][][](2, d, d, d);
 
-      size[0] = 100000;
+      size[0] = 5000;
       foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
           if (!F[i][y][x] || !R[i][y][z]) continue;
@@ -69,22 +70,36 @@ void problem() {
       if (size[from1.of(v[0])] != 1 || size[from2.of(v[1])] != 1) return 0;
 
       MATRIX visited;
-      visited[from1.x][from1.z][from1.y] = 1;
+      MATRIX queued;
+      from1.set(visited, 1);
+      from1.set(queued, 1);
       const base = from1.of(v[0]);
+
       if (!dryrun) update(1, from2, base);
 
       int merged;
-      void dfs(Coord cur, Coord pre) {
-        if (cur.of(visited) || !cur.valid) return;
-        visited[cur.x][cur.z][cur.y] = 1;
+      DList!Coord queue;
+      foreach(d; Coord.MOVES) {
+        auto next = from1.add(d);
+        if (next.valid) {
+          queue.insertBack(next);
+          next.set(queued, 1);
+        }
+      }
+
+      while(!queue.empty) {
+        auto cur = queue.front; queue.removeFront;
+
+        if (cur.of(visited) || !cur.valid) continue;
+        cur.set(visited, 1);
 
         auto diff = cur.sub(from1);
         auto cur2 = from2.add(diff);
-        if (!cur2.valid) return;
+        if (!cur2.valid) continue;
 
         // 体積1のブロックだけを侵食する
-        if (size[cur.of(v[0])] != 1) return;
-        if (size[cur2.of(v[1])] != 1) return;
+        if (size[cur.of(v[0])] != 1) continue;
+        if (size[cur2.of(v[1])] != 1) continue;
 
         // [cur, cur2].deb;
         // [cur.of(v[0]), cur2.of(v[1])].deb;
@@ -99,15 +114,11 @@ void problem() {
 
         foreach(d; Coord.MOVES) {
           auto next = cur.add(d);
-          if (next != pre && next.valid) {
-            dfs(next, cur);
+          if (next.valid && !next.of(visited) && !next.of(queued)) {
+            next.set(queued, 1);
+            queue.insertBack(next);
           }
         }
-      }
-      
-      foreach(d; Coord.MOVES) {
-        auto next = from1.add(d);
-        if (next.valid) dfs(next, from1);
       }
 
       return merged;
