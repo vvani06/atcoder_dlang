@@ -3,8 +3,8 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 8;
-enum ROTATES = [0]; //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
+enum SIZE_MAX = 5;
+enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
 
@@ -18,6 +18,11 @@ void problem() {
   auto R2 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
   auto F = [F1, F2];
   auto R = [R1, R2];
+
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
 
   struct Coord {
     int x, y, z;
@@ -219,25 +224,46 @@ void problem() {
     // rots.length.deb;
     // rots.deb;
 
-    foreach(x1, y1, z1; XYZ) {
-      auto from = Coord(x1, y1, z1);
-      Coord bestCoord;
-      int best, bestRot;
-      foreach(x2, y2, z2; XYZ) {
-        auto to = Coord(x2, y2, z2);
-        foreach(rot; ROTATES) {
-          auto merged = state.merge(from, to, rot, true);
-          if (best.chmax(merged)) {
-            bestCoord = to;
-            bestRot = rot;
+    auto coords1 = XYZ.array.redBlackTree;
+    auto coords2 = XYZ.array.redBlackTree;
+
+    while(true) {
+      if (elapsed(5000)) break;
+      
+      auto cs1 = coords1.array.randomShuffle[0..min($, 50)];
+      auto cs2 = coords2.array.randomShuffle[0..min($, 50)];
+
+      foreach(c1; cs1) {
+        auto from = Coord(c1[0], c1[1], c1[2]);
+        Coord bestCoord;
+        int best, bestRot;
+        foreach(c2; cs2) {
+          auto to = Coord(c2[0], c2[1], c2[2]);
+          foreach(rot; ROTATES) {
+            auto merged = state.merge(from, to, rot, true);
+            if (best.chmax(merged)) {
+              bestCoord = to;
+              bestRot = rot;
+            }
+          }
+          if (best >= SIZE_MAX) break;
+        }
+        
+        if (best > 0) {
+          best.deb;
+          state.merge(from, bestCoord, bestRot, false);
+          auto base = bestCoord.of(state.v[0]);
+
+          foreach(x, y, z; XYZ) {
+            auto coord = Coord(x, y, z);
+            if (coord.of(state.v[0]) == base) {
+              coords1.removeKey(tuple(x, y, z));
+            }
+            if (coord.of(state.v[1]) == base) {
+              coords2.removeKey(tuple(x, y, z));
+            }
           }
         }
-        if (best >= SIZE_MAX) break;
-      }
-      
-      if (best > 0) {
-        best.deb;
-        state.merge(from, bestCoord, bestRot, false);
       }
     }
 
