@@ -150,22 +150,24 @@ void problem() {
 
   auto solve() {
     auto state = State(D);
-
-    foreach(x1, y1, z1; XYZ) {
-      auto from = Coord(x1, y1, z1);
-      Coord bestCoord;
+    
+    while(true) {
+      Coord best1, best2;
       int best;
-      foreach(x2, y2, z2; XYZ) {
-        auto merged = state.merge(from, Coord(x2, y2, z2), true);
-        if (best.chmax(merged)) {
-          bestCoord = Coord(x2, y2, z2);
+      foreach(x1, y1, z1; XYZ) {
+        auto from = Coord(x1, y1, z1);
+        foreach(x2, y2, z2; XYZ) {
+          auto merged = state.merge(from, Coord(x2, y2, z2), true);
+          if (best.chmax(merged)) {
+            best1 = from;
+            best2 = Coord(x2, y2, z2);
+          }
         }
       }
-      
-      if (best > 0) {
-        best.deb;
-        state.merge(from, bestCoord, false);
-      }
+        
+      if (best == 0) break;
+      deb(best, ", ", [best1, best2]);
+      state.merge(best1, best2, false);
     }
 
     state.writeln;
