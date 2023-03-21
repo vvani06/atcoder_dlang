@@ -3,6 +3,8 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
+enum SIZE_MAX = 8;
+enum ROTATES = [0]; //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
 
@@ -25,6 +27,37 @@ void problem() {
     }
     Coord sub(Coord other) {
       return Coord(x - other.x, y - other.y, z - other.z);
+    }
+    Coord rotate(int axis, int step) {
+      step %= 4;
+      if (step == 0) return this;
+
+      if (axis == 0) {
+        if (step == 1) return Coord(x, z, -y);
+        if (step == 2) return Coord(x, -y, -z);
+        if (step == 3) return Coord(x, -z, y);
+      }
+      if (axis == 1) {
+        if (step == 1) return Coord(-z, y, x);
+        if (step == 2) return Coord(-x, y, -z);
+        if (step == 3) return Coord(z, y, -x);
+      }
+      if (axis == 2) {
+        if (step == 1) return Coord(y, -x, z);
+        if (step == 2) return Coord(-x, -y, z);
+        if (step == 3) return Coord(-y, x, z);
+      }
+      return Coord(-1, -1, -1);
+    }
+    Coord rotate(int i) {
+      auto ret = this;
+      foreach(j; 0..3) {
+        if (i > 0) {
+          ret = ret.rotate(j, i % 4);
+          i /= 4;
+        }
+      }
+      return ret;
     }
 
     int min() { return std.algorithm.comparison.min(x, y, z); }
@@ -66,7 +99,7 @@ void problem() {
       }
     }
 
-    int merge(Coord from1, Coord from2, bool dryrun) {
+    int merge(Coord from1, Coord from2, int rot, bool dryrun) {
       if (size[from1.of(v[0])] != 1 || size[from2.of(v[1])] != 1) return 0;
 
       MATRIX visited;
@@ -93,7 +126,7 @@ void problem() {
         if (cur.of(visited) || !cur.valid) continue;
         cur.set(visited, 1);
 
-        auto diff = cur.sub(from1);
+        auto diff = cur.sub(from1).rotate(rot);
         auto cur2 = from2.add(diff);
         if (!cur2.valid) continue;
 
@@ -105,12 +138,13 @@ void problem() {
         // [cur.of(v[0]), cur2.of(v[1])].deb;
 
         // ブロックのマージ
-        merged++;
         if (!dryrun) {
           update(0, cur, base);
           update(1, cur2, base);
           size[base]++;
         }
+        merged++;
+        if (merged >= SIZE_MAX) return merged;
 
         foreach(d; Coord.MOVES) {
           auto next = cur.add(d);
@@ -122,6 +156,28 @@ void problem() {
       }
 
       return merged;
+    }
+
+    void clean() {
+      foreach(i; 0..2) {
+        auto cf = new int[][](D, D);
+        auto cr = new int[][](D, D);
+
+        foreach(x, y, z; XYZ) {
+          if (v[i][x][z][y] == 0) continue;
+
+          cf[x][y]++;
+          cr[z][y]++;
+        }
+
+        foreach(x, y, z; XYZ) {
+          if (size[v[i][x][z][y]] == 1 && cf[x][y] > 1 && cr[z][y] > 1) {
+            update(i, Coord(x, y, z), 0);
+            cf[x][y]--;
+            cr[z][y]--;
+          }
+        }
+      }
     }
 
     string toString() {
@@ -151,23 +207,41 @@ void problem() {
   auto solve() {
     auto state = State(D);
 
+    // bool[Coord] used;
+    // int[] rots;
+    // foreach(i; 0..64) {
+    //   auto r = Coord(1, 2, 4).rotate(i);
+    //   if (!(r in used)) {
+    //     used[r] = true;
+    //     rots ~= i;
+    //   }
+    // }
+    // rots.length.deb;
+    // rots.deb;
+
     foreach(x1, y1, z1; XYZ) {
       auto from = Coord(x1, y1, z1);
       Coord bestCoord;
-      int best;
+      int best, bestRot;
       foreach(x2, y2, z2; XYZ) {
-        auto merged = state.merge(from, Coord(x2, y2, z2), true);
-        if (best.chmax(merged)) {
-          bestCoord = Coord(x2, y2, z2);
+        auto to = Coord(x2, y2, z2);
+        foreach(rot; ROTATES) {
+          auto merged = state.merge(from, to, rot, true);
+          if (best.chmax(merged)) {
+            bestCoord = to;
+            bestRot = rot;
+          }
         }
+        if (best >= SIZE_MAX) break;
       }
       
       if (best > 0) {
         best.deb;
-        state.merge(from, bestCoord, false);
+        state.merge(from, bestCoord, bestRot, false);
       }
     }
 
+    state.clean;
     state.writeln;
   }
 
