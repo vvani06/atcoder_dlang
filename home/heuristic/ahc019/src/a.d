@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 5;
+enum SIZE_MAX = 100;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -207,68 +207,79 @@ void problem() {
       }
       return ret.joiner("\n").to!string;
     }
+
+    long score() {
+      int[int] colors;
+      foreach(x, y, z; XYZ) {
+        colors[v[0][x][y][z]] = size[v[0][x][y][z]];
+        colors[v[1][x][y][z]] = size[v[1][x][y][z]];
+      }
+      colors.remove(0);
+      return colors.values.map!"10L^^9 / a".sum;
+    }
   }
 
   auto solve() {
-    auto state = State(D);
-
-    // bool[Coord] used;
-    // int[] rots;
-    // foreach(i; 0..64) {
-    //   auto r = Coord(1, 2, 4).rotate(i);
-    //   if (!(r in used)) {
-    //     used[r] = true;
-    //     rots ~= i;
-    //   }
-    // }
-    // rots.length.deb;
-    // rots.deb;
-
-    auto coords1 = XYZ.array.redBlackTree;
-    auto coords2 = XYZ.array.redBlackTree;
+    auto bestState = State(D);
 
     while(true) {
       if (elapsed(5000)) break;
-      
-      auto cs1 = coords1.array.randomShuffle[0..min($, 50)];
-      auto cs2 = coords2.array.randomShuffle[0..min($, 50)];
 
-      foreach(c1; cs1) {
-        auto from = Coord(c1[0], c1[1], c1[2]);
-        Coord bestCoord;
-        int best, bestRot;
-        foreach(c2; cs2) {
-          auto to = Coord(c2[0], c2[1], c2[2]);
-          foreach(rot; ROTATES) {
-            auto merged = state.merge(from, to, rot, true);
-            if (best.chmax(merged)) {
-              bestCoord = to;
-              bestRot = rot;
-            }
-          }
-          if (best >= SIZE_MAX) break;
-        }
+      auto state = State(D);
+      auto coords1 = XYZ.array.redBlackTree;
+      auto coords2 = XYZ.array.redBlackTree;
+
+      int badCount;
+      while(true) {
+        if (elapsed(5000)) break;
         
-        if (best > 0) {
-          best.deb;
-          state.merge(from, bestCoord, bestRot, false);
-          auto base = bestCoord.of(state.v[0]);
+        auto cs1 = coords1.array.randomShuffle[0..min($, 50)];
+        auto cs2 = coords2.array.randomShuffle[0..min($, 50)];
 
-          foreach(x, y, z; XYZ) {
-            auto coord = Coord(x, y, z);
-            if (coord.of(state.v[0]) == base) {
-              coords1.removeKey(tuple(x, y, z));
+        foreach(c1; cs1) {
+          auto from = Coord(c1[0], c1[1], c1[2]);
+          Coord bestCoord;
+          int best, bestRot;
+          foreach(c2; cs2) {
+            auto to = Coord(c2[0], c2[1], c2[2]);
+            foreach(rot; ROTATES) {
+              auto merged = state.merge(from, to, rot, true);
+              if (best.chmax(merged)) {
+                bestCoord = to;
+                bestRot = rot;
+              }
             }
-            if (coord.of(state.v[1]) == base) {
-              coords2.removeKey(tuple(x, y, z));
+            if (best >= SIZE_MAX) break;
+          }
+          
+          if (best > 0) {
+            // best.deb;
+            state.merge(from, bestCoord, bestRot, false);
+            auto base = bestCoord.of(state.v[0]);
+
+            foreach(x, y, z; XYZ) {
+              auto coord = Coord(x, y, z);
+              if (coord.of(state.v[0]) == base) {
+                coords1.removeKey(tuple(x, y, z));
+              }
+              if (coord.of(state.v[1]) == base) {
+                coords2.removeKey(tuple(x, y, z));
+              }
             }
+          } else {
+            badCount++;
           }
         }
+
+        if (badCount >= 5) break;
       }
+
+      state.clean;
+      if (bestState.score > state.score) bestState = state;
     }
 
-    state.clean;
-    state.writeln;
+    bestState.score.deb;
+    bestState.writeln;
   }
 
   solve();
