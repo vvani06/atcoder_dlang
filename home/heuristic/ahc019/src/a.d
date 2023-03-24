@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 100;
+enum SIZE_MAX = 32;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -222,6 +222,7 @@ void problem() {
   auto solve() {
     auto bestState = State(D);
 
+    int tried;
     while(true) {
       if (elapsed(5000)) break;
 
@@ -233,8 +234,8 @@ void problem() {
       while(true) {
         if (elapsed(5000)) break;
         
-        auto cs1 = coords1.array.randomShuffle[0..min($, 50)];
-        auto cs2 = coords2.array.randomShuffle[0..min($, 50)];
+        auto cs1 = coords1.array.randomShuffle[0..min($, D^^3 / 4 , 256)];
+        auto cs2 = coords2.array.randomShuffle[0..min($, D^^3 / 4 , 256)];
 
         foreach(c1; cs1) {
           auto from = Coord(c1[0], c1[1], c1[2]);
@@ -276,6 +277,7 @@ void problem() {
 
       state.clean;
       if (bestState.score > state.score) bestState = state;
+      (++tried).deb;
     }
 
     bestState.score.deb;
