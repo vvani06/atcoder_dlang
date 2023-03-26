@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 800;
+enum SIZE_MAX = 400;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -18,6 +18,7 @@ void problem() {
   auto R2 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
   auto F = [F1, F2];
   auto R = [R1, R2];
+  auto MAX_MERGE = D * 2;
 
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
@@ -196,7 +197,7 @@ void problem() {
         update(1, from2, base);
       }
 
-      int merged;
+      int merged, score;
       DList!Coord queue;
       foreach(d; Coord.MOVES) {
         auto next = from1.add(d);
@@ -225,14 +226,17 @@ void problem() {
 
         // ブロックのマージ
         if (!dryrun) {
-          update(0, cur, base);
-          update(1, cur2, base);
+          foreach(i, c; [cur, cur2].enumerate(0)) {
+            update(i, c, base);
+            fv[i][c.x][c.y]--;
+            rv[i][c.z][c.y]--;
+          }
           size[base]++;
         }
-        merged += fv[0][cur.x][cur.y] + rv[0][cur.z][cur.y];
-        merged += fv[1][cur.x][cur.y] + rv[1][cur.z][cur.y];
-
-        if (merged >= SIZE_MAX) return merged;
+        merged++;
+        score += fv[0][cur.x][cur.y] + rv[0][cur.z][cur.y];
+        score += fv[1][cur.x][cur.y] + rv[1][cur.z][cur.y];
+        if (merged >= MAX_MERGE) break;
 
         foreach(d; Coord.MOVES) {
           auto next = cur.add(d);
@@ -243,7 +247,7 @@ void problem() {
         }
       }
 
-      return merged;
+      return score;
     }
 
     void clean() {
@@ -327,30 +331,27 @@ void problem() {
       while(true) {
         if (elapsed(5000)) break;
         
-        auto cs1 = state.coords[0].keys.randomShuffle[0..min($, D^^3 / 6, 256)];
-        auto cs2 = state.coords[1].keys.randomShuffle[0..min($, D^^3 / 6, 256)];
+        auto cs1 = state.coords[0].keys.randomShuffle[0..min($, D^^3 / 6, 64)];
+        auto cs2 = state.coords[1].keys.randomShuffle[0..min($, D^^3 / 6, 64)];
 
-        foreach(from; cs1) {
-          Coord bestCoord;
-          int best, bestRot;
-          foreach(to; cs2) {
-            foreach(rot; ROTATES) {
-              auto merged = state.merge(from, to, rot, true);
-              if (best.chmax(merged)) {
-                bestCoord = to;
-                bestRot = rot;
-              }
+        int best, bestRot;
+        Coord bestFrom, bestTo;
+
+        foreach(from, to; zip(cs1, cs2)) {
+          foreach(rot; ROTATES) {
+            auto merged = state.merge(from, to, rot, true);
+            if (best.chmax(merged)) {
+              bestFrom = from;
+              bestTo = to;
+              bestRot = rot;
             }
-            if (best >= SIZE_MAX) break;
           }
+        }
           
-          if (best > 0) {
-            // best.deb;
-            state.merge(from, bestCoord, bestRot, false);
-            auto base = bestCoord.of(state.v[0]);
-          } else {
-            badCount++;
-          }
+        if (best > 0) {
+          state.merge(bestFrom, bestTo, bestRot, false);
+        } else {
+          badCount++;
         }
 
         if (badCount >= 5) break;

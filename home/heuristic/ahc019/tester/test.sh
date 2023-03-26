@@ -108,5 +108,7 @@ date && ./a < in/0099.txt > out/0099.txt && ./vis in/0099.txt out/0099.txt >> sc
 SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum / 100}'`
 echo $SCORE
 
-DATE=`date "+%Y/%m/%d %H:%M:%S"`
+DATE=`date "+%Y%m%d_%H%M%S"`
 echo -e "${DATE}\t${SCORE}" >> score_history
+
+cp score "logs/test_${DATE}"
