@@ -331,6 +331,8 @@ void problem() {
         auto cs2 = state.coords[1].keys.randomShuffle[0..min($, D^^3 / 6, 256)];
 
         foreach(from; cs1) {
+          Coord bestCoord;
+          int best, bestRot;
           foreach(to; cs2) {
             foreach(rot; ROTATES) {
               auto merged = state.merge(from, to, rot, true);
