@@ -3,14 +3,14 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 32;
+enum SIZE_MAX = 450;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
 
 void problem() {
   auto D = scan!int;
-  auto Diota = D.iota;
+  auto Diota = D.iota.array;
   auto XYZ = cartesianProduct(Diota, Diota, Diota);
   auto F1 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
   auto R1 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
@@ -81,27 +81,53 @@ void problem() {
     enum MOVES = [AX, AY, AZ, BX, BY, BZ];
   }
 
+  class Requirement {
+    bool[MAX_D][MAX_D][2] front, right;
+    int[MAX_D][MAX_D][2] fv, rv;
+
+    MATRIX[2] initMatrix;
+    int[5000] size;
+    int maxId;
+
+    this(bool[][][] f, bool[][][] r) {
+      int[MAX_D][MAX_D][2] fc, rc;
+      size[0] = 5000;
+
+      foreach(i; 0..2) {
+        foreach(x, y, z; XYZ) {
+          if (!f[i][y][x] || !r[i][y][z]) continue;
+
+          front[i][x][y] = right[i][z][y] = true;
+          fc[i][x][y]++;
+          rc[i][z][y]++;
+
+          initMatrix[i][x][z][y] = ++maxId;
+          size[maxId] = 1;
+        }
+
+        foreach(y; 0..D) foreach(t; 0..D) {
+          if (fc[i][t][y] > 0) fv[i][t][y] = 1 + D - fc[i][t][y];
+          if (rc[i][t][y] > 0) rv[i][t][y] = 1 + D - rc[i][t][y];
+        }
+      }
+    }
+  }
+
   struct State {
-   MATRIX[2] v;
-   int[5000] size;
-   int vid;
+    Requirement r;
+    MATRIX[2] v;
+    int[5000] size;
+    int vid;
 
     void update(int i, Coord c, int value) {
       v[i][c.x][c.z][c.y] = value;
     }
 
-    this(int d) {
-      // v = new int[][][][](2, d, d, d);
-
-      size[0] = 5000;
-      foreach(i; 0..2) {
-        foreach(x, y, z; XYZ) {
-          if (!F[i][y][x] || !R[i][y][z]) continue;
-
-          v[i][x][z][y] = ++vid;
-          size[vid] = 1;
-        }
-      }
+    this(Requirement r) {
+      this.r = r;
+      this.v = r.initMatrix;
+      this.size = r.size;
+      this.vid = r.maxId;
     }
 
     int merge(Coord from1, Coord from2, int rot, bool dryrun) {
@@ -113,7 +139,9 @@ void problem() {
       from1.set(queued, 1);
       const base = from1.of(v[0]);
 
-      if (!dryrun) update(1, from2, base);
+      if (!dryrun) {
+        update(1, from2, base);
+      }
 
       int merged;
       DList!Coord queue;
@@ -148,7 +176,9 @@ void problem() {
           update(1, cur2, base);
           size[base]++;
         }
-        merged++;
+        merged += r.fv[0][cur.x][cur.y] + r.rv[0][cur.z][cur.y];
+        merged += r.fv[1][cur.x][cur.y] + r.rv[1][cur.z][cur.y];
+
         if (merged >= SIZE_MAX) return merged;
 
         foreach(d; Coord.MOVES) {
@@ -182,6 +212,16 @@ void problem() {
             cr[z][y]--;
           }
         }
+      }
+
+      auto singles = new Coord[][](2, 0);
+      foreach(i; 0..2) {
+        foreach(x, y, z; XYZ) {
+          if (size[v[i][x][z][y]] == 1) singles[i] ~= Coord(x, y, z);
+        }
+      }
+      foreach(a, b; zip(singles[0], singles[1])) {
+        update(1, b, a.of(v[0]));
       }
     }
 
@@ -220,13 +260,14 @@ void problem() {
   }
 
   auto solve() {
-    auto bestState = State(D);
-
+    auto requirement = new Requirement(F, R);
+    auto bestState = State(requirement);
+    
     int tried;
     while(true) {
       if (elapsed(5000)) break;
 
-      auto state = State(D);
+      auto state = State(requirement);
       auto coords1 = XYZ.array.redBlackTree;
       auto coords2 = XYZ.array.redBlackTree;
 
@@ -277,7 +318,8 @@ void problem() {
 
       state.clean;
       if (bestState.score > state.score) bestState = state;
-      (++tried).deb;
+      state.score.deb;
+      // (++tried).deb;
     }
 
     bestState.score.deb;
