@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 450;
+enum SIZE_MAX = 800;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -84,13 +84,13 @@ void problem() {
   class Requirement {
     bool[MAX_D][MAX_D][2] front, right;
     int[MAX_D][MAX_D][2] fv, rv;
+    int[MAX_D][MAX_D][2] fc, rc;
 
     MATRIX[2] initMatrix;
     int[5000] size;
     int maxId;
 
     this(bool[][][] f, bool[][][] r) {
-      int[MAX_D][MAX_D][2] fc, rc;
       size[0] = 5000;
 
       foreach(i; 0..2) {
@@ -118,16 +118,69 @@ void problem() {
     MATRIX[2] v;
     int[5000] size;
     int vid;
+    int[MAX_D][MAX_D][2] fc, rc;
+    int[MAX_D][MAX_D][2] fv, rv;
+    bool[Coord][2] coords;
 
-    void update(int i, Coord c, int value) {
-      v[i][c.x][c.z][c.y] = value;
+    void update(int i, int x, int y, int z, int value) {
+      if (at(i, x, y, z) > 0 && value == 0) {
+        coords[i].remove(Coord(x, y, z));
+      }
+      if (at(i, x, y, z) == 0 && value > 0) {
+        coords[i][Coord(x, y, z)] = true;
+      }
+
+      v[i][x][z][y] = value;
     }
+    void update(int i, Coord c, int value) { return update(i, c.x, c.y, c.z, value); }
+
+    int at(int i, int x, int y, int z) {
+      return v[i][x][z][y];
+    }
+    int at(int i, Coord c) { return at(i, c.x, c.y, c.z); }
 
     this(Requirement r) {
       this.r = r;
       this.v = r.initMatrix;
       this.size = r.size;
       this.vid = r.maxId;
+      this.fc = r.fc;
+      this.rc = r.rc;
+      this.fv = r.fv;
+      this.rv = r.rv;
+
+      foreach(i; 0..2) {
+        foreach(x, y, z; XYZ) {
+          if (at(i, x, y, z) > 0) {
+            coords[i][Coord(x, y, z)] = true;
+          }
+        }
+      }
+    }
+
+    void trim() {
+      int[2] sizes;
+      foreach(x, y, z; XYZ) sizes[0] = max(sizes[0], at(0, x, y, z));
+      sizes[1] = vid - sizes[0];
+      
+      while(sizes[0] != sizes[1]) {
+        foreach(i; 0..2) {
+          if (sizes[0] == sizes[1]) continue;
+          if (i == 0 && sizes[0] < sizes[1]) continue;
+          if (i == 1 && sizes[0] > sizes[1]) continue;
+
+          foreach(c; coords[i].keys.randomShuffle) {
+            const x = c.x, y = c.y, z = c.z;
+            if (fc[i][x][y] == 1 || rc[i][z][y] == 1) continue;
+
+            fc[i][x][y]--;
+            rc[i][z][y]--;
+            update(i, c, 0);
+            sizes[i]--;
+            break;
+          }
+        }
+      }
     }
 
     int merge(Coord from1, Coord from2, int rot, bool dryrun) {
@@ -176,8 +229,8 @@ void problem() {
           update(1, cur2, base);
           size[base]++;
         }
-        merged += r.fv[0][cur.x][cur.y] + r.rv[0][cur.z][cur.y];
-        merged += r.fv[1][cur.x][cur.y] + r.rv[1][cur.z][cur.y];
+        merged += fv[0][cur.x][cur.y] + rv[0][cur.z][cur.y];
+        merged += fv[1][cur.x][cur.y] + rv[1][cur.z][cur.y];
 
         if (merged >= SIZE_MAX) return merged;
 
@@ -268,22 +321,17 @@ void problem() {
       if (elapsed(5000)) break;
 
       auto state = State(requirement);
-      auto coords1 = XYZ.array.redBlackTree;
-      auto coords2 = XYZ.array.redBlackTree;
+      if (tried % 2) state.trim;
 
       int badCount;
       while(true) {
         if (elapsed(5000)) break;
         
-        auto cs1 = coords1.array.randomShuffle[0..min($, D^^3 / 4 , 256)];
-        auto cs2 = coords2.array.randomShuffle[0..min($, D^^3 / 4 , 256)];
+        auto cs1 = state.coords[0].keys.randomShuffle[0..min($, D^^3 / 6, 256)];
+        auto cs2 = state.coords[1].keys.randomShuffle[0..min($, D^^3 / 6, 256)];
 
-        foreach(c1; cs1) {
-          auto from = Coord(c1[0], c1[1], c1[2]);
-          Coord bestCoord;
-          int best, bestRot;
-          foreach(c2; cs2) {
-            auto to = Coord(c2[0], c2[1], c2[2]);
+        foreach(from; cs1) {
+          foreach(to; cs2) {
             foreach(rot; ROTATES) {
               auto merged = state.merge(from, to, rot, true);
               if (best.chmax(merged)) {
@@ -298,16 +346,6 @@ void problem() {
             // best.deb;
             state.merge(from, bestCoord, bestRot, false);
             auto base = bestCoord.of(state.v[0]);
-
-            foreach(x, y, z; XYZ) {
-              auto coord = Coord(x, y, z);
-              if (coord.of(state.v[0]) == base) {
-                coords1.removeKey(tuple(x, y, z));
-              }
-              if (coord.of(state.v[1]) == base) {
-                coords2.removeKey(tuple(x, y, z));
-              }
-            }
           } else {
             badCount++;
           }
@@ -318,10 +356,11 @@ void problem() {
 
       state.clean;
       if (bestState.score > state.score) bestState = state;
-      state.score.deb;
-      // (++tried).deb;
+      // state.score.deb;
+      tried++;
     }
 
+    tried.deb;
     bestState.score.deb;
     bestState.writeln;
   }
