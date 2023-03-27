@@ -5,6 +5,7 @@ void main() { runSolver(); }
 enum MAX_D = 14;
 enum SIZE_MAX = 400;
 enum MAX_SIZE_ID = 50000;
+enum MAX_TIME_MS = 5500;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -145,20 +146,27 @@ void problem() {
     }
 
     this(State s) {
-      this.v = s.v;
-      this.size = s.size;
+      this.r = s.r;
+      this.v = s.v.dup;
+      this.size = s.size.dup;
       this.vid = s.vid;
+      this.fc = s.fc.dup;
+      this.rc = s.rc.dup;
+      this.fv = s.fv.dup;
+      this.rv = s.rv.dup;
+      this.coords = s.coords.dup;
+      this.blocks = s.blocks.dup;
     }
 
     void update(int i, int x, int y, int z, int to) {
       const from = at(i, x, y, z);
       if (from > 0 && from < MAX_SIZE_ID && (to == 0 || to == MAX_SIZE_ID)) {
-        // coords[i][Coord(x, y, z)] = true;
+        coords[i][Coord(x, y, z)] = true;
         fv[i][x][y]++;
         rv[i][z][y]++;
       }
       if ((from == 0 || from == MAX_SIZE_ID) && to > 0 && to < MAX_SIZE_ID) {
-        // coords[i].remove(Coord(x, y, z));
+        coords[i].remove(Coord(x, y, z));
         fv[i][x][y]--;
         rv[i][z][y]--;
       }
@@ -313,8 +321,28 @@ void problem() {
         }
       }
       foreach(a, b; zip(singles[0], singles[1])) {
-        update(1, b, a.of(v[0]));
+        update(0, a, ++vid);
+        update(1, b, vid);
+        size[vid] = 1;
       }
+    }
+
+    long score() {
+      int[int] colors;
+      long ans;
+      foreach(x, y, z; XYZ) {
+        if (v[0][x][y][z] >= MAX_SIZE_ID) ans += 10L^^9; else colors[v[0][x][y][z]] = size[v[0][x][y][z]];
+        if (v[1][x][y][z] >= MAX_SIZE_ID) ans += 10L^^9; else colors[v[1][x][y][z]] = size[v[1][x][y][z]];
+      }
+      colors.remove(0);
+      ans += colors.values.map!"10L^^9 / a".sum;
+      return ans;
+    }
+
+    long tryScore() {
+      auto test = State(this);
+      test.clean;
+      return test.score;
     }
 
     string toString() {
@@ -341,24 +369,6 @@ void problem() {
       }
       return ret.joiner("\n").to!string;
     }
-
-    long score() {
-      int[int] colors;
-      long ans;
-      foreach(x, y, z; XYZ) {
-        if (v[0][x][y][z] == MAX_SIZE_ID) ans += 10L^^9; else colors[v[0][x][y][z]] = size[v[0][x][y][z]];
-        if (v[1][x][y][z] == MAX_SIZE_ID) ans += 10L^^9; else colors[v[1][x][y][z]] = size[v[1][x][y][z]];
-      }
-      colors.remove(0);
-      ans += colors.values.map!"10L^^9 / a".sum;
-      return ans;
-    }
-
-    long tryScore() {
-      auto test = State(this);
-      test.clean;
-      return test.score;
-    }
   }
 
   auto solve() {
@@ -367,14 +377,14 @@ void problem() {
     
     int tried;
     while(true) {
-      if (elapsed(5000)) break;
+      if (elapsed(MAX_TIME_MS)) break;
 
       auto state = State(requirement);
       if (tried % 2) state.trim;
 
       int badCount;
       while(true) {
-        if (elapsed(5000)) break;
+        if (elapsed(MAX_TIME_MS)) break;
         
         auto cs1 = state.coords[0].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
         auto cs2 = state.coords[1].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
@@ -400,29 +410,24 @@ void problem() {
         }
 
         if (badCount >= 5) {
-          // if (bestState.tryScore > state.tryScore) {
-          //   state.tryScore.deb;
-          //   bestState = state;
-          // } else {
-          //   state = bestState;
-          // }
-          // if (state.blocks.empty) {
-          //   state.v.deb;
-          // }
-          // state.destroy(state.blocks.keys.choice);
-          // tried++;
-          // badCount = 0;
-          break;
+          if (bestState.tryScore > state.tryScore) {
+            state.tryScore.deb;
+            bestState = State(state);
+          } else {
+            state = State(bestState);
+          }
+          foreach(i; 0..3) {
+            if (!state.blocks.empty) state.destroy(state.blocks.keys.choice);
+          }
+          tried++;
+          badCount = 0;
+          // break;
         }
       }
-
-      state.clean;
-      if (bestState.score > state.score) bestState = state;
-      tried++;
-      // state.score.deb;
     }
 
     tried.deb;
+    bestState.clean;
     bestState.score.deb;
     bestState.writeln;
   }
