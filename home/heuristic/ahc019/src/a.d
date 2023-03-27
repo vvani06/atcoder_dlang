@@ -4,6 +4,7 @@ void main() { runSolver(); }
 
 enum MAX_D = 14;
 enum SIZE_MAX = 400;
+enum MAX_SIZE_ID = 50000;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -88,11 +89,11 @@ void problem() {
     int[MAX_D][MAX_D][2] fc, rc;
 
     MATRIX[2] initMatrix;
-    int[5000] size;
+    int[MAX_SIZE_ID] size;
     int maxId;
 
     this(bool[][][] f, bool[][][] r) {
-      size[0] = 5000;
+      size[0] = 10000;
 
       foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
@@ -102,8 +103,8 @@ void problem() {
           fc[i][x][y]++;
           rc[i][z][y]++;
 
-          initMatrix[i][x][z][y] = ++maxId;
-          size[maxId] = 1;
+          initMatrix[i][x][z][y] = MAX_SIZE_ID;
+          // size[maxId] = 1;
         }
 
         foreach(y; 0..D) foreach(t; 0..D) {
@@ -117,28 +118,12 @@ void problem() {
   struct State {
     Requirement r;
     MATRIX[2] v;
-    int[5000] size;
+    int[MAX_SIZE_ID] size;
     int vid;
     int[MAX_D][MAX_D][2] fc, rc;
     int[MAX_D][MAX_D][2] fv, rv;
     bool[Coord][2] coords;
-
-    void update(int i, int x, int y, int z, int value) {
-      if (at(i, x, y, z) > 0 && value == 0) {
-        coords[i].remove(Coord(x, y, z));
-      }
-      if (at(i, x, y, z) == 0 && value > 0) {
-        coords[i][Coord(x, y, z)] = true;
-      }
-
-      v[i][x][z][y] = value;
-    }
-    void update(int i, Coord c, int value) { return update(i, c.x, c.y, c.z, value); }
-
-    int at(int i, int x, int y, int z) {
-      return v[i][x][z][y];
-    }
-    int at(int i, Coord c) { return at(i, c.x, c.y, c.z); }
+    bool[int] blocks;
 
     this(Requirement r) {
       this.r = r;
@@ -159,10 +144,49 @@ void problem() {
       }
     }
 
+    this(State s) {
+      this.v = s.v;
+      this.size = s.size;
+      this.vid = s.vid;
+    }
+
+    void update(int i, int x, int y, int z, int to) {
+      const from = at(i, x, y, z);
+      if (from > 0 && from < MAX_SIZE_ID && (to == 0 || to == MAX_SIZE_ID)) {
+        // coords[i][Coord(x, y, z)] = true;
+        fv[i][x][y]++;
+        rv[i][z][y]++;
+      }
+      if ((from == 0 || from == MAX_SIZE_ID) && to > 0 && to < MAX_SIZE_ID) {
+        // coords[i].remove(Coord(x, y, z));
+        fv[i][x][y]--;
+        rv[i][z][y]--;
+      }
+
+      v[i][x][z][y] = to;
+    }
+    void update(int i, Coord c, int value) { return update(i, c.x, c.y, c.z, value); }
+
+    int at(int i, int x, int y, int z) {
+      return v[i][x][z][y];
+    }
+    int at(int i, Coord c) { return at(i, c.x, c.y, c.z); }
+
+    int sizeOf(int i) {
+      if (i == 0) return 10000;
+      if (i >= MAX_SIZE_ID) return 1;
+      return size[i];
+    }
+    int sizeOf(int i, Coord c) {
+      return sizeOf(c.of(v[i]));
+    }
+
     void trim() {
       int[2] sizes;
-      foreach(x, y, z; XYZ) sizes[0] = max(sizes[0], at(0, x, y, z));
-      sizes[1] = vid - sizes[0];
+      foreach(x, y, z; XYZ) {
+        if (at(0, x, y, z) != 0) sizes[0]++;
+        if (at(1, x, y, z) != 0) sizes[1]++;
+      }
       
       while(sizes[0] != sizes[1]) {
         foreach(i; 0..2) {
@@ -184,17 +208,30 @@ void problem() {
       }
     }
 
+    void destroy(int block) {
+      if (!(block in blocks)) return;
+
+      blocks.remove(block);
+      size[block] = 0;
+      foreach(i; 0..2) foreach(x, y, z; XYZ) {
+        if (at(i, x, y, z) == block) update(i, x, y, z, MAX_SIZE_ID);
+      }
+    }
+
     int merge(Coord from1, Coord from2, int rot, bool dryrun) {
-      if (size[from1.of(v[0])] != 1 || size[from2.of(v[1])] != 1) return 0;
+      if (sizeOf(0, from1) != 1 || sizeOf(1, from2) != 1) return 0;
 
       MATRIX visited;
       MATRIX queued;
       from1.set(visited, 1);
       from1.set(queued, 1);
-      const base = from1.of(v[0]);
+      const base = dryrun ? from1.of(v[0]) : ++vid;
 
       if (!dryrun) {
+        update(0, from1, base);
         update(1, from2, base);
+        blocks[base] = true;
+        size[base] = 1;
       }
 
       int merged, score;
@@ -218,8 +255,8 @@ void problem() {
         if (!cur2.valid) continue;
 
         // 体積1のブロックだけを侵食する
-        if (size[cur.of(v[0])] != 1) continue;
-        if (size[cur2.of(v[1])] != 1) continue;
+        if (sizeOf(0, cur) != 1) continue;
+        if (sizeOf(1, cur2) != 1) continue;
 
         // [cur, cur2].deb;
         // [cur.of(v[0]), cur2.of(v[1])].deb;
@@ -228,8 +265,6 @@ void problem() {
         if (!dryrun) {
           foreach(i, c; [cur, cur2].enumerate(0)) {
             update(i, c, base);
-            fv[i][c.x][c.y]--;
-            rv[i][c.z][c.y]--;
           }
           size[base]++;
         }
@@ -263,7 +298,7 @@ void problem() {
         }
 
         foreach(x, y, z; XYZ) {
-          if (size[v[i][x][z][y]] == 1 && cf[x][y] > 1 && cr[z][y] > 1) {
+          if (sizeOf(v[i][x][z][y]) == 1 && cf[x][y] > 1 && cr[z][y] > 1) {
             update(i, Coord(x, y, z), 0);
             cf[x][y]--;
             cr[z][y]--;
@@ -274,7 +309,7 @@ void problem() {
       auto singles = new Coord[][](2, 0);
       foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
-          if (size[v[i][x][z][y]] == 1) singles[i] ~= Coord(x, y, z);
+          if (sizeOf(v[i][x][z][y]) == 1) singles[i] ~= Coord(x, y, z);
         }
       }
       foreach(a, b; zip(singles[0], singles[1])) {
@@ -287,7 +322,9 @@ void problem() {
 
       int[int] conv; {
         auto using = new int[](0);
+        int t;
         foreach(i; 0..2) foreach(x, y, z; XYZ) {
+          if (v[i][x][z][y] == MAX_SIZE_ID) v[i][x][z][y] += ++t;
           using ~= v[i][x][z][y];
         }
         auto uni = using.sort.uniq;
@@ -307,12 +344,20 @@ void problem() {
 
     long score() {
       int[int] colors;
+      long ans;
       foreach(x, y, z; XYZ) {
-        colors[v[0][x][y][z]] = size[v[0][x][y][z]];
-        colors[v[1][x][y][z]] = size[v[1][x][y][z]];
+        if (v[0][x][y][z] == MAX_SIZE_ID) ans += 10L^^9; else colors[v[0][x][y][z]] = size[v[0][x][y][z]];
+        if (v[1][x][y][z] == MAX_SIZE_ID) ans += 10L^^9; else colors[v[1][x][y][z]] = size[v[1][x][y][z]];
       }
       colors.remove(0);
-      return colors.values.map!"10L^^9 / a".sum;
+      ans += colors.values.map!"10L^^9 / a".sum;
+      return ans;
+    }
+
+    long tryScore() {
+      auto test = State(this);
+      test.clean;
+      return test.score;
     }
   }
 
@@ -331,8 +376,8 @@ void problem() {
       while(true) {
         if (elapsed(5000)) break;
         
-        auto cs1 = state.coords[0].keys.randomShuffle[0..min($, D^^3 / 6, 64)];
-        auto cs2 = state.coords[1].keys.randomShuffle[0..min($, D^^3 / 6, 64)];
+        auto cs1 = state.coords[0].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
+        auto cs2 = state.coords[1].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
 
         int best, bestRot;
         Coord bestFrom, bestTo;
@@ -354,13 +399,27 @@ void problem() {
           badCount++;
         }
 
-        if (badCount >= 5) break;
+        if (badCount >= 5) {
+          // if (bestState.tryScore > state.tryScore) {
+          //   state.tryScore.deb;
+          //   bestState = state;
+          // } else {
+          //   state = bestState;
+          // }
+          // if (state.blocks.empty) {
+          //   state.v.deb;
+          // }
+          // state.destroy(state.blocks.keys.choice);
+          // tried++;
+          // badCount = 0;
+          break;
+        }
       }
 
       state.clean;
       if (bestState.score > state.score) bestState = state;
-      // state.score.deb;
       tried++;
+      // state.score.deb;
     }
 
     tried.deb;
