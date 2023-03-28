@@ -5,7 +5,7 @@ void main() { runSolver(); }
 enum MAX_D = 14;
 enum SIZE_MAX = 400;
 enum MAX_SIZE_ID = 50000;
-enum MAX_TIME_MS = 5500;
+enum MAX_TIME_MS = 5750;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
 // alias MATRIX = int[][][];
@@ -279,6 +279,7 @@ void problem() {
         merged++;
         score += fv[0][cur.x][cur.y] + rv[0][cur.z][cur.y];
         score += fv[1][cur.x][cur.y] + rv[1][cur.z][cur.y];
+        // score++;
         if (merged >= MAX_MERGE) break;
 
         foreach(d; Coord.MOVES) {
@@ -290,7 +291,7 @@ void problem() {
         }
       }
 
-      return score;
+      return score * merged;
     }
 
     void clean() {
@@ -374,6 +375,7 @@ void problem() {
   auto solve() {
     auto requirement = new Requirement(F, R);
     auto bestState = State(requirement);
+    long bestScore = long.max;
     
     int tried;
     while(true) {
@@ -405,18 +407,21 @@ void problem() {
           
         if (best > 0) {
           state.merge(bestFrom, bestTo, bestRot, false);
+          badCount = 0;
         } else {
           badCount++;
         }
 
-        if (badCount >= 5) {
-          if (bestState.tryScore > state.tryScore) {
-            state.tryScore.deb;
+        if (badCount >= 3) {
+          auto tryScore = state.tryScore;
+          if (bestScore > tryScore) {
+            tryScore.deb;
+            bestScore = tryScore;
             bestState = State(state);
           } else {
             state = State(bestState);
           }
-          foreach(i; 0..3) {
+          foreach(i; 0..2) {
             if (!state.blocks.empty) state.destroy(state.blocks.keys.choice);
           }
           tried++;
