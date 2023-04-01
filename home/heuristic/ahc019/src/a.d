@@ -421,7 +421,9 @@ void problem() {
           } else {
             state = State(bestState);
           }
-          foreach(i; 0..2) {
+
+          const t = tried % 100 < 50 ? 2 : 3;
+          foreach(i; 0..t) {
             if (!state.blocks.empty) state.destroy(state.blocks.keys.choice);
           }
           tried++;
