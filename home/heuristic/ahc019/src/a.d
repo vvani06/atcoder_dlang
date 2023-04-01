@@ -277,8 +277,8 @@ void problem() {
           size[base]++;
         }
         merged++;
-        score += fv[0][cur.x][cur.y] + rv[0][cur.z][cur.y];
-        score += fv[1][cur.x][cur.y] + rv[1][cur.z][cur.y];
+        score += fv[0][cur.x][cur.y]^^2 + rv[0][cur.z][cur.y]^^2;
+        score += fv[1][cur.x][cur.y]^^2 + rv[1][cur.z][cur.y]^^2;
         // score++;
         if (merged >= MAX_MERGE) break;
 
