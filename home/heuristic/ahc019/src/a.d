@@ -20,7 +20,7 @@ void problem() {
   auto R2 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
   auto F = [F1, F2];
   auto R = [R1, R2];
-  auto MAX_MERGE = D * 2;
+  auto MAX_MERGE = max(15, D * 2);
 
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
@@ -277,8 +277,8 @@ void problem() {
           size[base]++;
         }
         merged++;
-        score += fv[0][cur.x][cur.y]^^2 + rv[0][cur.z][cur.y]^^2;
-        score += fv[1][cur.x][cur.y]^^2 + rv[1][cur.z][cur.y]^^2;
+        score += 1 + fv[0][cur.x][cur.y]^^3 * rv[0][cur.z][cur.y]^^3;
+        score += 1 + fv[1][cur.x][cur.y]^^3 * rv[1][cur.z][cur.y]^^3;
         // score++;
         if (merged >= MAX_MERGE) break;
 
@@ -291,7 +291,7 @@ void problem() {
         }
       }
 
-      return score * merged;
+      return score;
     }
 
     void clean() {
