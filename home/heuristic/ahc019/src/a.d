@@ -3,7 +3,6 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum SIZE_MAX = 400;
 enum MAX_SIZE_ID = 50000;
 enum MAX_TIME_MS = 5750;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
@@ -20,7 +19,8 @@ void problem() {
   auto R2 = scan!string(D).map!(s => s.map!"a == '1'".array).array;
   auto F = [F1, F2];
   auto R = [R1, R2];
-  auto MAX_MERGE = max(15, D * 2);
+  auto MAX_MERGE = 20;
+  auto RND = Xorshift(unpredictableSeed);
 
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
@@ -189,33 +189,6 @@ void problem() {
       return sizeOf(c.of(v[i]));
     }
 
-    void trim() {
-      int[2] sizes;
-      foreach(x, y, z; XYZ) {
-        if (at(0, x, y, z) != 0) sizes[0]++;
-        if (at(1, x, y, z) != 0) sizes[1]++;
-      }
-      
-      while(sizes[0] != sizes[1]) {
-        foreach(i; 0..2) {
-          if (sizes[0] == sizes[1]) continue;
-          if (i == 0 && sizes[0] < sizes[1]) continue;
-          if (i == 1 && sizes[0] > sizes[1]) continue;
-
-          foreach(c; coords[i].keys.randomShuffle) {
-            const x = c.x, y = c.y, z = c.z;
-            if (fc[i][x][y] == 1 || rc[i][z][y] == 1) continue;
-
-            fc[i][x][y]--;
-            rc[i][z][y]--;
-            update(i, c, 0);
-            sizes[i]--;
-            break;
-          }
-        }
-      }
-    }
-
     void destroy(int block) {
       if (!(block in blocks)) return;
 
@@ -277,8 +250,11 @@ void problem() {
           size[base]++;
         }
         merged++;
-        score += 1 + fv[0][cur.x][cur.y]^^3 * rv[0][cur.z][cur.y]^^3;
-        score += 1 + fv[1][cur.x][cur.y]^^3 * rv[1][cur.z][cur.y]^^3;
+        score += 1 + 
+          fv[0][cur.x][cur.y]^^2 * rv[0][cur.z][cur.y]^^2 + 
+          fv[1][cur.x][cur.y]^^2 * rv[1][cur.z][cur.y]^^2;
+        // score += 1 + fv[0][cur.x][cur.y]^^3 * rv[0][cur.z][cur.y]^^3;
+        // score += 1 + fv[1][cur.x][cur.y]^^3 * rv[1][cur.z][cur.y]^^3;
         // score++;
         if (merged >= MAX_MERGE) break;
 
@@ -382,14 +358,13 @@ void problem() {
       if (elapsed(MAX_TIME_MS)) break;
 
       auto state = State(requirement);
-      if (tried % 2) state.trim;
-
       int badCount;
       while(true) {
         if (elapsed(MAX_TIME_MS)) break;
         
-        auto cs1 = state.coords[0].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
-        auto cs2 = state.coords[1].keys.randomShuffle[0..min(($ + 5) / 6, 64)];
+        RND.seed(unpredictableSeed);
+        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 64), RND);
+        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 64), RND);
 
         int best, bestRot;
         Coord bestFrom, bestTo;
@@ -412,7 +387,7 @@ void problem() {
           badCount++;
         }
 
-        if (badCount >= 3) {
+        if (badCount >= 4) {
           auto tryScore = state.tryScore;
           if (bestScore > tryScore) {
             tryScore.deb;
@@ -423,8 +398,8 @@ void problem() {
           }
 
           const t = tried % 100 < 50 ? 2 : 3;
-          foreach(i; 0..t) {
-            if (!state.blocks.empty) state.destroy(state.blocks.keys.choice);
+          foreach(b; state.blocks.keys.randomSample(min(t, state.blocks.length), RND)) {
+            state.destroy(b);
           }
           tried++;
           badCount = 0;
