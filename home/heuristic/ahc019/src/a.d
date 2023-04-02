@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum MAX_SIZE_ID = 50000;
+enum MAX_SIZE_ID = 5000;
 enum MAX_TIME_MS = 5750;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
@@ -363,8 +363,8 @@ void problem() {
         if (elapsed(MAX_TIME_MS)) break;
         
         RND.seed(unpredictableSeed);
-        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 64), RND);
-        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 64), RND);
+        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 8), RND);
+        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 8), RND);
 
         int best, bestRot;
         Coord bestFrom, bestTo;
@@ -387,7 +387,7 @@ void problem() {
           badCount++;
         }
 
-        if (badCount >= 4) {
+        if (badCount >= 5) {
           auto tryScore = state.tryScore;
           if (bestScore > tryScore) {
             tryScore.deb;
