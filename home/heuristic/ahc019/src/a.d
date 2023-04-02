@@ -3,7 +3,7 @@ void main() { runSolver(); }
 // ----------------------------------------------
 
 enum MAX_D = 14;
-enum MAX_SIZE_ID = 5000;
+enum MAX_SIZE_ID = 2500;
 enum MAX_TIME_MS = 5750;
 enum ROTATES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27];
 alias MATRIX = int[MAX_D][MAX_D][MAX_D];
@@ -59,7 +59,7 @@ void problem() {
     }
     Coord rotate(int i) {
       auto ret = this;
-      static foreach(j; 0..3) {
+      foreach(j; 0..3) {
         if (i > 0) {
           ret = ret.rotate(j, i % 4);
           i /= 4;
@@ -363,8 +363,8 @@ void problem() {
         if (elapsed(MAX_TIME_MS)) break;
         
         RND.seed(unpredictableSeed);
-        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 4), RND);
-        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 4), RND);
+        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 64), RND);
+        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 64), RND);
 
         int best, bestRot;
         Coord bestFrom, bestTo;
@@ -397,7 +397,7 @@ void problem() {
             state = State(bestState);
           }
 
-          const t = tried % 100 < 50 ? 2 : 3;
+          const t = tried % 100 < 60 ? 2 : 3;
           foreach(b; state.blocks.keys.randomSample(min(t, state.blocks.length), RND)) {
             state.destroy(b);
           }
