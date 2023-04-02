@@ -59,7 +59,7 @@ void problem() {
     }
     Coord rotate(int i) {
       auto ret = this;
-      foreach(j; 0..3) {
+      static foreach(j; 0..3) {
         if (i > 0) {
           ret = ret.rotate(j, i % 4);
           i /= 4;
@@ -96,7 +96,7 @@ void problem() {
     this(bool[][][] f, bool[][][] r) {
       size[0] = 10000;
 
-      foreach(i; 0..2) {
+      static foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
           if (!f[i][y][x] || !r[i][y][z]) continue;
 
@@ -136,7 +136,7 @@ void problem() {
       this.fv = r.fv;
       this.rv = r.rv;
 
-      foreach(i; 0..2) {
+      static foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
           if (at(i, x, y, z) > 0) {
             coords[i][Coord(x, y, z)] = true;
@@ -194,7 +194,7 @@ void problem() {
 
       blocks.remove(block);
       size[block] = 0;
-      foreach(i; 0..2) foreach(x, y, z; XYZ) {
+      static foreach(i; 0..2) foreach(x, y, z; XYZ) {
         if (at(i, x, y, z) == block) update(i, x, y, z, MAX_SIZE_ID);
       }
     }
@@ -271,7 +271,7 @@ void problem() {
     }
 
     void clean() {
-      foreach(i; 0..2) {
+      static foreach(i; 0..2) {{
         auto cf = new int[][](D, D);
         auto cr = new int[][](D, D);
 
@@ -289,10 +289,10 @@ void problem() {
             cr[z][y]--;
           }
         }
-      }
+      }}
 
       auto singles = new Coord[][](2, 0);
-      foreach(i; 0..2) {
+      static foreach(i; 0..2) {
         foreach(x, y, z; XYZ) {
           if (sizeOf(v[i][x][z][y]) == 1) singles[i] ~= Coord(x, y, z);
         }
@@ -337,7 +337,7 @@ void problem() {
       }
 
       ret ~= (conv.length - 1).to!string;
-      foreach(i; 0..2) {
+      static foreach(i; 0..2) {
         foreach(x; 0..D) {
           int[] arr;
           foreach(z; 0..D) foreach(y; 0..D) arr ~= conv[v[i][x][z][y]];
@@ -363,8 +363,8 @@ void problem() {
         if (elapsed(MAX_TIME_MS)) break;
         
         RND.seed(unpredictableSeed);
-        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 8), RND);
-        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 8), RND);
+        auto cs1 = state.coords[0].keys.randomSample(min((state.coords[0].keys.length + 5) / 6, 4), RND);
+        auto cs2 = state.coords[1].keys.randomSample(min((state.coords[1].keys.length + 5) / 6, 4), RND);
 
         int best, bestRot;
         Coord bestFrom, bestTo;
@@ -387,7 +387,7 @@ void problem() {
           badCount++;
         }
 
-        if (badCount >= 5) {
+        if (badCount >= 4) {
           auto tryScore = state.tryScore;
           if (bestScore > tryScore) {
             tryScore.deb;
