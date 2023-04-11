@@ -6,27 +6,24 @@ void problem() {
   auto A = scan!long(N).sort.uniq.array;
 
   auto solve() {
-    bool overK(long amount) {
-      int size;
-      bool[long] used;
-      used[0] = true;
-
-      foreach(a; A) {
-        foreach(r; used.keys) {
-          for(auto x = a + r; x <= amount; x += a) {
-            if (x in used) break;
-
-            used[x] = true;
-            size++;
-            if (size >= K) return true;
-          }
-        }
+    int count;
+    auto used = new long[](0).redBlackTree;
+    for(auto queue = [0L].heapify!"a > b"; !queue.empty;) {
+      auto from = queue.front; queue.removeFront;
+      if (++count == K + 1) {
+        return from;
       }
 
-      return false;
+      foreach(a; A) {
+        const to = from + a;
+        if (!(to in used)) {
+          queue.insert(to);
+          used.insert(to);
+        }
+      }
     }
 
-    return binarySearch(&overK, 10L^^18, 0);
+    return -1;
   }
 
   outputForAtCoder(&solve);
