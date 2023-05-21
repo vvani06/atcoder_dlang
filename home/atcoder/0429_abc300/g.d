@@ -1,95 +1,26 @@
 void main() { runSolver(); }
 
 void problem() {
-  struct Edge {
-    int id, u, v;
-    long w;
-  }
-  struct LCA {
-    int depth = 10000000;
-    int node = -1;
-
-    int opCmp(LCA other) {
-      return other.depth > depth ? -1 : 1;
-    }
-  }
-
-  auto N = scan!int;
-  auto E = (N - 1).iota.map!(i => Edge(i, scan!int - 1, scan!int - 1, scan!long)).array;
-  auto Q = scan!int;
+  auto N = scan!long;
+  auto P = scan!long;
 
   auto solve() {
-    auto graph = new Edge[][](N, 0);
-    foreach(e; E) {
-      graph[e.u] ~= e;
-      graph[e.v] ~= Edge(e.id, e.v, e.u, e.w);
-    }
-    // graph.each!deb;
+    auto parr = new long[][](2, 0);
+    foreach(i, p; P.enumeratePrimes.enumerate) parr[i % 2] ~= p;
 
-    auto tourIn = new int[](N);
-    auto tourOut = new int[](N);
-    auto edgeIn = new int[](N - 1);
-    auto edgeOut = new int[](N - 1);
-    auto routes = new int[](N * 2);
-    auto costTree = SegTree!("a + b", long)(new long[](2 * N));
-    auto lcaTree = SegTree!("min(a, b)", LCA)(new LCA[](2 * N), LCA.init);
-
-    int tourNum, depth;
-    void tour(int cur, int pre, int ei) {
-      depth++;
-      lcaTree.update(tourNum, LCA(depth, pre));
-
-      routes[tourNum] = cur;
-      if (ei >= 0) {
-        edgeIn[ei] = tourNum;
-        costTree.update(tourNum, E[ei].w);
-      }
-      tourIn[cur] = tourNum++;
-      foreach(e; graph[cur]) {
-        if (e.v == pre) continue;
-
-        tour(e.v, cur, e.id);
-      }
-
-      routes[tourNum] = cur;
-      if (ei >= 0) {
-        edgeOut[ei] = tourNum;
-        costTree.update(tourNum, -E[ei].w);
-      }
-      tourOut[cur] = tourNum++;
-      depth--;
-    }
-    tour(0, 0, -1);
-    // routes.deb;
-    // tourIn.deb;
-    // tourOut.deb;
-    // edgeIn.deb;
-    // edgeOut.deb;
-    // segtree.data[segtree.data.length/2 .. $].deb;
-
-    foreach(_; 0..Q) {
-      if (scan!int == 1) {
-        auto i = scan!int - 1;
-        auto w = scan!long;
-        costTree.update(edgeIn[i], w);
-        costTree.update(edgeOut[i], -w);
-      } else {
-        auto u = scan!int - 1;
-        auto v = scan!int - 1;
-
-        auto l = tourIn[u];
-        auto r = tourIn[v];
-        if (l > r) swap(l, r);
-        auto ans = costTree.sum(0, l + 1) + costTree.sum(0, r + 1);
-
-        auto lca = lcaTree.sum(l + 1, r + 1);
-        auto m = lca.node == -1 ? l : tourIn[lca.node];
-        // [l, r, lca.node].deb;
-        // lca.deb;
-        ans -= costTree.sum(0, m + 1) * 2;
-        ans.writeln;
+    auto nums = [[1L], [1L]];
+    foreach(i; 0..2) {
+      foreach(prime; parr[i]) {
+        foreach(from; nums[i]) {
+          for(long t = prime; t * from <= N; t *= prime) {
+            nums[i] ~= t * from;
+          }
+        }
       }
     }
+
+    auto b = nums[1].sort;
+    return nums[0].map!(a => b.lowerBound(N / a + 1).length).sum;
   }
 
   outputForAtCoder(&solve);
@@ -131,50 +62,21 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
+auto enumeratePrimes(long max)
+{
+  auto primes = new bool[](max + 1);
+  primes[] = true;
+  primes[0] = false;
+  primes[1] = false;
+  foreach (i; 2..max+1) {
+    if (primes[i]) {
+      auto x = i*2;
+      while (x <= max) {
+        primes[x] = false;
+        x += i;
       }
     }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
   }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
+
+  return iota(1, max + 1).filter!(i => primes[i]).array.assumeSorted;
 }
