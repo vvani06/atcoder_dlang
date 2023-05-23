@@ -7,49 +7,37 @@ void problem() {
   auto S = scan;
 
   auto solve() {
-    long xs = S.count('x');
-    long os = N - xs;
-
     auto lefts = new long[](N + 1); {
       int x;
       foreach(i; 0..N) {
         if (S[i] == 'x') x++;
-        lefts[x] = i + 1;
-      }
-      lefts[x + 1..$] = lefts[x];
-    }
-
-    auto rights = new long[](N + 1); {
-      int x;
-      foreach(i; 0..N) {
-        if (S[$ - 1 - i] == 'x') x++;
-        rights[x] = i + 1;
-      }
-      rights[x + 1..$] = rights[x];
-    }
-
-    if (K < xs) {
-      int l, r, x;
-      while(l < r) {
-        if (l >= N) break;
-        if ()
+        lefts[i + 1] = x;
       }
     }
-    
 
+    long ans;
+    foreach(l; 0..N) {
+      auto isOk(long n) {
+        long nn = n;
+        long k = K;
 
-    auto isOk(long n) {
-      if (n < N)
-      long k = K;
-      auto loops = n
-      if (n > 2 * N) {
-        k -= xs * (n / )
+        auto head = min(N - l, n);
+        n -= head;
+        k -= lefts[l + head] - lefts[l];
+
+        auto cycle = n / N;
+        n -= cycle * N;
+        k -= cycle * lefts[$ - 1];
+
+        k -= lefts[n % N];
+        // [l, nn, k].deb;
+
+        return k >= 0;
       }
-
-      return false;
+      ans = max(ans, binarySearch(&isOk, K - l, N*M + 1 - l));
     }
 
-    return binarySearch(&isOk, K, N*M + 1);
+    return ans;
   }
 
   outputForAtCoder(&solve);
