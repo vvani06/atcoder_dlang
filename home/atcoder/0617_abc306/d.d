@@ -12,7 +12,6 @@ void problem() {
       pre = dp.dup;
       if (xy[0] == 0) {
         dp[0].chmax(pre.maxElement + xy[1]);
-        dp[1].chmax(pre.maxElement + xy[1]);
       } else {
         dp[1].chmax(pre[0] + xy[1]);
       }

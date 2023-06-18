@@ -7,68 +7,44 @@ void problem() {
   auto XY = scan!int(2 * Q).chunks(2).array;
 
   auto solve() {
+    auto high = 0.repeat(K).redBlackTree!true;
+    auto low = 0.repeat(N - K).redBlackTree!true;
+    auto nums = 0.repeat(N).array;
 
-    struct Value {
-      long num, count, sum;
-
-      this(long n, long c) {
-        num = n;
-        count = c;
-        sum = num * count;
-      }
-
-      this(long n, long c, long s) {
-        num = n;
-        count = c;
-        sum = s;
-      }
-
-      Value add(Value other) {
-        return Value(0L, count + other.count, sum + other.sum);
-      }
-    }
-
-    auto values = new Value[](0);
-    values ~= Value(0, N);
-    auto compressed = (0L ~ XY.map!"a[1]".array).sort.uniq.array;
-    foreach(c; compressed[1..$]) {
-      values ~= Value(c, 0);
-    }
-
-    int[long] ci;
-    foreach(i, c; compressed) ci[c] = i.to!int;
-
-    values.deb;
-    ci.deb;
-
-    auto segtree = SegTree!("a.add(b)", Value)(values, Value(0, 0, 0));
-    auto xs = (0L).repeat(N + 1).array;
-    
-    int r = compressed.length.to!int + 1;
+    long ans;
     foreach(xy; XY) {
-      // xy.deb;
-      auto x = xy[0];
       auto y = xy[1];
+      auto pre = nums[xy[0] - 1];
+      nums[xy[0] - 1] = y;
 
-      auto before = xs[x];
-      auto after = xs[x] = y;
+      if (pre in high) {
+        high.removeKey(pre);
+        ans -= pre;
 
-      // segtree.data.deb;
-      segtree.update(ci[before], Value(before, segtree.get(ci[before]).count - 1));
-      segtree.update(ci[y], Value(y, segtree.get(ci[y]).count + 1));
-      // segtree.data.deb;
+        if (low.empty || low.back < y) {
+          high.insert(y);
+          ans += y;
+        } else {
+          high.insert(low.back);
+          ans += low.back;
+          low.removeBack;
+          low.insert(y);
+        }
+      } else {
+        low.removeKey(pre);
 
-      bool isOk(int l) {
-        return segtree.sum(l, r).count >= K;
+        if (!high.empty && high.front >= y) {
+          low.insert(y);
+        } else {
+          low.insert(high.front);
+          ans -= high.front;
+          high.removeFront;
+          high.insert(y);
+          ans += y;
+        }
       }
 
-      auto l = binarySearch(&isOk, 0, r);
-      auto s = segtree.sum(l, r);
-      auto ans = s.sum;
-      if (s.count > K) {
-        ans -= compressed[l] * (s.count - K);
-      }
-
+      // deb([x, pre, y], high, low);
       ans.writeln;
     }
 
@@ -115,98 +91,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
-
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
-    }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
-  }
-  return ret;
-}
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}
