@@ -16,26 +16,28 @@ void problem() {
   }
 
   auto solve() {
-    auto boxes = B.map!(b => Box(b)).array;
-    boxes.deb;
-
-    auto boxSortedX = boxes.sort!"a.x < b.x";
-    auto boxSortedY = boxes.sort!"a.y < b.y";
-    auto boxSortedZ = boxes.sort!"a.z < b.z";
-    
-    bool ans;
-    foreach(b; boxes) {
-      auto x = boxSortedX.upperBound(b);
-      auto y = boxSortedY.upperBound(b);
-      auto z = boxSortedZ.upperBound(b);
-      foreach(t; x) {
-        if (t in y && t in z) {
-          return YESNO[true];
-        }
-      }
+    auto boxes = B.map!(b => Box(b)).array; {
+      auto cx = boxes.map!"a.x".array.compress;
+      foreach(i; 0..N) boxes[i].x = cx[i];
     }
 
-    return YESNO[ans];
+    auto segtreeN = SegTree!("min(a, b)", int)(int.max.repeat(N).array, int.max);
+
+    auto sortedZ = boxes.sort!"a.z < b.z";
+    auto preZ = sortedZ[0].z;
+    auto stack = DList!Box();
+    foreach(b; sortedZ) {
+      if (preZ != b.z) {
+        foreach(s; stack) segtreeN.update(s.x, min(segtreeN.get(s.x), s.y));
+        stack.clear;
+      }
+
+      if (segtreeN.sum(0, b.x) < b.y) return YESNO[true];
+      stack.insertBack(b);
+      preZ = b.z;
+    }
+
+    return YESNO[false];
   }
 
   outputForAtCoder(&solve);
@@ -44,6 +46,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+T[] compress(T)(T[] arr, T origin = T.init) { T[T] indecies; arr.dup.sort.uniq.enumerate(origin).each!((i, t) => indecies[t] = i); return arr.map!(t => indecies[t]).array; }
 T[][] combinations(T)(T[] s, in long m) {   if (!m) return [[]];   if (s.empty) return [];   return s[1 .. $].combinations(m - 1).map!(x => s[0] ~ x).array ~ s[1 .. $].combinations(m); }
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
@@ -77,3 +80,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}
