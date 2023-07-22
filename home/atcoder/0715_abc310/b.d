@@ -5,30 +5,21 @@ void problem() {
   auto M = scan!int;
 
   auto solve() {
-    alias Product = Tuple!(int, "P", int, "C", bool[101], "F");
+    alias Product = Tuple!(int, "P", BitArray, "F");
     Product[] products;
     foreach(_; 0..N) {
       const p = scan!int;
-      const c = scan!int;
-      bool[101] f;
-      foreach(a; scan!int(c)) {
-        f[a] = true;
-      }
-      products ~= Product(p, c, f);
+      auto f = BitArray(new bool[](101));
+      foreach(a; scan!int(scan!int)) f[a] = true;
+      products ~= Product(p, f);
     }
 
-    foreach(i; 0..N - 1) foreach(j; i + 1..N) {
-      auto a = products[i];
-      auto b = products[j];
-      if (a.P > b.P) swap(a, b);
+    foreach(a; products) foreach(b; products) {
+      if (a.P > b.P) continue;
 
-      bool compatible = true, upper = false;
-      foreach(f; 0..101) {
-        if (b.F[f] && !a.F[f]) compatible = false;
-        if (!b.F[f] && a.F[f]) upper = true;
-      }
-
-      if (compatible && (upper || a.P < b.P)) return YESNO[true];
+      auto compatible = (a.F & b.F).count == b.F.count;
+      auto superior = a.P < b.P || (a.F ^ b.F).count > 0;
+      if (compatible && superior) return YESNO[true];
     }
 
     return YESNO[false];

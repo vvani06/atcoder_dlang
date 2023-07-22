@@ -7,54 +7,30 @@ void problem() {
   auto E = scan!int(2 * M).chunks(2);
 
   auto solve() {
-    auto dislikes = new int[][](N, 0);
-    foreach(ref e; E) {
+    auto dislikes = new int[](N);
+    foreach(e; E) {
       e[0]--; e[1]--;
-      dislikes[e[0]] ~= e[1];
-      dislikes[e[1]] ~= e[0];
+      dislikes[e[0]] |= 2^^e[1];
+      dislikes[e[1]] |= 2^^e[0];
     }
 
-    // discords.each!deb;
-    auto mems = new bool[][](T, N);
-    auto team = new int[](N);
-    team[] = -1;
-    long ans;
+    auto mems = new int[](T);
+    long dfs(int n) {
+      if (n == N) return mems.canFind(0) ? 0 : 1;
 
-    void add(int n, int t) {
-      mems[t][n] = true;
-      team[n] = t;
-    }
-
-    void remove(int n) {
-      mems[team[n]][n] = false;
-      team[n] = -1;
-    }
-
-    void dfs(int n) {
-      if (n == N) {
-        auto c = new bool[](T);
-        foreach(t; team) c[t] = true;
-        if (!c.canFind(false)) ans++;
-        return;
-      }
-
+      long ret;
       foreach(t; 0..T) {
-        if (dislikes[n].any!(d => mems[t][d])) continue;
-        if (!mems[t].canFind(true)) {
-          add(n, t);
-          dfs(n + 1);
-          remove(n);
-          break;
-        }
+        if (dislikes[n] & mems[t]) continue;
 
-        add(n, t);
-        dfs(n + 1);
-        remove(n);
+        mems[t] ^= 2^^n;
+        ret += dfs(n + 1);
+        mems[t] ^= 2^^n;
+        if (mems[t] == 0) break;
       }
+      return ret;
     }
-    dfs(0);
-
-    return ans;
+    
+    return dfs(0);
   }
 
   outputForAtCoder(&solve);
