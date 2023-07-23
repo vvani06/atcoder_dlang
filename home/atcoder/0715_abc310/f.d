@@ -48,7 +48,9 @@ void problem() {
         if (cur < 0) break;
       }
       // add.deb;
+      
       ans += add;
+      deb(p, [add, ans]);
     }
 
     MInt9 total = MInt9(1);
