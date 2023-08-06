@@ -1,15 +1,19 @@
-FROM debian:11-slim
+FROM debian:12-slim
 
-RUN apt update && apt install -y build-essential curl ldc git fish
+RUN apt update && apt install -y --no-install-recommends curl build-essential ca-certificates libxml2 git fish
 
 RUN git config --global user.name "allegrogiken"
 RUN git config --global user.email "vvani06+dev@gmail.com"
 
-RUN git clone -b v1.29.0 https://github.com/dlang/dub.git /tmp/dub && \
-    cd /tmp/dub && \
-    ldmd2 build.d && \
-    ./build && \
-    cp bin/dub /usr/bin
+ENV D_COMPLILER="ldc-1.32.2"
+
+RUN curl https://dlang.org/install.sh > /tmp/install.sh
+RUN chmod +x /tmp/install.sh
+RUN /tmp/install.sh install ${D_COMPLILER} 
+
+RUN ln -s $(/tmp/install.sh get-path ${D_COMPLILER}) /usr/local/bin/ldc2
+RUN ln -s $(/tmp/install.sh get-path --dmd ${D_COMPLILER}) /usr/local/bin/ldmd2
+RUN ln -s $(/tmp/install.sh get-path --dub ${D_COMPLILER}) /usr/local/bin/dub
 
 COPY home/tools /tmp/tools
 RUN cd /tmp/tools/auto_builder && \
