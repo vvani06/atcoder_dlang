@@ -1,33 +1,32 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto D = scan!long;
-  auto C = scan!long(26);
+  auto N = scan!int;
+  auto M = scan!long;
+  auto A = scan!long(N);
+
+  long l2(long a) {
+    long ret;
+    while(a % 2 == 0) {
+      ret++;
+      a /= 2;
+    }
+    return ret;
+  }
 
   auto solve() {
-    long score, scoreBase;
-    auto decsBase = new long[](26);
-    auto decs = new long[](26);
+    long minFactor2 = A.map!(a => l2(a)).minElement;
+    long maxFactor2 = A.map!(a => l2(a)).maxElement;
+    if (minFactor2 != maxFactor2) return 0;
 
-    foreach(d; 0..D) {
-      auto S = scan!long(26);
-
-      auto maxi = 26.iota.map!(i => S[i].to!real.pow(1.3) * max(1, decs[i]).to!real.pow(0.6)).maxIndex;
-      writeln(maxi + 1);
-      stdout.flush;
-
-      decs[] += C[];
-      score += S[maxi];
-      decs[maxi] = 0;
-      score -= decs.sum;
-
-      decsBase[] += C[];
-      scoreBase += S[d % 26];
-      decsBase[d % 26] = 0;
-      scoreBase -= decsBase.sum;
+    long lcm = A[0];
+    foreach(a; A[1..$]) {
+      lcm = (lcm * a) / gcd(lcm, a);
+      if (lcm > M * 2) break;
     }
 
-    max(0, score - scoreBase + 1).deb;
+    long half = lcm / 2;
+    return (M + half) / lcm;
   }
 
   outputForAtCoder(&solve);

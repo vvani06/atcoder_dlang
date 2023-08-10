@@ -1,33 +1,53 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto D = scan!long;
-  auto C = scan!long(26);
+  auto N = scan!int;
+  struct Coord { int x, y, z; }
+  struct Cube { Coord from, to; }
+  auto C = scan!int(6 * N).chunks(6).map!(c => Cube(Coord(c[0], c[1], c[2]), Coord(c[3], c[4], c[5]))).array;
 
   auto solve() {
-    long score, scoreBase;
-    auto decsBase = new long[](26);
-    auto decs = new long[](26);
+    auto seed = unpredictableSeed;
+    enum BOUNDARY = 101;
+    auto xy = new long[][][](BOUNDARY, BOUNDARY, BOUNDARY);
+    auto yz = new long[][][](BOUNDARY, BOUNDARY, BOUNDARY);
+    auto zx = new long[][][](BOUNDARY, BOUNDARY, BOUNDARY);
 
-    foreach(d; 0..D) {
-      auto S = scan!long(26);
-
-      auto maxi = 26.iota.map!(i => S[i].to!real.pow(1.3) * max(1, decs[i]).to!real.pow(0.6)).maxIndex;
-      writeln(maxi + 1);
-      stdout.flush;
-
-      decs[] += C[];
-      score += S[maxi];
-      decs[maxi] = 0;
-      score -= decs.sum;
-
-      decsBase[] += C[];
-      scoreBase += S[d % 26];
-      decsBase[d % 26] = 0;
-      scoreBase -= decsBase.sum;
+    foreach(i, c; C) {
+      const hashed = i.hashOf(seed);
+      foreach(x; c.from.x..c.to.x) foreach(y; c.from.y..c.to.y) {
+        xy[x][y][c.from.z] ^= hashed;
+        xy[x][y][c.to.z] ^= hashed;
+      }
+      foreach(y; c.from.y..c.to.y) foreach(z; c.from.z..c.to.z) {
+        yz[c.from.x][y][z] ^= hashed;
+        yz[c.to.x][y][z] ^= hashed;
+      }
+      foreach(z; c.from.z..c.to.z) foreach(x; c.from.x..c.to.x) {
+        zx[x][c.from.y][z] ^= hashed;
+        zx[x][c.to.y][z] ^= hashed;
+      }
     }
 
-    max(0, score - scoreBase + 1).deb;
+    foreach(i, c; C) {
+      const hashed = i.hashOf(seed);
+      bool[long] count;
+      foreach(x; c.from.x..c.to.x) foreach(y; c.from.y..c.to.y) {
+        count[xy[x][y][c.from.z]] = true;
+        count[xy[x][y][c.to.z]] = true;
+      }
+      foreach(y; c.from.y..c.to.y) foreach(z; c.from.z..c.to.z) {
+        count[yz[c.from.x][y][z]] = true;
+        count[yz[c.to.x][y][z]] = true;
+      }
+      foreach(z; c.from.z..c.to.z) foreach(x; c.from.x..c.to.x) {
+        count[zx[x][c.from.y][z]] = true;
+        count[zx[x][c.to.y][z]] = true;
+      }
+
+      count.remove(hashed);
+      writeln(count.length);
+    }
   }
 
   outputForAtCoder(&solve);

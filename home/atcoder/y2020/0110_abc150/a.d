@@ -1,33 +1,11 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto D = scan!long;
-  auto C = scan!long(26);
+  auto K = scan!int;
+  auto X = scan!int;
 
   auto solve() {
-    long score, scoreBase;
-    auto decsBase = new long[](26);
-    auto decs = new long[](26);
-
-    foreach(d; 0..D) {
-      auto S = scan!long(26);
-
-      auto maxi = 26.iota.map!(i => S[i].to!real.pow(1.3) * max(1, decs[i]).to!real.pow(0.6)).maxIndex;
-      writeln(maxi + 1);
-      stdout.flush;
-
-      decs[] += C[];
-      score += S[maxi];
-      decs[maxi] = 0;
-      score -= decs.sum;
-
-      decsBase[] += C[];
-      scoreBase += S[d % 26];
-      decsBase[d % 26] = 0;
-      scoreBase -= decsBase.sum;
-    }
-
-    max(0, score - scoreBase + 1).deb;
+    return K * 500 >= X;
   }
 
   outputForAtCoder(&solve);

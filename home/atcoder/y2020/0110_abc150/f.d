@@ -1,33 +1,42 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto D = scan!long;
-  auto C = scan!long(26);
+  auto N = scan!int;
+  auto M = scan!int;
+  auto TX = scan!long(2 * N).chunks(2).array;
 
   auto solve() {
-    long score, scoreBase;
-    auto decsBase = new long[](26);
-    auto decs = new long[](26);
+    auto opened = TX.filter!"a[0] == 0".map!"a[1]".array.heapify;
+    auto openee = TX.filter!"a[0] == 1".map!"a[1]".array.heapify;
+    auto opener = TX.filter!"a[0] == 2".map!"a[1]".array.heapify;
 
-    foreach(d; 0..D) {
-      auto S = scan!long(26);
-
-      auto maxi = 26.iota.map!(i => S[i].to!real.pow(1.3) * max(1, decs[i]).to!real.pow(0.6)).maxIndex;
-      writeln(maxi + 1);
-      stdout.flush;
-
-      decs[] += C[];
-      score += S[maxi];
-      decs[maxi] = 0;
-      score -= decs.sum;
-
-      decsBase[] += C[];
-      scoreBase += S[d % 26];
-      decsBase[d % 26] = 0;
-      scoreBase -= decsBase.sum;
+    auto cur = new long[](0).redBlackTree!true;
+    auto rest = M;
+    while(!opened.empty && rest-- >= 0) {
+      cur.insert(opened.front);
+      opened.removeFront;
     }
 
-    max(0, score - scoreBase + 1).deb;
+    auto curSum = cur.array.sum;
+    auto ans = curSum;
+
+    void add(long x) { curSum += x; cur.insert(x); }
+    void remove() { if (!cur.empty) { curSum -= cur.front; cur.removeFront; } }
+    foreach(open; opener) {
+      foreach(_; 0..open) {
+        if (openee.empty) break;
+
+        curSum += openee.front;
+        cur.insert(openee.front);
+        openee.removeFront;
+        if (--rest < 0) remove();
+      }
+
+      if (--rest < 0) remove();
+      ans = max(ans, curSum);
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);

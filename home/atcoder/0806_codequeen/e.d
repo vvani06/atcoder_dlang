@@ -5,16 +5,18 @@ void problem() {
   auto A = scan!long(N);
 
   auto solve() {
-    long ans;
+    alias State = Tuple!(long, "neg", long, "mid", long, "pos");
+    auto state = State(int.min, 0, int.min);
 
-    ans = max(ans, A.chunks(2).map!"a.maxElement - a.minElement".sum);
-    swap(A[$ - 2], A[$ - 1]);
-    ans = max(ans, A.chunks(2).map!"a.maxElement - a.minElement".sum);
-    swap(A[$ - 2], A[$ - 1]);
-    swap(A[$ - 3], A[$ - 1]);
-    ans = max(ans, A.chunks(2).map!"a.maxElement - a.minElement".sum);
+    foreach(a; A) {
+      state = State(
+        max(state.neg, state.mid - a),
+        max(state.neg + a, state.mid, state.pos - a),
+        max(state.mid + a, state.pos)
+      );
+    }
 
-    return ans;
+    return state[1];
   }
 
   outputForAtCoder(&solve);

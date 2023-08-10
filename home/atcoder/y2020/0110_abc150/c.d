@@ -1,33 +1,16 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto D = scan!long;
-  auto C = scan!long(26);
+  auto N = scan!int;
+  auto A = scan!int(N);
+  auto B = scan!int(N);
 
   auto solve() {
-    long score, scoreBase;
-    auto decsBase = new long[](26);
-    auto decs = new long[](26);
+    auto permutations = iota(1, N + 1).permutations.map!"a.array".array.sort;
 
-    foreach(d; 0..D) {
-      auto S = scan!long(26);
-
-      auto maxi = 26.iota.map!(i => S[i].to!real.pow(1.3) * max(1, decs[i]).to!real.pow(0.6)).maxIndex;
-      writeln(maxi + 1);
-      stdout.flush;
-
-      decs[] += C[];
-      score += S[maxi];
-      decs[maxi] = 0;
-      score -= decs.sum;
-
-      decsBase[] += C[];
-      scoreBase += S[d % 26];
-      decsBase[d % 26] = 0;
-      scoreBase -= decsBase.sum;
-    }
-
-    max(0, score - scoreBase + 1).deb;
+    long a = permutations.lowerBound(A).length;
+    long b = permutations.lowerBound(B).length;
+    return abs(a - b);
   }
 
   outputForAtCoder(&solve);
@@ -78,3 +61,31 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
