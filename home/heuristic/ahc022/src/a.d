@@ -71,13 +71,13 @@ struct Game {
     }
 
     badCount[Coord(0, 0)] = -1;
-    auto coords = badCount.keys.filter!(a => badCount[a] <= 10).array.multiSort!(
+    auto coords = badCount.keys.filter!(a => badCount[a] <= 16).array.multiSort!(
       (a, b) => badCount[a] < badCount[b],
       (a, b) => abs(a.x) + abs(a.y) < abs(b.x) + abs(b.y),
     );
     coords.deb;
     coords.map!(a => [badCount[a]]).deb;
-    return coords.array[0..min($, 7)];
+    return coords.array[0..min($, 24)];
   }
 
   static Game instance;
@@ -161,26 +161,49 @@ void problem() {
 
   enum P_EMPTY = -1;
   enum MEASURE_TIMES_MAX = 10000;
-  enum MEASURE_TIMES_EACH_MAX = 100;
 
   auto solve() {
     Hole[] holes; foreach(i, p; P) {
       holes ~= Hole(i.to!int, p);
-      holes[$ - 1].deb;
-      holes[$ - 1].asCreek.deb;
+      // holes[$ - 1].deb;
+      // holes[$ - 1].asCreek.deb;
     }
 
+    Coord[] bestCoords = Game.instance.aroundCoords[0..1];
     auto heatmap = new int[][](L, L); {
+      int best = int.max;
+      foreach(comb; Game.instance.aroundCoords[1..$].combinations(Game.instance.creekSize - 1)) {
+        int conflicts;
+        comb = Game.instance.aroundCoords[0] ~ comb;
+        auto used = new bool[][](L, L);
+        foreach(h; holes) {
+          auto creeks = h.asCreek;
+          foreach(i; 0..Game.instance.creekSize) {
+            auto d = comb[i];
+            auto x = (h.coord.x + d.x + L) % L;
+            auto y = (h.coord.y + d.y + L) % L;
+            if (!used[y][x]) {
+              used[y][x] = true;
+            } else {
+              conflicts++;
+            }
+          }
+        }
+        
+        if (best.chmin(conflicts)) bestCoords = comb;
+      }
+      best.deb;
+      bestCoords.deb;
+
       auto stable = new bool[][](L, L);
       foreach(ref h; heatmap) h[] = P_EMPTY;
-      auto arounds = Game.instance.aroundCoords;
 
       alias Fill = Tuple!(int, "x", int, "y", int, "color");
       auto queue = DList!Fill();
       foreach(h; holes) {
         auto creeks = h.asCreek;
         foreach(i; 0..Game.instance.creekSize) {
-          auto d = arounds[i];
+          auto d = bestCoords[i];
           auto x = (h.coord.x + d.x + L) % L;
           auto y = (h.coord.y + d.y + L) % L;
           if (heatmap[y][x] == P_EMPTY) {
@@ -206,7 +229,7 @@ void problem() {
       }
 
       // 設置コスト低減のためにグラデーションがかかるようにする
-      foreach(_; 0..100) {
+      foreach(_; 0..25) {
         auto blured = heatmap.map!"a.dup".array;
 
         foreach(y; 0..L) foreach(x; 0..L) {
@@ -235,7 +258,7 @@ void problem() {
       auto holeScore = new long[](N);
       auto measurement = new Measurement();
       foreach(creekId; 0..Game.instance.creekSize) {
-        auto diff = Game.instance.aroundCoords[creekId];
+        auto diff = bestCoords[creekId];
         foreach(t; 0..measureSize) {
           writefln("%(%s %)", [id, diff.y, diff.x]);
           stdout.flush();
@@ -243,7 +266,7 @@ void problem() {
           auto value = scan!int;
           auto m = measurement.add(creekId, value);
           m.deb;
-          if (m >= 0.66) break;
+          if (m >= 0.6) break;
         }
       }
       id.deb;
@@ -289,3 +312,55 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct CombinationRange(T) {
+  private {
+    int combinationSize;
+    int elementSize;
+    int pointer;
+    int[] cursor;
+    T[] elements;
+    T[] current;
+  }
+
+  public:
+
+  this(T[] t, int combinationSize) {
+    this.combinationSize = combinationSize;
+    this.elementSize = cast(int)t.length;
+    pointer = combinationSize - 1;
+    cursor = new int[combinationSize];
+    current = new T[combinationSize];
+    elements = t.dup;
+    foreach(i; 0..combinationSize) {
+      cursor[i] = i;
+      current[i] = elements[i];
+    }
+  }
+
+  @property T[] front() {
+    return current;
+  }
+
+  void popFront() {
+    if (pointer == -1) return;
+
+    if (cursor[pointer] == elementSize + pointer - combinationSize) {
+      pointer--;
+      popFront();
+      if (pointer < 0) return;
+
+      pointer++;
+      cursor[pointer] = cursor[pointer - 1];
+      current[pointer] = elements[cursor[pointer]];
+    }
+
+    cursor[pointer]++;
+    current[pointer] = elements[cursor[pointer]];
+  }
+
+  bool empty() {
+    return pointer == -1;
+  }
+}
+CombinationRange!T combinations(T)(T[] t, int size) { return CombinationRange!T(t, size); }
