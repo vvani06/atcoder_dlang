@@ -1,2 +1,4 @@
 tester/**
 !tester/test.sh
+!tester/tester
+src/out

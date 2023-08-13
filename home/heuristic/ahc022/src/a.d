@@ -6,28 +6,122 @@ struct Coord {
   int x, y;
 }
 
-struct Measurement {
-  int id, sum, count;
+struct Game {
+  int L;
+  int N;
+  int S;
+  Coord[] P;
+  
+  bool[][] isHole;
+  Coord[] aroundCoords;
 
-  void add(int value) {
-    sum += value;
-    count++;
+  int creekSize;
+  int sampleSize;
+  int sampleStep;
+  int[] samples;
+
+  this(int l, int n, int s, Coord[] p) {
+    L = l;
+    N = n;
+    S = s;
+    P = p;
+
+    isHole = new bool[][](L, L);
+    foreach(c; P) isHole[c.y][c.x] = true;
+    aroundCoords = availableAroundCoords();
+    
+    sampleSize = max(2, min(N, 1000 / S / 2));
+    while(sampleSize^^creekSize < N && creekSize < aroundCoords.length) creekSize++;
+
+    if (sampleSize^^creekSize < N) {
+      creekSize = aroundCoords.length.to!int;
+      while(sampleSize^^creekSize < N) sampleSize++;
+    }
+
+    sampleStep = 1000 / (sampleSize - 1);
+    samples = iota(0, 1001, sampleStep).array;
+    [creekSize, sampleSize, sampleStep].deb;
+    samples.deb;
   }
 
-  int avg() {
-    return sum / count;
+  int[] asCreek(int id) {
+    int[] ret = new int[](creekSize);
+    foreach(i; 0..creekSize) {
+      ret[i] = id % sampleSize;
+      id /= sampleSize;
+    }
+    return ret.reverse.array;
   }
+
+  Coord[] availableAroundCoords() {
+    auto AROUND_SIZE = 4; //L / 2;
+    int[Coord] badCount;
+    foreach(dy; -AROUND_SIZE..AROUND_SIZE + 1) foreach(dx; -AROUND_SIZE..AROUND_SIZE + 1) badCount[Coord(dx, dy)] = 0;
+
+    foreach(c; P) {
+      foreach(dy; -AROUND_SIZE..AROUND_SIZE + 1) foreach(dx; -AROUND_SIZE..AROUND_SIZE + 1) {
+        auto y = (c.y + dy + L) % L;
+        auto x = (c.x + dx + L) % L;
+        if (isHole[y][x]) badCount[Coord(dx, dy)]++;
+      }
+    }
+
+    badCount[Coord(0, 0)] = -1;
+    badCount.deb;
+    auto coords = badCount.keys.filter!(a => badCount[a] <= 5).array.multiSort!(
+      (a, b) => badCount[a] < badCount[b],
+      (a, b) => abs(a.x) + abs(a.y) < abs(b.x) + abs(b.y),
+    );
+    coords.deb;
+    return coords.array[0..min($, 7)];
+  }
+
+  static Game instance;
 }
 
 struct Hole {
-  int value, index;
+  int id;
   Coord coord;
 
-  int opCmp(int other) {
-    if (value == other) return 0;
-    return value < other ? -1 : 1;
+  int[] asCreek() {
+    return Game.instance.asCreek(id);
   }
-  int opCmp(Hole other) { return opCmp(other.value); }
+}
+
+class Measurement {
+  int[][] measured;
+
+  this() {
+    measured = new int[][](Game.instance.creekSize, 0);
+  }
+
+  void add(int creekId, int value) {
+    measured[creekId] ~= value;
+  }
+
+  int assume() {
+    const creekSize = Game.instance.creekSize;
+    const sampleSize = Game.instance.sampleSize;
+    const samples = Game.instance.samples;
+
+    int ret;
+    foreach(i; 0..creekSize) {
+      ret *= sampleSize;
+
+      auto scores = new long[](sampleSize);
+      foreach(m; measured[i]) {
+        foreach(s; 0..sampleSize) {
+          scores[s] += abs(samples[s] - m)^^3;
+        }
+      }
+      scores.deb;
+      ret += scores.minIndex;
+    }
+
+    measured.deb;
+    ret.deb;
+    return min(Game.instance.N - 1, ret);
+  }
 }
 
 void problem() {
@@ -35,6 +129,8 @@ void problem() {
   auto N = scan!int;
   auto S = scan!int;
   auto P = scan!int(2 * N).chunks(2).map!(c => Coord(c[1], c[0])).array;
+  Game.instance = Game(L, N, S, P);
+  
   auto RND = Xorshift(unpredictableSeed);
 
   auto StartTime = MonoTime.currTime();
@@ -42,60 +138,75 @@ void problem() {
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
   }
 
-  enum P_EMPTY = 0;
-  enum P_START = 200;
-  enum P_END = 1000;
-
+  enum P_EMPTY = -1;
   enum MEASURE_TIMES_MAX = 10000;
   enum MEASURE_TIMES_EACH_MAX = 100;
 
   auto solve() {
-    int[50][50] hallId; foreach(i, p; P) {
-      hallId[p.y][p.x] = i.to!int + 1;
+    Hole[] holes; foreach(i, p; P) {
+      holes ~= Hole(i.to!int, p);
+      holes[$ - 1].deb;
+      holes[$ - 1].asCreek.deb;
     }
 
-    Hole[] holes; {
-      int delta = (P_END - P_START) / N;
-      int count;
-      foreach(y; 0..L) { 
-        int[] row;
-        foreach(x; 0..L) {
-          if (hallId[y][x] > 0) {
-            auto value = P_START + count * delta;
-            holes ~= Hole(value, hallId[y][x] - 1, Coord(x, y));
-            row ~= value;
-            count++;
-          } else {
-            row ~= P_EMPTY;
+    auto heatmap = new int[][](L, L); {
+      foreach(ref h; heatmap) h[] = P_EMPTY;
+      auto arounds = Game.instance.aroundCoords;
+
+      alias Fill = Tuple!(int, "x", int, "y", int, "color");
+      auto queue = DList!Fill();
+      foreach(h; holes) {
+        auto creeks = h.asCreek;
+        foreach(i; 0..Game.instance.creekSize) {
+          auto d = arounds[i];
+          auto x = (h.coord.x + d.x + L) % L;
+          auto y = (h.coord.y + d.y + L) % L;
+          if (heatmap[y][x] == P_EMPTY) {
+            heatmap[y][x] = Game.instance.samples[creeks[i]];
+            queue.insertBack(Fill(x, y, Game.instance.samples[creeks[i]]));
           }
         }
-
-        writefln("%(%s %)", row);
-        stdout.flush();
       }
+
+      foreach(y; 0..L) foreach(x; 0..L) {
+        if (heatmap[y][x] == P_EMPTY) heatmap[y][x] = 500;
+      }
+      // while(!queue.empty) {
+      //   auto p = queue.front; queue.removeFront;
+        
+      //   foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0 ,1])) {
+      //     auto x = (p.x + dx + L) % L;
+      //     auto y = (p.y + dy + L) % L;
+      //     if (heatmap[y][x] != P_EMPTY) continue;
+  
+      //     heatmap[y][x] = p.color;
+      //     queue.insertBack(Fill(x, y, p.color));
+      //   }
+      // }
     }
-    auto sorted = holes.assumeSorted;
-    
+
+    foreach(row; heatmap) {
+      writefln("%(%s %)", row);
+      stdout.flush();
+    }
+
     auto ans = new int[](N);
+    auto measureSize = MEASURE_TIMES_MAX / N / Game.instance.creekSize;
     foreach(id; 0..N) {
-      auto assumedIndex = new int[](N);
-      foreach(t; MEASURE_TIMES_EACH_MAX.iota) {
-        writefln("%(%s %)", [id, 0, 0]);
-        stdout.flush();
+      auto holeScore = new long[](N);
+      auto measurement = new Measurement();
+      foreach(creekId; 0..Game.instance.creekSize) {
+        auto diff = Game.instance.aroundCoords[creekId];
+        foreach(t; 0..measureSize) {
+          writefln("%(%s %)", [id, diff.y, diff.x]);
+          stdout.flush();
 
-        auto value = scan!int;
-        Hole[] candidates; {
-          auto lowers = sorted.lowerBound(value + 2);
-          if (!lowers.empty) candidates ~= lowers.back;
-
-          auto uppers = sorted.upperBound(value - 2);
-          if (!uppers.empty) candidates ~= uppers.front;
+          auto value = scan!int;
+          measurement.add(creekId, value);
         }
-        auto best = candidates.minElement!(c => abs(c.value - value));
-        assumedIndex[best.index]++;
       }
-
-      ans[id] = assumedIndex.maxIndex.to!int;
+      id.deb;
+      ans[id] = measurement.assume;
     }
 
     writefln("%(%s %)", [-1, -1, -1]);
