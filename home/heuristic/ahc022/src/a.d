@@ -26,11 +26,14 @@ struct Game {
     S = s;
     P = p;
 
+    int maxColor = min(1000, S * N * 3);
+
     isHole = new bool[][](L, L);
     foreach(c; P) isHole[c.y][c.x] = true;
     aroundCoords = availableAroundCoords();
     
-    sampleSize = max(2, min(N, 1000 / S / 2));
+    sampleSize = max(2, min(N, maxColor / S / 3));
+    sampleSize = N;
     while(sampleSize^^creekSize < N && creekSize < aroundCoords.length) creekSize++;
 
     if (sampleSize^^creekSize < N) {
@@ -38,8 +41,8 @@ struct Game {
       while(sampleSize^^creekSize < N) sampleSize++;
     }
 
-    sampleStep = 1000 / (sampleSize - 1);
-    samples = iota(0, 1001, sampleStep).array;
+    sampleStep = maxColor / (sampleSize - 1);
+    samples = iota(0, maxColor + 1, sampleStep).array;
     [creekSize, sampleSize, sampleStep].deb;
     samples.deb;
   }
@@ -95,8 +98,25 @@ class Measurement {
     measured = new int[][](Game.instance.creekSize, 0);
   }
 
-  void add(int creekId, int value) {
+  real add(int creekId, int value) {
     measured[creekId] ~= value;
+    if (measured[creekId].length < 5) return 0;
+
+    const creekSize = Game.instance.creekSize;
+    const sampleSize = Game.instance.sampleSize;
+    const samples = Game.instance.samples;
+
+    auto scores = new long[](sampleSize);
+    foreach(m; measured[creekId]) {
+      foreach(s; 0..sampleSize) {
+        scores[s] += abs(samples[s] - m)^^2;
+      }
+    }
+
+    scores.sort;
+    auto top = scores[0].to!real;
+    auto second = scores[1].to!real;
+    return 1.0 - (top / second);
   }
 
   int assume() {
@@ -111,7 +131,7 @@ class Measurement {
       auto scores = new long[](sampleSize);
       foreach(m; measured[i]) {
         foreach(s; 0..sampleSize) {
-          scores[s] += abs(samples[s] - m)^^3;
+          scores[s] += abs(samples[s] - m)^^2;
         }
       }
       scores.deb;
@@ -150,6 +170,7 @@ void problem() {
     }
 
     auto heatmap = new int[][](L, L); {
+      auto stable = new bool[][](L, L);
       foreach(ref h; heatmap) h[] = P_EMPTY;
       auto arounds = Game.instance.aroundCoords;
 
@@ -164,25 +185,44 @@ void problem() {
           if (heatmap[y][x] == P_EMPTY) {
             heatmap[y][x] = Game.instance.samples[creeks[i]];
             queue.insertBack(Fill(x, y, Game.instance.samples[creeks[i]]));
+            stable[y][x] = true;
           }
         }
       }
 
       foreach(y; 0..L) foreach(x; 0..L) {
-        if (heatmap[y][x] == P_EMPTY) heatmap[y][x] = 500;
+        // if (heatmap[y][x] == P_EMPTY) heatmap[y][x] = 250;
       }
-      // while(!queue.empty) {
-      //   auto p = queue.front; queue.removeFront;
+
+      while(!queue.empty) {
+        auto p = queue.front; queue.removeFront;
         
-      //   foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0 ,1])) {
-      //     auto x = (p.x + dx + L) % L;
-      //     auto y = (p.y + dy + L) % L;
-      //     if (heatmap[y][x] != P_EMPTY) continue;
+        foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0 ,1])) {
+          auto x = (p.x + dx + L) % L;
+          auto y = (p.y + dy + L) % L;
+          if (heatmap[y][x] != P_EMPTY) continue;
   
-      //     heatmap[y][x] = p.color;
-      //     queue.insertBack(Fill(x, y, p.color));
-      //   }
-      // }
+          heatmap[y][x] = p.color;
+          queue.insertBack(Fill(x, y, p.color));
+        }
+      }
+
+      foreach(_; 0..100) {
+        auto blured = heatmap.map!"a.dup".array;
+
+        foreach(y; 0..L) foreach(x; 0..L) {
+          if (stable[y][x]) continue;
+
+          blured[y][x] *= 1;
+          foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            auto ax = (x + dx + L) % L;
+            auto ay = (y + dy + L) % L;
+            blured[y][x] += heatmap[ay][ax];
+          }
+          blured[y][x] /= 5;
+        }
+        heatmap = blured.map!"a.dup".array;
+      }
     }
 
     foreach(row; heatmap) {
@@ -202,7 +242,9 @@ void problem() {
           stdout.flush();
 
           auto value = scan!int;
-          measurement.add(creekId, value);
+          auto m = measurement.add(creekId, value);
+          m.deb;
+          if (m >= 0.75) break;
         }
       }
       id.deb;
