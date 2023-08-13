@@ -5,106 +5,207 @@ touch score
 rm score
 rm out/*
 
-./tester ./a < in/0000.txt > out/0000.txt 2> out/0000_score &
-./tester ./a < in/0001.txt > out/0001.txt 2> out/0001_score &
-./tester ./a < in/0002.txt > out/0002.txt 2> out/0002_score &
-./tester ./a < in/0003.txt > out/0003.txt 2> out/0003_score &
-./tester ./a < in/0004.txt > out/0004.txt 2> out/0004_score &
-./tester ./a < in/0005.txt > out/0005.txt 2> out/0005_score &
-./tester ./a < in/0006.txt > out/0006.txt 2> out/0006_score &
-./tester ./a < in/0007.txt > out/0007.txt 2> out/0007_score &
-./tester ./a < in/0008.txt > out/0008.txt 2> out/0008_score &
-./tester ./a < in/0009.txt > out/0009.txt 2> out/0009_score &
-./tester ./a < in/0010.txt > out/0010.txt 2> out/0010_score &
-./tester ./a < in/0011.txt > out/0011.txt 2> out/0011_score &
-./tester ./a < in/0012.txt > out/0012.txt 2> out/0012_score &
-./tester ./a < in/0013.txt > out/0013.txt 2> out/0013_score &
-./tester ./a < in/0014.txt > out/0014.txt 2> out/0014_score &
-./tester ./a < in/0015.txt > out/0015.txt 2> out/0015_score &
-./tester ./a < in/0016.txt > out/0016.txt 2> out/0016_score &
-./tester ./a < in/0017.txt > out/0017.txt 2> out/0017_score &
-./tester ./a < in/0018.txt > out/0018.txt 2> out/0018_score &
-./tester ./a < in/0019.txt > out/0019.txt 2> out/0019_score &
-./tester ./a < in/0020.txt > out/0020.txt 2> out/0020_score &
-./tester ./a < in/0021.txt > out/0021.txt 2> out/0021_score &
-./tester ./a < in/0022.txt > out/0022.txt 2> out/0022_score &
-./tester ./a < in/0023.txt > out/0023.txt 2> out/0023_score &
-./tester ./a < in/0024.txt > out/0024.txt 2> out/0024_score &
-./tester ./a < in/0025.txt > out/0025.txt 2> out/0025_score &
-./tester ./a < in/0026.txt > out/0026.txt 2> out/0026_score &
-./tester ./a < in/0027.txt > out/0027.txt 2> out/0027_score &
-./tester ./a < in/0028.txt > out/0028.txt 2> out/0028_score &
-./tester ./a < in/0029.txt > out/0029.txt 2> out/0029_score &
-./tester ./a < in/0030.txt > out/0030.txt 2> out/0030_score &
-./tester ./a < in/0031.txt > out/0031.txt 2> out/0031_score &
-./tester ./a < in/0032.txt > out/0032.txt 2> out/0032_score &
-./tester ./a < in/0033.txt > out/0033.txt 2> out/0033_score &
-./tester ./a < in/0034.txt > out/0034.txt 2> out/0034_score &
-./tester ./a < in/0035.txt > out/0035.txt 2> out/0035_score &
-./tester ./a < in/0036.txt > out/0036.txt 2> out/0036_score &
-./tester ./a < in/0037.txt > out/0037.txt 2> out/0037_score &
-./tester ./a < in/0038.txt > out/0038.txt 2> out/0038_score &
-./tester ./a < in/0039.txt > out/0039.txt 2> out/0039_score &
-./tester ./a < in/0040.txt > out/0040.txt 2> out/0040_score &
-./tester ./a < in/0041.txt > out/0041.txt 2> out/0041_score &
-./tester ./a < in/0042.txt > out/0042.txt 2> out/0042_score &
-./tester ./a < in/0043.txt > out/0043.txt 2> out/0043_score &
-./tester ./a < in/0044.txt > out/0044.txt 2> out/0044_score &
-./tester ./a < in/0045.txt > out/0045.txt 2> out/0045_score &
-./tester ./a < in/0046.txt > out/0046.txt 2> out/0046_score &
-./tester ./a < in/0047.txt > out/0047.txt 2> out/0047_score &
-./tester ./a < in/0048.txt > out/0048.txt 2> out/0048_score &
-./tester ./a < in/0049.txt > out/0049.txt 2> out/0049_score &
-./tester ./a < in/0050.txt > out/0050.txt 2> out/0050_score &
-./tester ./a < in/0051.txt > out/0051.txt 2> out/0051_score &
-./tester ./a < in/0052.txt > out/0052.txt 2> out/0052_score &
-./tester ./a < in/0053.txt > out/0053.txt 2> out/0053_score &
-./tester ./a < in/0054.txt > out/0054.txt 2> out/0054_score &
-./tester ./a < in/0055.txt > out/0055.txt 2> out/0055_score &
-./tester ./a < in/0056.txt > out/0056.txt 2> out/0056_score &
-./tester ./a < in/0057.txt > out/0057.txt 2> out/0057_score &
-./tester ./a < in/0058.txt > out/0058.txt 2> out/0058_score &
-./tester ./a < in/0059.txt > out/0059.txt 2> out/0059_score &
-./tester ./a < in/0060.txt > out/0060.txt 2> out/0060_score &
-./tester ./a < in/0061.txt > out/0061.txt 2> out/0061_score &
-./tester ./a < in/0062.txt > out/0062.txt 2> out/0062_score &
-./tester ./a < in/0063.txt > out/0063.txt 2> out/0063_score &
-./tester ./a < in/0064.txt > out/0064.txt 2> out/0064_score &
-./tester ./a < in/0065.txt > out/0065.txt 2> out/0065_score &
-./tester ./a < in/0066.txt > out/0066.txt 2> out/0066_score &
-./tester ./a < in/0067.txt > out/0067.txt 2> out/0067_score &
-./tester ./a < in/0068.txt > out/0068.txt 2> out/0068_score &
-./tester ./a < in/0069.txt > out/0069.txt 2> out/0069_score &
-./tester ./a < in/0070.txt > out/0070.txt 2> out/0070_score &
-./tester ./a < in/0071.txt > out/0071.txt 2> out/0071_score &
-./tester ./a < in/0072.txt > out/0072.txt 2> out/0072_score &
-./tester ./a < in/0073.txt > out/0073.txt 2> out/0073_score &
-./tester ./a < in/0074.txt > out/0074.txt 2> out/0074_score &
-./tester ./a < in/0075.txt > out/0075.txt 2> out/0075_score &
-./tester ./a < in/0076.txt > out/0076.txt 2> out/0076_score &
-./tester ./a < in/0077.txt > out/0077.txt 2> out/0077_score &
-./tester ./a < in/0078.txt > out/0078.txt 2> out/0078_score &
-./tester ./a < in/0079.txt > out/0079.txt 2> out/0079_score &
-./tester ./a < in/0080.txt > out/0080.txt 2> out/0080_score &
-./tester ./a < in/0081.txt > out/0081.txt 2> out/0081_score &
-./tester ./a < in/0082.txt > out/0082.txt 2> out/0082_score &
-./tester ./a < in/0083.txt > out/0083.txt 2> out/0083_score &
-./tester ./a < in/0084.txt > out/0084.txt 2> out/0084_score &
-./tester ./a < in/0085.txt > out/0085.txt 2> out/0085_score &
-./tester ./a < in/0086.txt > out/0086.txt 2> out/0086_score &
-./tester ./a < in/0087.txt > out/0087.txt 2> out/0087_score &
-./tester ./a < in/0088.txt > out/0088.txt 2> out/0088_score &
-./tester ./a < in/0089.txt > out/0089.txt 2> out/0089_score &
-./tester ./a < in/0090.txt > out/0090.txt 2> out/0090_score &
-./tester ./a < in/0091.txt > out/0091.txt 2> out/0091_score &
-./tester ./a < in/0092.txt > out/0092.txt 2> out/0092_score &
-./tester ./a < in/0093.txt > out/0093.txt 2> out/0093_score &
-./tester ./a < in/0094.txt > out/0094.txt 2> out/0094_score &
-./tester ./a < in/0095.txt > out/0095.txt 2> out/0095_score &
-./tester ./a < in/0096.txt > out/0096.txt 2> out/0096_score &
-./tester ./a < in/0097.txt > out/0097.txt 2> out/0097_score &
-./tester ./a < in/0098.txt > out/0098.txt 2> out/0098_score &
-./tester ./a < in/0099.txt > out/0099.txt 2> out/0099_score &
+echo 0000 > out/0000_score; head -n 1 in/0000.txt >> out/0000_score; 
+echo 0001 > out/0001_score; head -n 1 in/0001.txt >> out/0001_score; 
+echo 0002 > out/0002_score; head -n 1 in/0002.txt >> out/0002_score; 
+echo 0003 > out/0003_score; head -n 1 in/0003.txt >> out/0003_score; 
+echo 0004 > out/0004_score; head -n 1 in/0004.txt >> out/0004_score; 
+echo 0005 > out/0005_score; head -n 1 in/0005.txt >> out/0005_score; 
+echo 0006 > out/0006_score; head -n 1 in/0006.txt >> out/0006_score; 
+echo 0007 > out/0007_score; head -n 1 in/0007.txt >> out/0007_score; 
+echo 0008 > out/0008_score; head -n 1 in/0008.txt >> out/0008_score; 
+echo 0009 > out/0009_score; head -n 1 in/0009.txt >> out/0009_score; 
+echo 0010 > out/0010_score; head -n 1 in/0010.txt >> out/0010_score; 
+echo 0011 > out/0011_score; head -n 1 in/0011.txt >> out/0011_score; 
+echo 0012 > out/0012_score; head -n 1 in/0012.txt >> out/0012_score; 
+echo 0013 > out/0013_score; head -n 1 in/0013.txt >> out/0013_score; 
+echo 0014 > out/0014_score; head -n 1 in/0014.txt >> out/0014_score; 
+echo 0015 > out/0015_score; head -n 1 in/0015.txt >> out/0015_score; 
+echo 0016 > out/0016_score; head -n 1 in/0016.txt >> out/0016_score; 
+echo 0017 > out/0017_score; head -n 1 in/0017.txt >> out/0017_score; 
+echo 0018 > out/0018_score; head -n 1 in/0018.txt >> out/0018_score; 
+echo 0019 > out/0019_score; head -n 1 in/0019.txt >> out/0019_score; 
+echo 0020 > out/0020_score; head -n 1 in/0020.txt >> out/0020_score; 
+echo 0021 > out/0021_score; head -n 1 in/0021.txt >> out/0021_score; 
+echo 0022 > out/0022_score; head -n 1 in/0022.txt >> out/0022_score; 
+echo 0023 > out/0023_score; head -n 1 in/0023.txt >> out/0023_score; 
+echo 0024 > out/0024_score; head -n 1 in/0024.txt >> out/0024_score; 
+echo 0025 > out/0025_score; head -n 1 in/0025.txt >> out/0025_score; 
+echo 0026 > out/0026_score; head -n 1 in/0026.txt >> out/0026_score; 
+echo 0027 > out/0027_score; head -n 1 in/0027.txt >> out/0027_score; 
+echo 0028 > out/0028_score; head -n 1 in/0028.txt >> out/0028_score; 
+echo 0029 > out/0029_score; head -n 1 in/0029.txt >> out/0029_score; 
+echo 0030 > out/0030_score; head -n 1 in/0030.txt >> out/0030_score; 
+echo 0031 > out/0031_score; head -n 1 in/0031.txt >> out/0031_score; 
+echo 0032 > out/0032_score; head -n 1 in/0032.txt >> out/0032_score; 
+echo 0033 > out/0033_score; head -n 1 in/0033.txt >> out/0033_score; 
+echo 0034 > out/0034_score; head -n 1 in/0034.txt >> out/0034_score; 
+echo 0035 > out/0035_score; head -n 1 in/0035.txt >> out/0035_score; 
+echo 0036 > out/0036_score; head -n 1 in/0036.txt >> out/0036_score; 
+echo 0037 > out/0037_score; head -n 1 in/0037.txt >> out/0037_score; 
+echo 0038 > out/0038_score; head -n 1 in/0038.txt >> out/0038_score; 
+echo 0039 > out/0039_score; head -n 1 in/0039.txt >> out/0039_score; 
+echo 0040 > out/0040_score; head -n 1 in/0040.txt >> out/0040_score; 
+echo 0041 > out/0041_score; head -n 1 in/0041.txt >> out/0041_score; 
+echo 0042 > out/0042_score; head -n 1 in/0042.txt >> out/0042_score; 
+echo 0043 > out/0043_score; head -n 1 in/0043.txt >> out/0043_score; 
+echo 0044 > out/0044_score; head -n 1 in/0044.txt >> out/0044_score; 
+echo 0045 > out/0045_score; head -n 1 in/0045.txt >> out/0045_score; 
+echo 0046 > out/0046_score; head -n 1 in/0046.txt >> out/0046_score; 
+echo 0047 > out/0047_score; head -n 1 in/0047.txt >> out/0047_score; 
+echo 0048 > out/0048_score; head -n 1 in/0048.txt >> out/0048_score; 
+echo 0049 > out/0049_score; head -n 1 in/0049.txt >> out/0049_score; 
+echo 0050 > out/0050_score; head -n 1 in/0050.txt >> out/0050_score; 
+echo 0051 > out/0051_score; head -n 1 in/0051.txt >> out/0051_score; 
+echo 0052 > out/0052_score; head -n 1 in/0052.txt >> out/0052_score; 
+echo 0053 > out/0053_score; head -n 1 in/0053.txt >> out/0053_score; 
+echo 0054 > out/0054_score; head -n 1 in/0054.txt >> out/0054_score; 
+echo 0055 > out/0055_score; head -n 1 in/0055.txt >> out/0055_score; 
+echo 0056 > out/0056_score; head -n 1 in/0056.txt >> out/0056_score; 
+echo 0057 > out/0057_score; head -n 1 in/0057.txt >> out/0057_score; 
+echo 0058 > out/0058_score; head -n 1 in/0058.txt >> out/0058_score; 
+echo 0059 > out/0059_score; head -n 1 in/0059.txt >> out/0059_score; 
+echo 0060 > out/0060_score; head -n 1 in/0060.txt >> out/0060_score; 
+echo 0061 > out/0061_score; head -n 1 in/0061.txt >> out/0061_score; 
+echo 0062 > out/0062_score; head -n 1 in/0062.txt >> out/0062_score; 
+echo 0063 > out/0063_score; head -n 1 in/0063.txt >> out/0063_score; 
+echo 0064 > out/0064_score; head -n 1 in/0064.txt >> out/0064_score; 
+echo 0065 > out/0065_score; head -n 1 in/0065.txt >> out/0065_score; 
+echo 0066 > out/0066_score; head -n 1 in/0066.txt >> out/0066_score; 
+echo 0067 > out/0067_score; head -n 1 in/0067.txt >> out/0067_score; 
+echo 0068 > out/0068_score; head -n 1 in/0068.txt >> out/0068_score; 
+echo 0069 > out/0069_score; head -n 1 in/0069.txt >> out/0069_score; 
+echo 0070 > out/0070_score; head -n 1 in/0070.txt >> out/0070_score; 
+echo 0071 > out/0071_score; head -n 1 in/0071.txt >> out/0071_score; 
+echo 0072 > out/0072_score; head -n 1 in/0072.txt >> out/0072_score; 
+echo 0073 > out/0073_score; head -n 1 in/0073.txt >> out/0073_score; 
+echo 0074 > out/0074_score; head -n 1 in/0074.txt >> out/0074_score; 
+echo 0075 > out/0075_score; head -n 1 in/0075.txt >> out/0075_score; 
+echo 0076 > out/0076_score; head -n 1 in/0076.txt >> out/0076_score; 
+echo 0077 > out/0077_score; head -n 1 in/0077.txt >> out/0077_score; 
+echo 0078 > out/0078_score; head -n 1 in/0078.txt >> out/0078_score; 
+echo 0079 > out/0079_score; head -n 1 in/0079.txt >> out/0079_score; 
+echo 0080 > out/0080_score; head -n 1 in/0080.txt >> out/0080_score; 
+echo 0081 > out/0081_score; head -n 1 in/0081.txt >> out/0081_score; 
+echo 0082 > out/0082_score; head -n 1 in/0082.txt >> out/0082_score; 
+echo 0083 > out/0083_score; head -n 1 in/0083.txt >> out/0083_score; 
+echo 0084 > out/0084_score; head -n 1 in/0084.txt >> out/0084_score; 
+echo 0085 > out/0085_score; head -n 1 in/0085.txt >> out/0085_score; 
+echo 0086 > out/0086_score; head -n 1 in/0086.txt >> out/0086_score; 
+echo 0087 > out/0087_score; head -n 1 in/0087.txt >> out/0087_score; 
+echo 0088 > out/0088_score; head -n 1 in/0088.txt >> out/0088_score; 
+echo 0089 > out/0089_score; head -n 1 in/0089.txt >> out/0089_score; 
+echo 0090 > out/0090_score; head -n 1 in/0090.txt >> out/0090_score; 
+echo 0091 > out/0091_score; head -n 1 in/0091.txt >> out/0091_score; 
+echo 0092 > out/0092_score; head -n 1 in/0092.txt >> out/0092_score; 
+echo 0093 > out/0093_score; head -n 1 in/0093.txt >> out/0093_score; 
+echo 0094 > out/0094_score; head -n 1 in/0094.txt >> out/0094_score; 
+echo 0095 > out/0095_score; head -n 1 in/0095.txt >> out/0095_score; 
+echo 0096 > out/0096_score; head -n 1 in/0096.txt >> out/0096_score; 
+echo 0097 > out/0097_score; head -n 1 in/0097.txt >> out/0097_score; 
+echo 0098 > out/0098_score; head -n 1 in/0098.txt >> out/0098_score; 
+echo 0099 > out/0099_score; head -n 1 in/0099.txt >> out/0099_score; 
+
+./tester ./a < in/0000.txt > out/0000.txt 2>> out/0000_score &
+./tester ./a < in/0001.txt > out/0001.txt 2>> out/0001_score &
+./tester ./a < in/0002.txt > out/0002.txt 2>> out/0002_score &
+./tester ./a < in/0003.txt > out/0003.txt 2>> out/0003_score &
+./tester ./a < in/0004.txt > out/0004.txt 2>> out/0004_score &
+./tester ./a < in/0005.txt > out/0005.txt 2>> out/0005_score &
+./tester ./a < in/0006.txt > out/0006.txt 2>> out/0006_score &
+./tester ./a < in/0007.txt > out/0007.txt 2>> out/0007_score &
+./tester ./a < in/0008.txt > out/0008.txt 2>> out/0008_score &
+./tester ./a < in/0009.txt > out/0009.txt 2>> out/0009_score &
+./tester ./a < in/0010.txt > out/0010.txt 2>> out/0010_score &
+./tester ./a < in/0011.txt > out/0011.txt 2>> out/0011_score &
+./tester ./a < in/0012.txt > out/0012.txt 2>> out/0012_score &
+./tester ./a < in/0013.txt > out/0013.txt 2>> out/0013_score &
+./tester ./a < in/0014.txt > out/0014.txt 2>> out/0014_score &
+./tester ./a < in/0015.txt > out/0015.txt 2>> out/0015_score &
+./tester ./a < in/0016.txt > out/0016.txt 2>> out/0016_score &
+./tester ./a < in/0017.txt > out/0017.txt 2>> out/0017_score &
+./tester ./a < in/0018.txt > out/0018.txt 2>> out/0018_score &
+./tester ./a < in/0019.txt > out/0019.txt 2>> out/0019_score &
+./tester ./a < in/0020.txt > out/0020.txt 2>> out/0020_score &
+./tester ./a < in/0021.txt > out/0021.txt 2>> out/0021_score &
+./tester ./a < in/0022.txt > out/0022.txt 2>> out/0022_score &
+./tester ./a < in/0023.txt > out/0023.txt 2>> out/0023_score &
+./tester ./a < in/0024.txt > out/0024.txt 2>> out/0024_score &
+./tester ./a < in/0025.txt > out/0025.txt 2>> out/0025_score &
+./tester ./a < in/0026.txt > out/0026.txt 2>> out/0026_score &
+./tester ./a < in/0027.txt > out/0027.txt 2>> out/0027_score &
+./tester ./a < in/0028.txt > out/0028.txt 2>> out/0028_score &
+./tester ./a < in/0029.txt > out/0029.txt 2>> out/0029_score &
+./tester ./a < in/0030.txt > out/0030.txt 2>> out/0030_score &
+./tester ./a < in/0031.txt > out/0031.txt 2>> out/0031_score &
+./tester ./a < in/0032.txt > out/0032.txt 2>> out/0032_score &
+./tester ./a < in/0033.txt > out/0033.txt 2>> out/0033_score &
+./tester ./a < in/0034.txt > out/0034.txt 2>> out/0034_score &
+./tester ./a < in/0035.txt > out/0035.txt 2>> out/0035_score &
+./tester ./a < in/0036.txt > out/0036.txt 2>> out/0036_score &
+./tester ./a < in/0037.txt > out/0037.txt 2>> out/0037_score &
+./tester ./a < in/0038.txt > out/0038.txt 2>> out/0038_score &
+./tester ./a < in/0039.txt > out/0039.txt 2>> out/0039_score &
+./tester ./a < in/0040.txt > out/0040.txt 2>> out/0040_score &
+./tester ./a < in/0041.txt > out/0041.txt 2>> out/0041_score &
+./tester ./a < in/0042.txt > out/0042.txt 2>> out/0042_score &
+./tester ./a < in/0043.txt > out/0043.txt 2>> out/0043_score &
+./tester ./a < in/0044.txt > out/0044.txt 2>> out/0044_score &
+./tester ./a < in/0045.txt > out/0045.txt 2>> out/0045_score &
+./tester ./a < in/0046.txt > out/0046.txt 2>> out/0046_score &
+./tester ./a < in/0047.txt > out/0047.txt 2>> out/0047_score &
+./tester ./a < in/0048.txt > out/0048.txt 2>> out/0048_score &
+./tester ./a < in/0049.txt > out/0049.txt 2>> out/0049_score &
+./tester ./a < in/0050.txt > out/0050.txt 2>> out/0050_score &
+./tester ./a < in/0051.txt > out/0051.txt 2>> out/0051_score &
+./tester ./a < in/0052.txt > out/0052.txt 2>> out/0052_score &
+./tester ./a < in/0053.txt > out/0053.txt 2>> out/0053_score &
+./tester ./a < in/0054.txt > out/0054.txt 2>> out/0054_score &
+./tester ./a < in/0055.txt > out/0055.txt 2>> out/0055_score &
+./tester ./a < in/0056.txt > out/0056.txt 2>> out/0056_score &
+./tester ./a < in/0057.txt > out/0057.txt 2>> out/0057_score &
+./tester ./a < in/0058.txt > out/0058.txt 2>> out/0058_score &
+./tester ./a < in/0059.txt > out/0059.txt 2>> out/0059_score &
+./tester ./a < in/0060.txt > out/0060.txt 2>> out/0060_score &
+./tester ./a < in/0061.txt > out/0061.txt 2>> out/0061_score &
+./tester ./a < in/0062.txt > out/0062.txt 2>> out/0062_score &
+./tester ./a < in/0063.txt > out/0063.txt 2>> out/0063_score &
+./tester ./a < in/0064.txt > out/0064.txt 2>> out/0064_score &
+./tester ./a < in/0065.txt > out/0065.txt 2>> out/0065_score &
+./tester ./a < in/0066.txt > out/0066.txt 2>> out/0066_score &
+./tester ./a < in/0067.txt > out/0067.txt 2>> out/0067_score &
+./tester ./a < in/0068.txt > out/0068.txt 2>> out/0068_score &
+./tester ./a < in/0069.txt > out/0069.txt 2>> out/0069_score &
+./tester ./a < in/0070.txt > out/0070.txt 2>> out/0070_score &
+./tester ./a < in/0071.txt > out/0071.txt 2>> out/0071_score &
+./tester ./a < in/0072.txt > out/0072.txt 2>> out/0072_score &
+./tester ./a < in/0073.txt > out/0073.txt 2>> out/0073_score &
+./tester ./a < in/0074.txt > out/0074.txt 2>> out/0074_score &
+./tester ./a < in/0075.txt > out/0075.txt 2>> out/0075_score &
+./tester ./a < in/0076.txt > out/0076.txt 2>> out/0076_score &
+./tester ./a < in/0077.txt > out/0077.txt 2>> out/0077_score &
+./tester ./a < in/0078.txt > out/0078.txt 2>> out/0078_score &
+./tester ./a < in/0079.txt > out/0079.txt 2>> out/0079_score &
+./tester ./a < in/0080.txt > out/0080.txt 2>> out/0080_score &
+./tester ./a < in/0081.txt > out/0081.txt 2>> out/0081_score &
+./tester ./a < in/0082.txt > out/0082.txt 2>> out/0082_score &
+./tester ./a < in/0083.txt > out/0083.txt 2>> out/0083_score &
+./tester ./a < in/0084.txt > out/0084.txt 2>> out/0084_score &
+./tester ./a < in/0085.txt > out/0085.txt 2>> out/0085_score &
+./tester ./a < in/0086.txt > out/0086.txt 2>> out/0086_score &
+./tester ./a < in/0087.txt > out/0087.txt 2>> out/0087_score &
+./tester ./a < in/0088.txt > out/0088.txt 2>> out/0088_score &
+./tester ./a < in/0089.txt > out/0089.txt 2>> out/0089_score &
+./tester ./a < in/0090.txt > out/0090.txt 2>> out/0090_score &
+./tester ./a < in/0091.txt > out/0091.txt 2>> out/0091_score &
+./tester ./a < in/0092.txt > out/0092.txt 2>> out/0092_score &
+./tester ./a < in/0093.txt > out/0093.txt 2>> out/0093_score &
+./tester ./a < in/0094.txt > out/0094.txt 2>> out/0094_score &
+./tester ./a < in/0095.txt > out/0095.txt 2>> out/0095_score &
+./tester ./a < in/0096.txt > out/0096.txt 2>> out/0096_score &
+./tester ./a < in/0097.txt > out/0097.txt 2>> out/0097_score &
+./tester ./a < in/0098.txt > out/0098.txt 2>> out/0098_score &
+./tester ./a < in/0099.txt > out/0099.txt 2>> out/0099_score &
 
 wait
 

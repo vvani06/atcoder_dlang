@@ -26,14 +26,13 @@ struct Game {
     S = s;
     P = p;
 
-    int maxColor = min(1000, S * N * 3);
+    int maxColor = min(1000, (S * N * 3).to!int);
 
     isHole = new bool[][](L, L);
     foreach(c; P) isHole[c.y][c.x] = true;
     aroundCoords = availableAroundCoords();
     
     sampleSize = max(2, min(N, maxColor / S / 3));
-    sampleSize = N;
     while(sampleSize^^creekSize < N && creekSize < aroundCoords.length) creekSize++;
 
     if (sampleSize^^creekSize < N) {
@@ -41,8 +40,10 @@ struct Game {
       while(sampleSize^^creekSize < N) sampleSize++;
     }
 
+    while ((sampleSize - 1)^^creekSize >= N) sampleSize--;
     sampleStep = maxColor / (sampleSize - 1);
     samples = iota(0, maxColor + 1, sampleStep).array;
+
     [creekSize, sampleSize, sampleStep].deb;
     samples.deb;
   }
@@ -57,7 +58,7 @@ struct Game {
   }
 
   Coord[] availableAroundCoords() {
-    auto AROUND_SIZE = 4; //L / 2;
+    auto AROUND_SIZE = L / 2;
     int[Coord] badCount;
     foreach(dy; -AROUND_SIZE..AROUND_SIZE + 1) foreach(dx; -AROUND_SIZE..AROUND_SIZE + 1) badCount[Coord(dx, dy)] = 0;
 
@@ -70,12 +71,12 @@ struct Game {
     }
 
     badCount[Coord(0, 0)] = -1;
-    badCount.deb;
-    auto coords = badCount.keys.filter!(a => badCount[a] <= 5).array.multiSort!(
+    auto coords = badCount.keys.filter!(a => badCount[a] <= 0).array.multiSort!(
       (a, b) => badCount[a] < badCount[b],
       (a, b) => abs(a.x) + abs(a.y) < abs(b.x) + abs(b.y),
     );
     coords.deb;
+    coords.map!(a => [badCount[a]]).deb;
     return coords.array[0..min($, 7)];
   }
 
@@ -190,10 +191,7 @@ void problem() {
         }
       }
 
-      foreach(y; 0..L) foreach(x; 0..L) {
-        // if (heatmap[y][x] == P_EMPTY) heatmap[y][x] = 250;
-      }
-
+      // 未使用のマスをBFSで塗り広げる
       while(!queue.empty) {
         auto p = queue.front; queue.removeFront;
         
@@ -207,6 +205,7 @@ void problem() {
         }
       }
 
+      // 設置コスト低減のためにグラデーションがかかるようにする
       foreach(_; 0..100) {
         auto blured = heatmap.map!"a.dup".array;
 
@@ -244,7 +243,7 @@ void problem() {
           auto value = scan!int;
           auto m = measurement.add(creekId, value);
           m.deb;
-          if (m >= 0.75) break;
+          if (m >= 0.66) break;
         }
       }
       id.deb;
