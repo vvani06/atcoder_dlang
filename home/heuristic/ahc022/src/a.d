@@ -26,13 +26,13 @@ struct Game {
     S = s;
     P = p;
 
-    int maxColor = min(1000, (S * N * 3).to!int);
+    int maxColor = min(1000, (S * N * 2).to!int);
 
     isHole = new bool[][](L, L);
     foreach(c; P) isHole[c.y][c.x] = true;
     aroundCoords = availableAroundCoords();
     
-    sampleSize = max(2, min(N, maxColor / S / 3));
+    sampleSize = max(2, min(N, maxColor / S));
     while(sampleSize^^creekSize < N && creekSize < aroundCoords.length) creekSize++;
 
     if (sampleSize^^creekSize < N) {
@@ -71,7 +71,7 @@ struct Game {
     }
 
     badCount[Coord(0, 0)] = -1;
-    auto coords = badCount.keys.filter!(a => badCount[a] <= 0).array.multiSort!(
+    auto coords = badCount.keys.filter!(a => badCount[a] <= 10).array.multiSort!(
       (a, b) => badCount[a] < badCount[b],
       (a, b) => abs(a.x) + abs(a.y) < abs(b.x) + abs(b.y),
     );
