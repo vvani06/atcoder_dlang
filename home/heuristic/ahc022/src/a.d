@@ -26,13 +26,11 @@ struct Game {
     S = s;
     P = p;
 
-    int maxColor = min(1000, (S * N * 2).to!int);
-
     isHole = new bool[][](L, L);
     foreach(c; P) isHole[c.y][c.x] = true;
     aroundCoords = availableAroundCoords();
     
-    sampleSize = max(2, min(N, maxColor / S));
+    sampleSize = max(2, min(N, 1200 / S));
     while(sampleSize^^creekSize < N && creekSize < aroundCoords.length) creekSize++;
 
     if (sampleSize^^creekSize < N) {
@@ -41,8 +39,16 @@ struct Game {
     }
 
     while ((sampleSize - 1)^^creekSize >= N) sampleSize--;
+
+    int maxColor = min(1000, (S * sampleSize * 3).to!int);
     sampleStep = maxColor / (sampleSize - 1);
     samples = iota(0, maxColor + 1, sampleStep).array;
+
+    int[] odds, evens;
+    foreach(i; 0..sampleSize) {
+      if (i % 2 == 0) odds ~= samples[i]; else evens ~= samples[i];
+    }
+    samples = odds ~ evens.reverse.array;
 
     [creekSize, sampleSize, sampleStep].deb;
     samples.deb;
@@ -101,7 +107,7 @@ class Measurement {
 
   real add(int creekId, int value) {
     measured[creekId] ~= value;
-    if (measured[creekId].length < 5) return 0;
+    if (measured[creekId].length < 3) return 0;
 
     const creekSize = Game.instance.creekSize;
     const sampleSize = Game.instance.sampleSize;
@@ -114,6 +120,9 @@ class Measurement {
       }
     }
 
+    // samples.deb;
+    // scores.deb;
+    // sampleSize.iota.map!(i => [scores[i], samples[i]]).array.sort!"a[0] < b[0]".deb;
     scores.sort;
     auto top = scores[0].to!real;
     auto second = scores[1].to!real;
@@ -178,14 +187,28 @@ void problem() {
         auto used = new bool[][](L, L);
         foreach(h; holes) {
           auto creeks = h.asCreek;
+
+          bool conflicted;
+          foreach(i; 0..Game.instance.creekSize) {
+            auto d = comb[i];
+            auto x = (h.coord.x + d.x + L) % L;
+            auto y = (h.coord.y + d.y + L) % L;
+            if (used[y][x]) {
+              conflicted = true;
+              break;
+            }
+          }
+          if (conflicted) {
+            conflicts += 1;
+            continue;
+          }
+
           foreach(i; 0..Game.instance.creekSize) {
             auto d = comb[i];
             auto x = (h.coord.x + d.x + L) % L;
             auto y = (h.coord.y + d.y + L) % L;
             if (!used[y][x]) {
               used[y][x] = true;
-            } else {
-              conflicts++;
             }
           }
         }
@@ -202,6 +225,19 @@ void problem() {
       auto queue = DList!Fill();
       foreach(h; holes) {
         auto creeks = h.asCreek;
+
+        bool conflicted;
+        foreach(i; 0..Game.instance.creekSize) {
+          auto d = bestCoords[i];
+          auto x = (h.coord.x + d.x + L) % L;
+          auto y = (h.coord.y + d.y + L) % L;
+          if (heatmap[y][x] != P_EMPTY) {
+            conflicted = true;
+            break;
+          }
+        }
+        if (conflicted) continue;
+
         foreach(i; 0..Game.instance.creekSize) {
           auto d = bestCoords[i];
           auto x = (h.coord.x + d.x + L) % L;
@@ -235,13 +271,13 @@ void problem() {
         foreach(y; 0..L) foreach(x; 0..L) {
           if (stable[y][x]) continue;
 
-          blured[y][x] *= 1;
+          blured[y][x] *= 0;
           foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
             auto ax = (x + dx + L) % L;
             auto ay = (y + dy + L) % L;
             blured[y][x] += heatmap[ay][ax];
           }
-          blured[y][x] /= 5;
+          blured[y][x] /= 4;
         }
         heatmap = blured.map!"a.dup".array;
       }
@@ -251,6 +287,21 @@ void problem() {
       writefln("%(%s %)", row);
       stdout.flush();
     }
+
+    auto measurementPartitions = [
+      tuple( 36, 0.60),
+      tuple( 64, 0.61),
+      tuple(100, 0.82),
+      tuple(169, 0.97),
+      tuple(256, 0.98),
+    ];
+
+    real measurementThreashold = 0.60;
+    foreach(m; measurementPartitions) {
+      if (S < m[0]) break;
+      measurementThreashold = max(measurementThreashold, m[1]);
+    }
+    measurementThreashold.deb;
 
     auto ans = new int[](N);
     auto measureSize = MEASURE_TIMES_MAX / N / Game.instance.creekSize;
@@ -266,7 +317,7 @@ void problem() {
           auto value = scan!int;
           auto m = measurement.add(creekId, value);
           m.deb;
-          if (m >= 0.6) break;
+          if (m >= measurementThreashold) break;
         }
       }
       id.deb;
