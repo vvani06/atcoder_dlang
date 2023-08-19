@@ -64,7 +64,7 @@ struct Game {
   }
 
   Coord[] availableAroundCoords() {
-    auto AROUND_SIZE = L / 2;
+    auto AROUND_SIZE = L / 5;
     int[Coord] badCount;
     foreach(dy; -AROUND_SIZE..AROUND_SIZE + 1) foreach(dx; -AROUND_SIZE..AROUND_SIZE + 1) badCount[Coord(dx, dy)] = 0;
 
@@ -107,7 +107,7 @@ class Measurement {
 
   real add(int creekId, int value) {
     measured[creekId] ~= value;
-    if (measured[creekId].length < 3) return 0;
+    if (measured[creekId].length < 6) return 0;
 
     const creekSize = Game.instance.creekSize;
     const sampleSize = Game.instance.sampleSize;
