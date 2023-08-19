@@ -107,7 +107,6 @@ class Measurement {
 
   real add(int creekId, int value) {
     measured[creekId] ~= value;
-    
     if (measured[creekId].length < 6) return 0;
 
     const creekSize = Game.instance.creekSize;
@@ -128,37 +127,6 @@ class Measurement {
     auto top = scores[0].to!real;
     auto second = scores[1].to!real;
     return 1.0 - (top / second);
-  }
-
-  real[] zAssume() {
-    const creekSize = Game.instance.creekSize;
-    const sampleSize = Game.instance.sampleSize;
-    const samples = Game.instance.samples;
-
-    // enum real[] zTable = [0.5,0.496011,0.492022,0.488033,0.484047,0.480061,0.476078,0.472097,0.468119,0.464144,0.460172,0.456205,0.452242,0.448283,0.44433,0.440382,0.436441,0.432505,0.428576,0.424655,0.42074,0.416834,0.412936,0.409046,0.405165,0.401294,0.397432,0.39358,0.389739,0.385908,0.382089,0.378281,0.374484,0.3707,0.366928,0.363169,0.359424,0.355691,0.351973,0.348268,0.344578,0.340903,0.337243,0.333598,0.329969,0.326355,0.322758,0.319178,0.315614,0.312067,0.308538,0.305026,0.301532,0.298056,0.294598,0.29116,0.28774,0.284339,0.280957,0.277595,0.274253,0.270931,0.267629,0.264347,0.261086,0.257846,0.254627,0.251429,0.248252,0.245097,0.241964,0.238852,0.235762,0.232695,0.22965,0.226627,0.223627,0.22065,0.217695,0.214764,0.211855,0.20897,0.206108,0.203269,0.200454,0.197662,0.194894,0.19215,0.18943,0.186733,0.18406,0.181411,0.178786,0.176186,0.173609,0.171056,0.168528,0.166023,0.163543,0.161087,0.158655,0.156248,0.153864,0.151505,0.14917,0.146859,0.144572,0.14231,0.140071,0.137857,0.135666,0.1335,0.131357,0.129238,0.127143,0.125072,0.123024,0.121001,0.119,0.117023,0.11507,0.11314,0.111233,0.109349,0.107488,0.10565,0.103835,0.102042,0.100273,0.098525,0.096801,0.095098,0.093418,0.091759,0.090123,0.088508,0.086915,0.085344,0.083793,0.082264,0.080757,0.07927,0.077804,0.076359,0.074934,0.073529,0.072145,0.070781,0.069437,0.068112,0.066807,0.065522,0.064256,0.063008,0.06178,0.060571,0.05938,0.058208,0.057053,0.055917,0.054799,0.053699,0.052616,0.051551,0.050503,0.049471,0.048457,0.04746,0.046479,0.045514,0.044565,0.043633,0.042716,0.041815,0.040929,0.040059,0.039204,0.038364,0.037538,0.036727,0.03593,0.035148,0.034379,0.033625,0.032884,0.032157,0.031443,0.030742,0.030054,0.029379,0.028716,0.028067,0.027429,0.026803,0.02619,0.025588,0.024998,0.024419,0.023852,0.023295,0.02275,0.022216,0.021692,0.021178,0.020675,0.020182,0.019699,0.019226,0.018763,0.018309,];
-
-    auto scoresPerCreek = new real[][](creekSize, sampleSize);
-    foreach(creekId; 0..creekSize) {
-      scoresPerCreek[creekId][] = 1.0;
-      real se = 1000.0 * Game.instance.S.to!real / measured[creekId].length.to!real.sqrt;
-      real x = measured[creekId].mean;
-
-      foreach(si, sv; samples) {
-        scoresPerCreek[creekId][si] = (x - sv.to!real).abs / se;
-      }
-    }
-
-    auto ret = new real[](Game.instance.N);
-    ret[] = 1.0;
-    foreach(v; 0..Game.instance.N) {
-      foreach(c; 0..creekSize) {
-        auto d = sampleSize ^^ (creekSize - c - 1);
-        ret[v] *= scoresPerCreek[c][(v / d) % sampleSize];
-      }
-    }
-
-    ret.deb;
-    return ret;
   }
 
   int assume() {
@@ -335,11 +303,8 @@ void problem() {
     }
     measurementThreashold.deb;
 
-    auto measureSize = min(S.to!real.sqrt.to!int * 2, 10);
-
-    alias Assume = Tuple!(real, "score", int, "from", int, "to");
-    auto assumes = new Assume[](0).heapify!"a.score > b.score";
-
+    auto ans = new int[](N);
+    auto measureSize = MEASURE_TIMES_MAX / N / Game.instance.creekSize;
     foreach(id; 0..N) {
       auto holeScore = new long[](N);
       auto measurement = new Measurement();
@@ -351,23 +316,17 @@ void problem() {
 
           auto value = scan!int;
           auto m = measurement.add(creekId, value);
+          m.deb;
+          if (m >= measurementThreashold) break;
         }
       }
-      auto scores = measurement.zAssume();
-      foreach(to; 0..N) assumes.insert(Assume(scores[to], id, to));
+      id.deb;
+      ans[id] = measurement.assume;
     }
 
     writefln("%(%s %)", [-1, -1, -1]);
     stdout.flush();
-
-    auto ans = new int[](N);
-    bool[100] usedFrom, usedTo;
-    foreach(assume; assumes) {
-      if (usedFrom[assume.from] || usedTo[assume.to]) continue;
-
-      usedFrom[assume.from] = usedTo[assume.to] = true;
-      ans[assume.from] = assume.to;
-    }
+    
     ans.each!writeln;
     stdout.flush();
   }
