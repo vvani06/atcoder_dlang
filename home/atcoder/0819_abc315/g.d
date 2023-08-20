@@ -2,35 +2,32 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto E = scan!int(2 * N - 2).chunks(2);
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
+    auto graph = new int[][](N, 0);
+    foreach(e; E) {
+      e[0]--; e[1]--;
+      graph[e[0]] ~= e[1];
+      graph[e[1]] ~= e[0];
     }
 
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
-    }
-    
-    while(!stock.empty) {
-      const last = ans[$ - 1];
+    long ans;
+    void dfs(int cur, int pre, long depth) {
+      bool noWay = true;
+      foreach(next; graph[cur]) {
+        if (pre == next) continue;
 
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
-        }
+        dfs(next, cur, depth + 1);
+        noWay = false;
+      }
+
+      if (noWay) {
+        [cur, pre, depth].deb;
       }
     }
 
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
-    }
+    dfs(0, 0, 0);
 
     return ans;
   }

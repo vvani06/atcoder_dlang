@@ -1,38 +1,22 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
+  auto M = scan!int;
+  auto D = scan!int(M);
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
-    }
+    const half = D.sum / 2;
 
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
-    }
-    
-    while(!stock.empty) {
-      const last = ans[$ - 1];
-
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
+    int days;
+    foreach(m, md; D) {
+      foreach(d; 0..md) {
+        if (days++ == half) {
+          return asAnswer(m + 1, d + 1);
         }
       }
     }
 
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
-    }
-
-    return ans;
+    return "";
   }
 
   outputForAtCoder(&solve);

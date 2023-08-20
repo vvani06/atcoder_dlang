@@ -1,38 +1,71 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto S = scan!string(H);
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
-    }
+    auto rows = H.iota.map!(_ => new dchar[](0).redBlackTree!true).array;
+    auto columns = W.iota.map!(_ => new dchar[](0).redBlackTree!true).array;
 
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
-    }
     
-    while(!stock.empty) {
-      const last = ans[$ - 1];
+    foreach(r; 0..H) foreach(c; 0..W) {
+      rows[r].insert(S[r][c]);
+      columns[c].insert(S[r][c]);
+    }
 
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
+    auto removedRow = new bool[](H);
+    auto removedColumn = new bool[](W);
+    int rc, cc;
+
+    auto rq = H.iota.redBlackTree;
+    auto cq = W.iota.redBlackTree;
+    while(!(rq.empty && cq.empty)) {
+      auto ra = rq.array;
+      auto ca = cq.array;
+      rq.clear;
+      cq.clear;
+      bool[int[2]] removals;
+
+      int rcc, ccc;
+      foreach(r; ra) {
+        if (removedRow[r]) continue;
+
+        if (W - cc >= 2 && rows[r].front == rows[r].back) {
+          removedRow[r] = true;
+          rcc++;
+          foreach(c; 0..W) {
+            if (!removedColumn[c]) removals[[r, c]] = true;
+          }
         }
       }
+      foreach(c; ca) {
+        if (removedColumn[c]) continue;
+
+        if (H - rc >= 2 && columns[c].front == columns[c].back) {
+          removedColumn[c] = true;
+          ccc++;
+          foreach(r; 0..H) {
+            if (!removedRow[r]) removals[[r, c]] = true;
+          }
+        }
+      }
+
+      foreach(k; removals.keys) {
+        auto r = k[0];
+        auto c = k[1];
+        rows[r].removeKey(S[r][c]);
+        columns[c].removeKey(S[r][c]);
+        rq.insert(r);
+        cq.insert(c);
+      }
+      rc += rcc;
+      cc += ccc;
     }
 
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
-    }
-
-    return ans;
+    // rows.map!"a.array.to!string".each!deb;
+    return rows.map!(r => r.array.length).sum;
   }
 
   outputForAtCoder(&solve);

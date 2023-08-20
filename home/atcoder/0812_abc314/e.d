@@ -32,7 +32,9 @@ void problem() {
     foreach_reverse(i; 0..M) {
       foreach(r; R) {
         real exp = 0;
-        foreach(s; r.S) exp += memo[i + s];
+        foreach(s; r.S) {
+          exp += memo[i + s];
+        }
 
         memo[i] = min(memo[i], r.C + exp / r.S.length);
       }

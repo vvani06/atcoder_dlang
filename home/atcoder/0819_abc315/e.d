@@ -2,37 +2,37 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto CP = N.iota.map!(_ => scan!int(scan!int).map!"a - 1".array).array;
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
-    }
-
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
-    }
-    
-    while(!stock.empty) {
-      const last = ans[$ - 1];
-
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
-        }
+    auto graph = new int[][](N, 0);
+    foreach(to, froms; CP) {
+      auto t = to.to!int;
+      foreach(f; froms) {
+        graph[t] ~= f;
       }
     }
 
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
+    auto visited = new bool[](N);
+    void dfs(int cur) {
+      if (visited[cur]) return;
+
+      visited[cur] = true;
+      foreach(next; graph[cur]) {
+        if (visited[next]) continue;
+
+        dfs(next);
+      }
+    }
+    dfs(0);
+
+    auto sorted = topologicalSort(graph);
+    int[] ans;
+    foreach(s; sorted) {
+      if (visited[s]) ans ~= s;
     }
 
-    return ans;
+    return ans.reverse.map!"a + 1".array[0..$ - 1];
   }
 
   outputForAtCoder(&solve);
@@ -83,3 +83,26 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+int[] topologicalSort(int[][] g) {
+  auto size = g.length.to!int;
+  auto depth = new int[](size);
+  foreach(e; g) foreach(p; e) depth[p]++;
+
+  auto q = heapify!"a > b"(new int[](0));
+  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+
+  int[] sorted;
+  while(!q.empty) {
+    auto p = q.front;
+    q.removeFront;
+    foreach(n; g[p]) {
+      depth[n]--;
+      if (depth[n] == 0) q.insert(n);
+    }
+
+    sorted ~= p;
+  }
+
+  return sorted;
+}

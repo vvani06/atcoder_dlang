@@ -2,36 +2,21 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto FS = scan!long(2 * N).chunks(2);
+  auto F = FS.map!"a[0]".array;
+  auto S = FS.map!"a[1]".array;
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
-    }
+    auto bestIndex = S.maxIndex;
+    auto bestScore = S[bestIndex];
+    auto bestFlavor = F[bestIndex];
 
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
-    }
-    
-    while(!stock.empty) {
-      const last = ans[$ - 1];
+    long ans;
+    foreach(i, f, s; lockstep(N.iota, F, S)) {
+      if (i == bestIndex) continue;
 
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
-        }
-      }
+      ans.chmax(bestScore + (f == bestFlavor ? s / 2 : s));
     }
-
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
-    }
-
     return ans;
   }
 

@@ -2,37 +2,29 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto E = scan!double(2 * N).chunks(2);
 
   auto solve() {
-    auto stock = new int[](0).redBlackTree!true;
-    foreach(i; 1..N + 1) {
-      stock.insert(i.repeat(i));
-    }
+    auto penalties = 0.0 ~ 10000.iota.map!(n => 2.0L.pow(n)).array;
 
-    int[] ans;
-    foreach(i; iota(3, N + 1)) {
-      ans ~= i;
-      stock.removeKey(i);
+    double dist(int f, int t) {
+      auto norm = (E[f][0] - E[t][0]).pow(2) + (E[f][1] - E[t][1]).pow(2);
+      return norm.sqrt;
     }
     
-    while(!stock.empty) {
-      const last = ans[$ - 1];
-
-      foreach(d; [2, 1, -1, -2]) {
-        const next = last + d;
-        if (next in stock) {
-          ans ~= next;
-          stock.removeKey(next);
-          break;
+    auto dp = new double[][](N, N);
+    foreach(ref d; dp) d[] = double.max;
+    dp[0][0] = 0;
+    foreach(from; 0..N - 1) {
+      foreach(p; 0..from + 1) {
+        foreach(to; from + 1..N) {
+          auto pAfter = to - from + p - 1;
+          dp[to][pAfter].chmin(dp[from][p] + dist(from, to) + penalties[pAfter] - penalties[p]);
         }
       }
     }
 
-    if (!N.iota.all!(i => 1 <= abs(ans[i] - ans[(i + 1) % $]) && abs(ans[i] - ans[(i + 1) % $]) <= 2)) {
-      return [-1];
-    }
-
-    return ans;
+    return dp[N - 1].minElement;
   }
 
   outputForAtCoder(&solve);
