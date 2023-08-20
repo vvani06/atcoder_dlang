@@ -3,69 +3,70 @@ void main() { runSolver(); }
 void problem() {
   auto H = scan!int;
   auto W = scan!int;
-  auto S = scan!string(H);
+  auto S = scan!string(H).map!(s => s.map!(c => c - 'a').array).array;
 
   auto solve() {
-    auto rows = H.iota.map!(_ => new dchar[](0).redBlackTree!true).array;
-    auto columns = W.iota.map!(_ => new dchar[](0).redBlackTree!true).array;
-
-    
+    auto charDistributionsByRow = new int[][](H, 26);
+    auto charDistributionsByColumn = new int[][](W, 26);
     foreach(r; 0..H) foreach(c; 0..W) {
-      rows[r].insert(S[r][c]);
-      columns[c].insert(S[r][c]);
+      auto ch = S[r][c];
+      charDistributionsByRow[r][ch]++;
+      charDistributionsByColumn[c][ch]++;
     }
 
-    auto removedRow = new bool[](H);
-    auto removedColumn = new bool[](W);
-    int rc, cc;
+    auto charKindsByRow = charDistributionsByRow.map!(d => d.count!"a > 0").array;
+    auto charKindsByColumn = charDistributionsByColumn.map!(d => d.count!"a > 0").array;
+    auto rows = H;
+    auto columns = W;
 
-    auto rq = H.iota.redBlackTree;
-    auto cq = W.iota.redBlackTree;
-    while(!(rq.empty && cq.empty)) {
-      auto ra = rq.array;
-      auto ca = cq.array;
-      rq.clear;
-      cq.clear;
-      bool[int[2]] removals;
+    auto deletedRow = new bool[](H);
+    auto deletedColumn = new bool[](W);
 
-      int rcc, ccc;
-      foreach(r; ra) {
-        if (removedRow[r]) continue;
-
-        if (W - cc >= 2 && rows[r].front == rows[r].back) {
-          removedRow[r] = true;
-          rcc++;
-          foreach(c; 0..W) {
-            if (!removedColumn[c]) removals[[r, c]] = true;
-          }
-        }
-      }
-      foreach(c; ca) {
-        if (removedColumn[c]) continue;
-
-        if (H - rc >= 2 && columns[c].front == columns[c].back) {
-          removedColumn[c] = true;
-          ccc++;
-          foreach(r; 0..H) {
-            if (!removedRow[r]) removals[[r, c]] = true;
-          }
+    auto row = H.iota.array;
+    auto column = W.iota.array;
+    while(true) {
+      int[] rowsToDelete;
+      row = row.filter!(r => !deletedRow[r]).array;
+      foreach(r; row) {
+        if (charKindsByRow[r] == 1 && columns > 1) {
+          rowsToDelete ~= r;
         }
       }
 
-      foreach(k; removals.keys) {
-        auto r = k[0];
-        auto c = k[1];
-        rows[r].removeKey(S[r][c]);
-        columns[c].removeKey(S[r][c]);
-        rq.insert(r);
-        cq.insert(c);
+      int[] columnsToDelete;
+      column = column.filter!(r => !deletedColumn[r]).array;
+      foreach(c; W.iota.filter!(c => !deletedColumn[c])) {
+        auto chars = charDistributionsByColumn[c].filter!"a > 0".array;
+        if (charKindsByColumn[c] == 1 && rows > 1) {
+           columnsToDelete ~= c;
+        }
       }
-      rc += rcc;
-      cc += ccc;
+
+      foreach(r; rowsToDelete) {
+        foreach(c; 0..W) {
+          if (deletedColumn[c]) continue;
+
+          if (--charDistributionsByRow[r][S[r][c]] == 0) charKindsByRow[r]--;
+          if (--charDistributionsByColumn[c][S[r][c]] == 0) charKindsByColumn[c]--;
+        }
+        deletedRow[r] = true;
+        rows--;
+      }
+      foreach(c; columnsToDelete) {
+        foreach(r; 0..H) {
+          if (deletedRow[r]) continue;
+
+          if (--charDistributionsByRow[r][S[r][c]] == 0) charKindsByRow[r]--;
+          if (--charDistributionsByColumn[c][S[r][c]] == 0) charKindsByColumn[c]--;
+        }
+        deletedColumn[c] = true;
+        columns--;
+      }
+
+      if (rowsToDelete.empty && columnsToDelete.empty) break;
     }
 
-    // rows.map!"a.array.to!string".each!deb;
-    return rows.map!(r => r.array.length).sum;
+    return charDistributionsByRow.map!"a.sum".sum;
   }
 
   outputForAtCoder(&solve);

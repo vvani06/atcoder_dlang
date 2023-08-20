@@ -8,15 +8,15 @@ void problem() {
     const half = D.sum / 2;
 
     int days;
-    foreach(m, md; D) {
+    foreach(m, md; D.enumerate(0)) {
       foreach(d; 0..md) {
         if (days++ == half) {
-          return asAnswer(m + 1, d + 1);
+          return [m + 1, d + 1];
         }
       }
     }
 
-    return "";
+    return [-1];
   }
 
   outputForAtCoder(&solve);

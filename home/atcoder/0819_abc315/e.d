@@ -2,37 +2,25 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto CP = N.iota.map!(_ => scan!int(scan!int).map!"a - 1".array).array;
+  auto CP = N.iota.map!(_ => scan!int(scan!int)).array;
 
   auto solve() {
-    auto graph = new int[][](N, 0);
-    foreach(to, froms; CP) {
-      auto t = to.to!int;
-      foreach(f; froms) {
-        graph[t] ~= f;
-      }
-    }
-
-    auto visited = new bool[](N);
+    auto graph = [[]] ~ CP;
+    auto visited = new bool[](N + 1);
+    
+    int[] ans;
     void dfs(int cur) {
       if (visited[cur]) return;
 
       visited[cur] = true;
-      foreach(next; graph[cur]) {
-        if (visited[next]) continue;
-
-        dfs(next);
-      }
+      ans ~= cur;
+      foreach(next; graph[cur].filter!(c => !visited[c])) dfs(next);
     }
-    dfs(0);
+    dfs(1);
 
-    auto sorted = topologicalSort(graph);
-    int[] ans;
-    foreach(s; sorted) {
-      if (visited[s]) ans ~= s;
-    }
+    ans.deb;
 
-    return ans.reverse.map!"a + 1".array[0..$ - 1];
+    return topologicalSort(graph).filter!(n => visited[n]).array[1..$].reverse;
   }
 
   outputForAtCoder(&solve);
