@@ -310,6 +310,8 @@ cat out/0097_score >> score
 cat out/0098_score >> score
 cat out/0099_score >> score
 
+cat score | grep wrong > wrongs
+
 SCORE=`cat score | grep Score | awk '{sum+=$3} END {printf "%.2f\n", sum / 100}'`
 echo $SCORE
 

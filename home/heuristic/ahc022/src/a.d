@@ -77,7 +77,7 @@ struct Game {
     }
 
     badCount[Coord(0, 0)] = -1;
-    auto coords = badCount.keys.filter!(a => badCount[a] <= 16).array.multiSort!(
+    auto coords = badCount.keys.filter!(a => badCount[a] <= 64).array.multiSort!(
       (a, b) => badCount[a] < badCount[b],
       (a, b) => abs(a.x) + abs(a.y) < abs(b.x) + abs(b.y),
     );
@@ -106,6 +106,7 @@ class Measurement {
   }
 
   real add(int creekId, int value) {
+    value = min(value, Game.instance.samples.maxElement);
     measured[creekId] ~= value;
     if (measured[creekId].length < 6) return 0;
 
@@ -184,7 +185,8 @@ void problem() {
       foreach(comb; Game.instance.aroundCoords[1..$].combinations(Game.instance.creekSize - 1)) {
         int conflicts;
         comb = Game.instance.aroundCoords[0] ~ comb;
-        auto used = new bool[][](L, L);
+        auto used = new int[][](L, L);
+        foreach(ref u; used) u[] = P_EMPTY;
         foreach(h; holes) {
           auto creeks = h.asCreek;
 
@@ -193,7 +195,7 @@ void problem() {
             auto d = comb[i];
             auto x = (h.coord.x + d.x + L) % L;
             auto y = (h.coord.y + d.y + L) % L;
-            if (used[y][x]) {
+            if (used[y][x] != P_EMPTY && used[y][x] != Game.instance.samples[creeks[i]]) {
               conflicted = true;
               break;
             }
@@ -207,9 +209,7 @@ void problem() {
             auto d = comb[i];
             auto x = (h.coord.x + d.x + L) % L;
             auto y = (h.coord.y + d.y + L) % L;
-            if (!used[y][x]) {
-              used[y][x] = true;
-            }
+            used[y][x] = Game.instance.samples[creeks[i]];
           }
         }
         
@@ -231,7 +231,7 @@ void problem() {
           auto d = bestCoords[i];
           auto x = (h.coord.x + d.x + L) % L;
           auto y = (h.coord.y + d.y + L) % L;
-          if (heatmap[y][x] != P_EMPTY) {
+          if (heatmap[y][x] != P_EMPTY && heatmap[y][x] != Game.instance.samples[creeks[i]]) {
             conflicted = true;
             break;
           }
