@@ -14,22 +14,21 @@ void problem() {
     }
 
     long ans;
-    foreach(s; 0..N) {
-      auto visited = new bool[](N);
-      void dfs(int cur, int pre, long distance) {
-        if (visited[cur]) return;
+    foreach(n; 2..N + 1) foreach(comb; N.iota.array.combinations(n)) {
+      foreach(route; comb.permutations) {
+        long d;
+        foreach(i; 1..n) {
+          const f = route[i - 1];
+          const t = route[i];
+          if (dists[f][t] == -1) {
+            d = 0;
+            break;
+          }
 
-        visited[cur] = true;
-        ans = max(ans, distance);
-        foreach(to; 0..N) {
-          if (dists[cur][to] == -1) continue;
-
-          dfs(to, cur, distance + dists[cur][to]);
+          d += dists[f][t]; 
         }
-
-        visited[cur] = false;
+        ans = max(ans, d);
       }
-      dfs(s, s, 0);
     }
 
     return ans;
@@ -41,6 +40,8 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import mir.ndslice.fuse;
+
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }

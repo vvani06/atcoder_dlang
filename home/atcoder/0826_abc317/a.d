@@ -54,7 +54,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug asAnswer(t).writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -63,6 +63,6 @@ void runSolver() {
   debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
   else problem();
 }
-enum YESNO = [true: "Yes", false: "No"];
+static immutable YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
