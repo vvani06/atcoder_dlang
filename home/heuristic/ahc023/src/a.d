@@ -72,39 +72,111 @@ void problem() {
     coordsByDistance.length = maxDistance + 1;
 
     int[][] using = new int[][](H, W);
+    entry.set(using, T + 1);
 
     bool isBridge(Coord spot) {
       auto visited = using.map!"a.dup".array;
       spot.set(visited, 1);
       for(auto queue = DList!Coord(spot.of(pathes)); !queue.empty;) {
         auto cur = queue.front; queue.removeFront;
+        cur.set(visited, 1);
+
         foreach(next; cur.of(pathes)) {
           if (next.of(visited) > 0) continue;
 
-          next.set(visited, 1);
           queue.insertBack(next);
+          next.set(visited, 1);
         }
       }
 
       return visited.any!"a.canFind(0)";
     }
 
+    bool[Coord] calcBridges() {
+      auto ord = new int[][](H, W);
+      auto low = new int[][](H, W);
+      auto used = using.map!"a.dup".array;
+      bool[Coord] ret;
+
+      int dfs(Coord cur, int k, Coord par) {
+        cur.set(used, true);
+        ord[cur.y][cur.x] = k++;
+        low[cur.y][cur.x] = cur.of(ord);
+        bool isAps = false;
+        int count;
+
+        foreach(to; cur.of(pathes)) {
+          if (!to.of(used)) {
+            count++;
+            k = dfs(to, k, cur);
+            cur.set(low, min(cur.of(low), to.of(low)));
+            if (par != cur && cur.of(ord) <= to.of(low)) isAps = true;
+            if (cur.of(ord) < to.of(low)) ret[cur] = true;
+          } else if (par == to) {
+            cur.set(low, min(cur.of(low), to.of(ord)));
+          }
+        }
+
+        if (par == cur && count >= 2) isAps = true;
+        if (isAps) ret[cur] = true;
+        return k;
+      }
+
+      foreach(y; 0..H) foreach(x; 0..W) {
+        int k;
+        if (!used[y][x]) k = dfs(Coord(x, y), k, Coord(x, y));
+      }
+      return ret;
+    }
+
+    auto bridges = calcBridges();
     Plan[] plans;
-    int ci;
+    Crop[][] cropsByStartMonth = new Crop[][](T + 1, 0);
+    foreach(crop; crops) {
+      cropsByStartMonth[crop.start] ~= crop;
+    }
+
+    // int ci;
     foreach(month; 1..T + 1) {
-      while(crops[ci].start >= month) {
-        auto crop = &crops[ci];
+      foreach(crop; cropsByStartMonth[month]) {
+      // while(crops[ci].start >= month) {
+        // auto crop = &crops[ci];
+        if (crop.used) continue;
 
         () {
           foreach(d; iota(maxDistance, -1, -1)) foreach(c; coordsByDistance[d]) {
-            if (c.of(using) || isBridge(c)) continue;
+            if (c.of(using) || c in bridges) continue;
 
-            c.set(using, crop.end);
-            plans ~= Plan(*crop, c, month);
-            return;
+            bool isOk = true;
+            foreach(around; c.of(pathes)) {
+              if (around.of(using) > 0 && around.of(using) < crop.end) isOk = false;
+            }
+
+            if (isOk) {
+              c.set(using, crop.end);
+              plans ~= Plan(crop, c, month);
+              crop.used = true;
+              
+              return;
+            }
           }
         }();
-        ci++;
+
+        if (!crop.used) break;
+      }
+
+      for(auto queue = DList!Coord(entry.of(pathes)); !queue.empty;) {
+        auto cur = queue.front; queue.removeFront;
+        if (cur.of(using) > month) continue;
+
+        cur.set(using, 0);
+        foreach(next; cur.of(pathes)) {
+          if (next.of(using) > month) continue;
+
+          queue.insertBack(next);
+        }
+
+        break;
       }
     }
 
