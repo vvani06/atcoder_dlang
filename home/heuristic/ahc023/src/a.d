@@ -151,6 +151,7 @@ void problem() {
       // bridges.keys.sort!"a.id < b.id".each!deb;
       // cropsByStartMonth[month].deb;
       int planted;
+      int allScore, earnedScore;
       foreach(crop; cropsByStartMonth[month]) {
         () {
           foreach(d; iota(maxDistance, 0, -1)) foreach(c; coordsByDistance[d]) {
@@ -167,13 +168,18 @@ void problem() {
               plans ~= Plan(crop, c, month);
               bridges = calcBridges();
               planted++;
+              crop.used = true;
               return;
             }
           }
         }();
+
+        allScore += crop.score;
+        if (crop.used) earnedScore += crop.score;
       }
 
-      "%05d / %05d".format(planted, cropsByStartMonth[month].length).deb;
+      const ratio = allScore == 0 ? 100 : earnedScore * 100 / allScore;
+      "[%05d / %05d] (%06d / %06d) %d%%".format(planted, cropsByStartMonth[month].length, earnedScore, allScore, ratio).deb;
 
       auto visited = new bool[][](H, W);
       for(auto queue = DList!Coord(entry); !queue.empty;) {
