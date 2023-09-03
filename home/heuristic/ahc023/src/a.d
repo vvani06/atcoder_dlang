@@ -19,6 +19,7 @@ struct Coord {
 
   T of(T)(T[][] grid) { return grid[y][x]; }
   T set(T)(T[][] grid, T value) { return grid[y][x] = value; }
+  int id() { return y*20 + x; }
 }
 
 struct Plan {
@@ -26,7 +27,7 @@ struct Plan {
   Coord coord;
   int month;
 
-  string toString() { return "%s %s %s %s".format(crop.id + 1, coord.y, coord.x, month); }
+  string toString() { return "%s %s %s %s".format(crop.id, coord.y, coord.x, month); }
 }
 
 void problem() {
@@ -37,7 +38,7 @@ void problem() {
   bool[][] BH = scan!string(H - 1).map!(s => s.map!"a == '1'".array).array;
   bool[][] BW = scan!string(H).map!(s => s.map!"a == '1'".array).array;
   int K = scan!int;
-  SortedRange!(Crop[]) crops = (K.iota.map!(k => Crop(k, scan!int, scan!int)).array ~ Crop(0, 0)).sort;
+  SortedRange!(Crop[]) crops = K.iota.map!(k => Crop(k + 1, scan!int, scan!int)).array.sort;
 
   auto solve() {
     Coord[][][] pathes = new Coord[][][](H, W, 0);
@@ -72,7 +73,6 @@ void problem() {
     coordsByDistance.length = maxDistance + 1;
 
     int[][] using = new int[][](H, W);
-    entry.set(using, T + 1);
 
     bool isBridge(Coord spot) {
       auto visited = using.map!"a.dup".array;
@@ -93,15 +93,18 @@ void problem() {
     }
 
     bool[Coord] calcBridges() {
-      auto ord = new int[][](H, W);
-      auto low = new int[][](H, W);
+      auto ord = new int[](H * W);
+      auto low = new int[](H * W);
       auto used = using.map!"a.dup".array;
       bool[Coord] ret;
 
+      ord[] = H * W + 1;
+      low[] = H * W + 1;
+
       int dfs(Coord cur, int k, Coord par) {
         cur.set(used, true);
-        ord[cur.y][cur.x] = k++;
-        low[cur.y][cur.x] = cur.of(ord);
+        ord[cur.id] = k;
+        low[cur.id] = k++;
         bool isAps = false;
         int count;
 
@@ -109,11 +112,11 @@ void problem() {
           if (!to.of(used)) {
             count++;
             k = dfs(to, k, cur);
-            cur.set(low, min(cur.of(low), to.of(low)));
-            if (par != cur && cur.of(ord) <= to.of(low)) isAps = true;
-            if (cur.of(ord) < to.of(low)) ret[cur] = true;
-          } else if (par == to) {
-            cur.set(low, min(cur.of(low), to.of(ord)));
+            low[cur.id].chmin(low[to.id]);
+            if (par != cur && ord[cur.id] <= low[to.id]) isAps = true;
+            if (ord[cur.id] < low[to.id]) ret[cur] = true;
+          } else if (par != to) {
+            low[cur.id].chmin(ord[to.id]);
           }
         }
 
@@ -121,15 +124,20 @@ void problem() {
         if (isAps) ret[cur] = true;
         return k;
       }
-
-      foreach(y; 0..H) foreach(x; 0..W) {
-        int k;
-        if (!used[y][x]) k = dfs(Coord(x, y), k, Coord(x, y));
-      }
+      
+      // int k = 0;
+      // foreach(y; 0..H) foreach(x; 0..W) {
+      //   auto c = Coord(x, y);
+      //   if (!c.of(used)) k = dfs(c, k, c);
+      // }
+      dfs(entry, 0, entry);
+      // low.chunks(W).map!(u => "%(%03d %)".format(u)).each!deb;
       return ret;
     }
 
     auto bridges = calcBridges();
+    // bridges.keys.sort!"a.id < b.id".each!deb;
+
     Plan[] plans;
     Crop[][] cropsByStartMonth = new Crop[][](T + 1, 0);
     foreach(crop; crops) {
@@ -138,13 +146,14 @@ void problem() {
 
     // int ci;
     foreach(month; 1..T + 1) {
+      deb("month: ", month);
+      // using.map!(u => "%(%03d %)".format(u)).each!deb;
+      // bridges.keys.sort!"a.id < b.id".each!deb;
+      // cropsByStartMonth[month].deb;
+      int planted;
       foreach(crop; cropsByStartMonth[month]) {
-      // while(crops[ci].start >= month) {
-        // auto crop = &crops[ci];
-        if (crop.used) continue;
-
         () {
-          foreach(d; iota(maxDistance, -1, -1)) foreach(c; coordsByDistance[d]) {
+          foreach(d; iota(maxDistance, 0, -1)) foreach(c; coordsByDistance[d]) {
             if (c.of(using) || c in bridges) continue;
 
             bool isOk = true;
@@ -153,31 +162,35 @@ void problem() {
             }
 
             if (isOk) {
+              // deb(crop, c);
               c.set(using, crop.end);
               plans ~= Plan(crop, c, month);
-              crop.used = true;
-              
+              bridges = calcBridges();
+              planted++;
               return;
             }
           }
         }();
-
-        if (!crop.used) break;
       }
 
-      for(auto queue = DList!Coord(entry.of(pathes)); !queue.empty;) {
+      "%05d / %05d".format(planted, cropsByStartMonth[month].length).deb;
+
+      auto visited = new bool[][](H, W);
+      for(auto queue = DList!Coord(entry); !queue.empty;) {
         auto cur = queue.front; queue.removeFront;
         if (cur.of(using) > month) continue;
 
-        cur.set(using, 0);
+        cur.set(visited, true);
+        if (cur.of(using) > 0) cur.set(using, 0);
+
         foreach(next; cur.of(pathes)) {
-          if (next.of(using) > month) continue;
+          if (next.of(visited) || next.of(using) > month) continue;
 
           queue.insertBack(next);
+          next.set(visited, true);
         }
-
-        break;
       }
+      bridges = calcBridges();
     }
 
     plans.length.writeln;
