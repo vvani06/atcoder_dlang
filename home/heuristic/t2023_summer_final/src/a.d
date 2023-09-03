@@ -35,42 +35,77 @@ void problem() {
       }
     }
 
+    auto idealDistances = new int[](ITEMS); {
+      int d, i;
+      foreach(n; 0..ITEMS) {
+        while(coordsByDistance[d].length <= i) {
+          d++;
+          i = 0;
+        }
+        idealDistances[n] = d;
+        i++;
+      }
+    }
+
     auto coordByItems = new Coord[](ITEMS);
     auto items = new int[][](D, D); {
       foreach(ref d; items) d[] = -1;
       foreach(r; R) items[r[0]][r[1]] = -2;
+      int rest = ITEMS;
+
+      bool isBridge(Coord c) {
+        auto visited = new bool[][](D, D);
+        int r = rest;
+        visited[c.x][c.y] = true;
+        
+        for(auto queue = DList!Coord(EXIT); !queue.empty;) {
+          auto p = queue.front; queue.removeFront;
+          if (visited[p.x][p.y]) continue;
+
+          visited[p.x][p.y] = true;
+          r--;
+
+          foreach(dx, dy; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            auto x = p.x + dx;
+            auto y = p.y + dy;
+            if (min(x, y) < 0 || max(x, y) >= D || visited[x][y]) continue;
+
+            if (items[x][y] == -1) {
+              queue.insert(Coord(x, y));
+            }
+          }
+        }
+
+        return r != 0;
+      }
+
       auto curDist = distances.map!(a => a.filter!"a > 0".maxElement).maxElement;
       auto coordsQueue = coordsByDistance.map!(a => DList!Coord(a)).array;
       foreach(i; 0..ITEMS) {
         auto itemId = scan!int;
+        auto idealDist = idealDistances[itemId];
+        auto used = new bool[][](D, D);
 
-        while(coordsQueue[curDist].empty) curDist--;
-        auto c = coordsQueue[curDist].front;
-        coordsQueue[curDist].removeFront;
+        foreach(dist; iota(idealDist, coordsByDistance.length.to!int).array ~ iota(0, idealDist).array.reverse.array) {
+          bool isOk;
+          foreach(c; coordsByDistance[dist].randomShuffle) {
+            if (used[c.x][c.y] || isBridge(c)) continue;
 
-        coordByItems[itemId] = c;
-        items[c.x][c.y] = itemId;
-        writefln("%s %s", c.x, c.y);
-        stdout.flush;
+            used[c.x][c.y] = true;
+            coordByItems[itemId] = c;
+            items[c.x][c.y] = itemId;
+            writefln("%s %s", c.x, c.y);
+            stdout.flush;
+            isOk = true;
+            break;
+          }
+          if (isOk) break;
+        }
+        rest--;
       }
     }
 
     "----------".deb;
-
-    class Simulator {
-      bool[][] visited;
-      int[][] items;
-      RedBlackTree!int availableItems;
-
-      this() {
-        visited = new bool[][](D, D);
-        availableItems = new int[](0).redBlackTree;
-      }
-
-      int[] search(int depth) {
-        return [];
-      }
-    }
 
     // auto visited = new bool[][](D, D);
     // auto availableItems = new int[](0).redBlackTree;
@@ -158,7 +193,7 @@ void problem() {
         }
       }
       
-      from[targetCoord.x][targetCoord.y].deb;
+      // from[targetCoord.x][targetCoord.y].deb;
       foreach(r; from[targetCoord.x][targetCoord.y].route) {
         availableItems.removeKey(r);
         auto c = coordByItems[r];
