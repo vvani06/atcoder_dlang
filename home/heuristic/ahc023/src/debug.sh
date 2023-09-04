@@ -1,5 +1,6 @@
 #!/bin/bash
 
-time ldmd2 -debug -run a.d < input/a > /tmp/a_out
-cat /tmp/a_out | grep -v "#" > /tmp/a_out_filtered
-../tester/vis input/a /tmp/a_out_filtered
+time ldmd2 -debug -run a.d < input/a > ../tester/a_out
+cat ../tester/a_out | grep -v "#" > ../tester/a_out_filtered
+cd ../tester
+./vis ../src/input/a ../tester/a_out_filtered

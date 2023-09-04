@@ -72,7 +72,29 @@ void problem() {
     }
     coordsByDistance.length = maxDistance + 1;
 
+    byte[][] numPathes = new byte[][](W, H);
+    foreach(y; 0..H) foreach(x; 0..W) numPathes[y][x] = pathes[y][x].length.to!byte;
+    foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
+
     int[][] using = new int[][](H, W);
+
+    void use(Coord c, int e) {
+      if (c.of(using) != 0) assert("double farming");
+
+      c.set(using, e);
+      c.set(numPathes, 0);
+      foreach(around; c.of(pathes)) numPathes[around.y][around.x]--;
+      // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
+    }
+
+    void harvest(Coord c) {
+      if (c.of(using) == 0) assert("no crop");
+
+      c.set(using, 0);
+      c.set(numPathes, c.of(pathes).length.to!byte);
+      foreach(around; c.of(pathes)) numPathes[around.y][around.x]++;
+      // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
+    }
 
     bool isBridge(Coord spot) {
       auto visited = using.map!"a.dup".array;
@@ -92,6 +114,7 @@ void problem() {
       return visited.any!"a.canFind(0)";
     }
 
+    // LowLink による関節点検出 O(E + V)
     bool[Coord] calcBridges() {
       auto ord = new int[](H * W);
       auto low = new int[](H * W);
@@ -135,16 +158,15 @@ void problem() {
       return ret;
     }
 
-    auto bridges = calcBridges();
-    // bridges.keys.sort!"a.id < b.id".each!deb;
-
     Plan[] plans;
     Crop[][] cropsByStartMonth = new Crop[][](T + 1, 0);
     foreach(crop; crops) {
       cropsByStartMonth[crop.start] ~= crop;
     }
 
-    // int ci;
+    auto bridges = calcBridges();
+    // bridges.keys.sort!"a.id < b.id".each!deb;
+
     foreach(month; 1..T + 1) {
       deb("month: ", month);
       // using.map!(u => "%(%03d %)".format(u)).each!deb;
@@ -152,19 +174,51 @@ void problem() {
       // cropsByStartMonth[month].deb;
       int planted;
       int allScore, earnedScore;
-      foreach(crop; cropsByStartMonth[month]) {
+      foreach(ref crop; cropsByStartMonth[month]) {
         () {
-          foreach(d; iota(maxDistance, 0, -1)) foreach(c; coordsByDistance[d]) {
+          // int[] distances = []; {
+          //   auto base = min(maxDistance, (crop.end - month) * maxDistance / (T - month) + 1);
+          //   distances ~= base;
+          //   foreach(d; 1..maxDistance) {
+          //     if (base - d >= 1) distances ~= base - d;
+          //     if (base + d <= maxDistance) distances ~= base + d;
+          //   }
+          // }
+          auto distances = iota(maxDistance, 0, -1);
+          foreach(d; distances) foreach(c; coordsByDistance[d]) {
             if (c.of(using) || c in bridges) continue;
 
             bool isOk = true;
             foreach(around; c.of(pathes)) {
-              if (around.of(using) > 0 && around.of(using) < crop.end) isOk = false;
+              () {
+                if (crop.end <= around.of(using)) return;
+
+                bool[int] visited;
+                visited[c.id] = true;
+                int accesableMinimum(Coord a, Coord pre) {
+                  visited[a.id] = true;
+                  auto ret = a.of(using);
+                  if (ret == 0) return ret;
+
+                  foreach(next; a.of(pathes)) {
+                    if (next.id in visited) continue;
+
+                    visited[next.id] = true;
+                    if (next.of(using) <= ret) ret = min(ret, accesableMinimum(next, a));
+                  }
+                  return ret;
+                }
+                // if (!around.of(pathes).filter!(a => a != c).any!(a => a.of(using) == 0)) isOk = false;
+                if (accesableMinimum(around, around) > 0) isOk = false;
+              }();
+              
+              if (!isOk) break;
             }
 
             if (isOk) {
               // deb(crop, c);
-              c.set(using, crop.end);
+              // c.set(using, crop.end);
+              use(c, crop.end);
               plans ~= Plan(crop, c, month);
               bridges = calcBridges();
               planted++;
@@ -180,6 +234,7 @@ void problem() {
 
       const ratio = allScore == 0 ? 100 : earnedScore * 100 / allScore;
       "[%05d / %05d] (%06d / %06d) %d%%".format(planted, cropsByStartMonth[month].length, earnedScore, allScore, ratio).deb;
+      cropsByStartMonth[month].filter!"!a.used".each!deb;
 
       auto visited = new bool[][](H, W);
       for(auto queue = DList!Coord(entry); !queue.empty;) {
@@ -187,7 +242,10 @@ void problem() {
         if (cur.of(using) > month) continue;
 
         cur.set(visited, true);
-        if (cur.of(using) > 0) cur.set(using, 0);
+        if (cur.of(using) > 0) {
+          // cur.set(using, 0);
+          harvest(cur);
+        }
 
         foreach(next; cur.of(pathes)) {
           if (next.of(visited) || next.of(using) > month) continue;
