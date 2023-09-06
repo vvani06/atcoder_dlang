@@ -19,7 +19,8 @@ struct Coord {
 
   T of(T)(T[][] grid) { return grid[y][x]; }
   T set(T)(T[][] grid, T value) { return grid[y][x] = value; }
-  int id() { return y*20 + x; }
+  inout int id() { return y*20 + x; }
+  inout int opCmp(inout Coord other) { return id == other.id ? 0 : id < other.id ? -1 : 1; }
 }
 
 struct Plan {
@@ -77,10 +78,12 @@ void problem() {
     foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
 
     int[][] using = new int[][](H, W);
+    auto useSets = (T + 1).iota.map!(_ => new Coord[](0).redBlackTree).array;
 
     void use(Coord c, int e) {
       if (c.of(using) != 0) assert("double farming");
 
+      useSets[e].insert(c);
       c.set(using, e);
       c.set(numPathes, 0);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]--;
@@ -90,28 +93,11 @@ void problem() {
     void harvest(Coord c) {
       if (c.of(using) == 0) assert("no crop");
 
+      useSets[c.of(using)].removeKey(c);
       c.set(using, 0);
       c.set(numPathes, c.of(pathes).length.to!byte);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]++;
       // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
-    }
-
-    bool isBridge(Coord spot) {
-      auto visited = using.map!"a.dup".array;
-      spot.set(visited, 1);
-      for(auto queue = DList!Coord(spot.of(pathes)); !queue.empty;) {
-        auto cur = queue.front; queue.removeFront;
-        cur.set(visited, 1);
-
-        foreach(next; cur.of(pathes)) {
-          if (next.of(visited) > 0) continue;
-
-          queue.insertBack(next);
-          next.set(visited, 1);
-        }
-      }
-
-      return visited.any!"a.canFind(0)";
     }
 
     // LowLink による関節点検出 O(E + V)
@@ -119,7 +105,7 @@ void problem() {
       auto ord = new int[](H * W);
       auto low = new int[](H * W);
       auto used = using.map!"a.dup".array;
-      bool[Coord] ret;
+      bool[Coord] ret = [entry: true];
 
       ord[] = H * W + 1;
       low[] = H * W + 1;
@@ -167,6 +153,37 @@ void problem() {
     auto bridges = calcBridges();
     // bridges.keys.sort!"a.id < b.id".each!deb;
 
+    bool canSet(Coord c, int e) {
+      if (c.of(using) || c in bridges) return false;
+
+      bool isOk = true;
+      foreach(around; c.of(pathes)) {
+        if (!isOk) break;
+
+        () {
+          if (e <= around.of(using)) return;
+
+          bool[int] visited;
+          visited[c.id] = true;
+          int accesableMinimum(Coord a) {
+            visited[a.id] = true;
+            auto ret = a.of(using);
+            if (ret == 0) return ret;
+
+            foreach(next; a.of(pathes)) {
+              if (next.id in visited) continue;
+
+              visited[next.id] = true;
+              if (next.of(using) <= ret) ret = min(ret, accesableMinimum(next));
+            }
+            return ret;
+          }
+          if (accesableMinimum(around) > 0) isOk = false;
+        }();
+      }
+      return isOk;
+    }
+
     foreach(month; 1..T + 1) {
       deb("month: ", month);
       // using.map!(u => "%(%03d %)".format(u)).each!deb;
@@ -176,6 +193,21 @@ void problem() {
       int allScore, earnedScore;
       foreach(ref crop; cropsByStartMonth[month]) {
         () {
+          foreach(d; crop.end..min(T, crop.end + 3)) {
+            foreach(u; useSets[d]) {
+              foreach(c; u.of(pathes)) {
+                if (!canSet(c, crop.end)) continue;
+
+                use(c, crop.end);
+                plans ~= Plan(crop, c, month);
+                bridges = calcBridges();
+                planted++;
+                crop.used = true;
+                return;
+              }
+            }
+          }
+
           int[] dd; {
             auto base = min(maxDistance, (crop.end - month) * 3);
             dd ~= base;
