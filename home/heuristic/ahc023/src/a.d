@@ -176,16 +176,16 @@ void problem() {
       int allScore, earnedScore;
       foreach(ref crop; cropsByStartMonth[month]) {
         () {
-          // int[] distances = []; {
-          //   auto base = min(maxDistance, (crop.end - month) * maxDistance / (T - month) + 1);
-          //   distances ~= base;
-          //   foreach(d; 1..maxDistance) {
-          //     if (base - d >= 1) distances ~= base - d;
-          //     if (base + d <= maxDistance) distances ~= base + d;
-          //   }
-          // }
-          auto distances = iota(maxDistance, 0, -1);
-          foreach(d; distances) foreach(c; coordsByDistance[d]) {
+          int[] dd; {
+            auto base = min(maxDistance, (crop.end - month) * 3);
+            dd ~= base;
+            foreach(d; 1..maxDistance) {
+              if (base + d <= maxDistance) dd ~= base + d;
+              if (base - d >= 1) dd ~= base - d;
+            }
+          }
+          // auto dd = iota(maxDistance, 0, -1);
+          foreach(d; dd) foreach(c; coordsByDistance[d]) {
             if (c.of(using) || c in bridges) continue;
 
             bool isOk = true;
