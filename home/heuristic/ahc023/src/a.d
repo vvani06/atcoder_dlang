@@ -77,6 +77,10 @@ void problem() {
     foreach(y; 0..H) foreach(x; 0..W) numPathes[y][x] = pathes[y][x].length.to!byte;
     foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
 
+    auto coordsByPathes = new Coord[][](5, 0);
+    foreach(y; 0..H) foreach(x; 0..W) coordsByPathes[numPathes[y][x]] ~= Coord(x, y);
+    foreach(c; coordsByPathes) c.sort!((a, b) => a.of(distances) > b.of(distances));
+
     int[][] using = new int[][](H, W);
     auto useSets = (T + 1).iota.map!(_ => new Coord[](0).redBlackTree).array;
 
@@ -85,7 +89,6 @@ void problem() {
 
       useSets[e].insert(c);
       c.set(using, e);
-      c.set(numPathes, 0);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]--;
       // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
     }
@@ -95,7 +98,6 @@ void problem() {
 
       useSets[c.of(using)].removeKey(c);
       c.set(using, 0);
-      c.set(numPathes, c.of(pathes).length.to!byte);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]++;
       // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
     }
@@ -208,15 +210,29 @@ void problem() {
             }
           }
 
-          int[] dd; {
-            auto base = min(maxDistance, (crop.end - month) * 3);
-            dd ~= base;
-            foreach(d; 1..maxDistance) {
-              if (base + d <= maxDistance) dd ~= base + d;
-              if (base - d >= 1) dd ~= base - d;
+          foreach(cs; coordsByPathes) {
+            foreach(c; cs) {
+              if (!canSet(c, crop.end)) continue;
+
+              use(c, crop.end);
+              plans ~= Plan(crop, c, month);
+              bridges = calcBridges();
+              planted++;
+              crop.used = true;
+              return;
             }
           }
+
+          // int[] dd; {
+          //   auto base = min(maxDistance, (crop.end - month) * 3);
+          //   dd ~= base;
+          //   foreach(d; 1..maxDistance) {
+          //     if (base + d <= maxDistance) dd ~= base + d;
+          //     if (base - d >= 1) dd ~= base - d;
+          //   }
+          // }
           // auto dd = iota(maxDistance, 0, -1);
+          auto dd = iota(1, maxDistance + 1);
           foreach(d; dd) foreach(c; coordsByDistance[d]) {
             if (c.of(using) || c in bridges) continue;
 
