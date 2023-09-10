@@ -11,43 +11,18 @@ void problem() {
         dists[i][j] = dists[j][i] = D[t++];
       }
     }
-    
-    long ans;
-    auto rbt = N.iota.redBlackTree;
-    void dfs(long d) {
-      if (rbt.empty) {
-        ans = max(ans, d);
-        return;
-      }
 
-      auto from = rbt.front; rbt.removeFront;
-      if (rbt.empty) ans = max(ans, d);
-
-      foreach(to; rbt.array) {
-        rbt.removeKey(to);
-        dfs(d + dists[from][to]);
-        rbt.insert(to);
-      }
-
-      rbt.insert(from);
-    }
-
-    if (N % 2 == 0) {
-      dfs(0);
-    } else {
-      foreach(i; 0..N) {
-        rbt = N.iota.redBlackTree;
-        rbt.removeKey(i);
-        dfs(0);
+    auto dp = new long[](2 ^^ N);
+    foreach(from; (2^^N - 1).iota.filter!(a => popcnt(a) % 2 == 0)) {
+      auto f = (int b) => !(from & (1 << b));
+      foreach(i; (N - 1).iota.filter!f) foreach(j; iota(i + 1, N).filter!f) {
+        const bi = 1 << i;
+        const bj = 1 << j;
+        const to = from | bi | bj;
+        dp[to] = max(dp[to], dp[from] + dists[i][j]);
       }
     }
-
-    long t = 1;
-    foreach(m; iota(16L, 4L, -2)) t *= comb(m, 2);
-    t.deb;
-
-
-    return ans;
+    return dp.maxElement;
   }
 
   outputForAtCoder(&solve);
@@ -56,6 +31,8 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
+
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }

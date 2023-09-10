@@ -6,9 +6,7 @@ void problem() {
   auto P = scan!int;
 
   auto solve() {
-    int ans;
-    for(int d = M; d <= N; d += P) ans++;
-    return ans;
+    return (N - M) / P + (N >= M);
   }
 
   outputForAtCoder(&solve);

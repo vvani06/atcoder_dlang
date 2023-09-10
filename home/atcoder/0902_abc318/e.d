@@ -5,16 +5,11 @@ void problem() {
   auto A = scan!int(N);
 
   auto solve() {
-    int[][int] indicies;
-    foreach(i, a; A.enumerate(0)) indicies[a] ~= i;
-    auto nums = indicies.keys.sort;
-
-    long[int] l, r;
+    auto l = new long[](N + 1);
+    auto r = new long[](N + 1);
     foreach(a; A) r[a]++;
-    foreach(a; A) l[a] = 0;
 
-    long ans;
-    long cur;
+    long ans, cur;
     foreach(a; A) {
       cur -= l[a] * r[a];
       l[a]++;
