@@ -80,6 +80,8 @@ void problem() {
     auto coordsByPathes = new Coord[][](5, 0);
     foreach(y; 0..H) foreach(x; 0..W) coordsByPathes[numPathes[y][x]] ~= Coord(x, y);
     foreach(c; coordsByPathes) c.sort!((a, b) => a.of(distances) > b.of(distances));
+    
+    foreach(y; 0..H) foreach(x; 0..W) pathes[y][x].sort!((a, b) => a.of(distances) < b.of(distances));
 
     int[][] using = new int[][](H, W);
     auto useSets = (T + 1).iota.map!(_ => new Coord[](0).redBlackTree).array;
@@ -91,6 +93,9 @@ void problem() {
       c.set(using, e);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]--;
       // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
+      // coordsByPathes = new Coord[][](5, 0);
+      // foreach(y; 0..H) foreach(x; 0..W) coordsByPathes[numPathes[y][x]] ~= Coord(x, y);
+      // foreach(cc; coordsByPathes) cc.sort!((a, b) => a.of(distances) > b.of(distances));
     }
 
     void harvest(Coord c) {
@@ -100,6 +105,9 @@ void problem() {
       c.set(using, 0);
       foreach(around; c.of(pathes)) numPathes[around.y][around.x]++;
       // foreach(ref cs; coordsByDistance) cs.sort!((a, b) => a.of(numPathes) < b.of(numPathes));
+      // coordsByPathes = new Coord[][](5, 0);
+      // foreach(y; 0..H) foreach(x; 0..W) coordsByPathes[numPathes[y][x]] ~= Coord(x, y);
+      // foreach(cc; coordsByPathes) cc.sort!((a, b) => a.of(distances) > b.of(distances));
     }
 
     // LowLink による関節点検出 O(E + V)
@@ -193,84 +201,41 @@ void problem() {
       // cropsByStartMonth[month].deb;
       int planted;
       int allScore, earnedScore;
+
       foreach(ref crop; cropsByStartMonth[month]) {
+        void plant(Coord c) {
+          use(c, crop.end);
+          plans ~= Plan(crop, c, month);
+          bridges = calcBridges();
+          planted++;
+          crop.used = true;
+        }
+
         () {
-          foreach(d; crop.end..min(T, crop.end + 3)) {
-            foreach(u; useSets[d]) {
+          int maxScore = 0;
+          Coord maxCoord;
+          foreach(d; crop.end..min(T, crop.end + 1)) {
+            foreach(u; useSets[d].array.sort!((a, b) => a.of(distances) > b.of(distances))) {
               foreach(c; u.of(pathes)) {
                 if (!canSet(c, crop.end)) continue;
 
-                use(c, crop.end);
-                plans ~= Plan(crop, c, month);
-                bridges = calcBridges();
-                planted++;
-                crop.used = true;
-                return;
+                int score;
+                foreach(a; c.of(pathes)) if (a.of(using) > 0) score++;
+                if (maxScore.chmax(score)) maxCoord = c;
               }
             }
           }
 
-          foreach(cs; coordsByPathes) {
-            foreach(c; cs) {
-              if (!canSet(c, crop.end)) continue;
-
-              use(c, crop.end);
-              plans ~= Plan(crop, c, month);
-              bridges = calcBridges();
-              planted++;
-              crop.used = true;
-              return;
-            }
+          if (maxScore > 0) {
+            plant(maxCoord);
+            return;
           }
 
-          // int[] dd; {
-          //   auto base = min(maxDistance, (crop.end - month) * 3);
-          //   dd ~= base;
-          //   foreach(d; 1..maxDistance) {
-          //     if (base + d <= maxDistance) dd ~= base + d;
-          //     if (base - d >= 1) dd ~= base - d;
-          //   }
-          // }
-          // auto dd = iota(maxDistance, 0, -1);
-          auto dd = iota(1, maxDistance + 1);
-          foreach(d; dd) foreach(c; coordsByDistance[d]) {
-            if (c.of(using) || c in bridges) continue;
+          foreach(cs; coordsByPathes) {
+            foreach(c; cs.sort!((a, b) => a.of(distances) > b.of(distances))) {
+              if (!canSet(c, crop.end)) continue;
 
-            bool isOk = true;
-            foreach(around; c.of(pathes)) {
-              () {
-                if (crop.end <= around.of(using)) return;
-
-                bool[int] visited;
-                visited[c.id] = true;
-                int accesableMinimum(Coord a, Coord pre) {
-                  visited[a.id] = true;
-                  auto ret = a.of(using);
-                  if (ret == 0) return ret;
-
-                  foreach(next; a.of(pathes)) {
-                    if (next.id in visited) continue;
-
-                    visited[next.id] = true;
-                    if (next.of(using) <= ret) ret = min(ret, accesableMinimum(next, a));
-                  }
-                  return ret;
-                }
-                // if (!around.of(pathes).filter!(a => a != c).any!(a => a.of(using) == 0)) isOk = false;
-                if (accesableMinimum(around, around) > 0) isOk = false;
-              }();
-              
-              if (!isOk) break;
-            }
-
-            if (isOk) {
-              // deb(crop, c);
-              // c.set(using, crop.end);
-              use(c, crop.end);
-              plans ~= Plan(crop, c, month);
-              bridges = calcBridges();
-              planted++;
-              crop.used = true;
+              plant(c);
               return;
             }
           }
@@ -282,7 +247,7 @@ void problem() {
 
       const ratio = allScore == 0 ? 100 : earnedScore * 100 / allScore;
       "[%05d / %05d] (%06d / %06d) %d%%".format(planted, cropsByStartMonth[month].length, earnedScore, allScore, ratio).deb;
-      cropsByStartMonth[month].filter!"!a.used".each!deb;
+      cropsByStartMonth[month].each!deb;
 
       auto visited = new bool[][](H, W);
       for(auto queue = DList!Coord(entry); !queue.empty;) {
