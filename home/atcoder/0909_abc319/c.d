@@ -8,24 +8,25 @@ void problem() {
       [0, 1, 2], [3, 4, 5], [6, 7, 8],
       [0, 3, 6], [1, 4, 7], [2, 5, 8],
       [0, 4, 8], [2, 4, 6],
-    ];
+    ].map!(a => 9.iota.map!(n => a.canFind(n)).array).array;
 
     int disappints;
     int total;
     foreach(p; 9.iota.permutations) {
       total++;
 
-      auto l = new int[][](lines.length, 0);
+      int[lines.length] found;
+      int[lines.length] count;
       M: foreach(i; p) {
         auto c = C[i / 3][i % 3];
 
         static foreach(li; 0..lines.length) {
-          if (lines[li].canFind(i)) {
-            l[li] ~= c;
-            if (l[li].length == 3 && l[li][0] == l[li][1]) {
+          if (count[li] < 2 && lines[li][i]) {
+            if (++count[li] == 2 && c == found[li]) {
               disappints++;
               break M;
             }
+            found[li] = c;
           }
         }
       }

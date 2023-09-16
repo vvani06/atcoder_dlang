@@ -4,25 +4,29 @@ void problem() {
   auto N = scan!int;
   auto X = scan!long;
   auto Y = scan!long;
-  auto PT = scan!long(2 * N - 2).chunks(2).array;
-  auto QN = scan!int;
-  auto Q = scan!long(QN);
+  // auto PT = scan!long(2 * N - 2).chunks(2).array;
+  // auto QN = scan!int;
+  // auto Q = scan!long(QN);
 
   auto solve() {
     enum MAX = iota(1, 9).fold!((a, b) => a * b / gcd(a, b));
-    auto memo = new long[](MAX);
-    foreach(ofs; 0..MAX) {
-      foreach(i, pt; PT) {
-        auto p = pt[0];
-        auto t = pt[1];
+    long[MAX] memo;
+
+    foreach(_; 0..N - 1) {
+      int p;
+      long t;
+      readf!" %d %d"(p, t);
+      foreach(ofs; 0..MAX) {
         auto pret = memo[ofs];
-        auto wait = (p - ((pret + ofs) % p)) % p;
-        memo[ofs] = pret + wait + t;
+        auto wait = (p - ((memo[ofs] + ofs) % p)) % p;
+        memo[ofs] += wait + t;
       }
     }
 
     // memo.each!deb;
-    foreach(q; Q) {
+    foreach(_; 0..scan!int) {
+      long q;
+      readf!" %d"(q);
       auto ofs = q + X;
       long ans = ofs + memo[ofs % MAX] + Y;
       ans.writeln;
