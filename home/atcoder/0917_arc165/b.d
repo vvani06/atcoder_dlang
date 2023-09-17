@@ -5,35 +5,53 @@ void problem() {
   auto K = scan!int;
   auto P = scan!int(N);
 
-  auto solve() {
-    int ansL;
-    int exactMax = 0;
-    int swapL = 0;
+  struct SortOption {
+    int l, r, first;
 
-    foreach_reverse(l; 0..N - K + 1) {
-      int r = l + K;
-      
-      auto sorted = P[l..r].dup.sort;
-      // P[l..r].deb;
-      // sorted.deb;
-      int ex;
-      foreach(i; 0..K) {
-        if (P[l + i] == sorted[i]) ex++; else break;
+    void apply(int[] arr) {
+      sort(arr[l..r]);
+    }
+
+    int opCmp(SortOption other) {
+      return cmp(
+        [other.l, other.first],
+        [l, first],
+      );
+    }
+  }
+
+  auto solve() {
+    int l;
+    int r = K;
+    auto rbt = P[0..K].redBlackTree;
+
+    // https://x.com/tanakh/status/1703410734192112103?s=20 を参考に尺取り法で解く
+    auto sortOption = SortOption(0, 0, 0);
+    while(true) {
+      if (l == r) {
+        sortOption = SortOption(0, 0, 0);
+        break;
       }
 
-      [l, ex, swapL, exactMax].deb;
-      if (l + ex >= swapL) {
-        if (l + ex > swapL || exactMax > (ex == K ? 0 : sorted[ex..$].maxElement)) {
-          swapL = l + ex;
-          exactMax = ex == K ? 0 : sorted[ex..$].maxElement;
-          ansL = l;
-        }
+      sortOption = min(sortOption, SortOption(l, r, rbt.front));
 
-        if (ex == K) break;
+      if (P[l] == rbt.front) {
+        rbt.removeKey(P[l]);
+        l++;
+      } else {
+        if (r == N) break;
+
+        rbt.insert(P[r]);
+        r++;
+        if (r - l > K) {
+          rbt.removeKey(P[l]);
+          l++;
+        }
       }
     }
 
-    P[ansL..ansL + K].sort;
+    sortOption.deb;
+    sortOption.apply(P);
     return P.toAnswerString;
   }
 
