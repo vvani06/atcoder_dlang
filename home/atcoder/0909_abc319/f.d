@@ -5,40 +5,91 @@ void problem() {
   auto T = scan!long(N * 4 - 4).chunks(4).array;
 
   auto solve() {
-    alias Node = Tuple!(int, "p", long, "t", long, "s", long, "g");
+    alias Node = Tuple!(int, "p", long, "t", long, "s", long, "g", int, "dragId");
     auto graph = new Node[][](N, 0);
+    auto nodes = new Node[](N);
+    auto drags = new Node[](0);
     foreach(i, t; T) {
-      auto node = Node(i.to!int, t[1], t[2], t[3]);
+      auto node = Node(i.to!int + 1, t[1], t[2], t[3], -1);
+      if (t[1] == 2) {
+        node.dragId = drags.length.to!int;
+        drags ~= node;
+      }
+
+      nodes[i + 1] = node;
       graph[t[0] - 1] ~= node;
     }
 
-    auto drags = new Node[](0).heapify!"a.g > b.g";
-    auto enemies = new Node[](0).heapify!"a.s > b.s";
+    struct State {
+      long power;
+      int dragsUsed;
+      bool[] visited = [false];
+      int[] availableDrags;
 
-    auto visited = new bool[](N);
-    long power;
-    for(auto queue = DList!int(0); !queue.empty;) {
-      auto p = queue.front;
-      queue.removeFront;
-      visited[p] = true;
-      
-      foreach(n; graph[p]) {
-        if (n.t == 1) {
-          enemies.insert(n);
-        } else {
-          drags.insert(n);
+      this(long p, int d, bool[] v) {
+        power = p;
+        dragsUsed = d;
+        visited = v.dup;
+        walk();
+        power = min(power, 10L^^9);
+      }
+
+      void walk() {
+        auto queue = new Node[](0).heapify!"a.s > b.s";
+        foreach(n, v; visited.enumerate(0).filter!"a[1]") {
+          foreach(next; graph[n]) {
+            if (!visited[next.p]) queue.insert(next);
+          }
+        }
+
+        while(!queue.empty) {
+          auto p = queue.front;
+          queue.removeFront;
+          if (p.s > power) break;
+
+          if (p.t == 1) {
+            power += p.g;
+            visited[p.p] = true;
+            foreach(next; graph[p.p]) queue.insert(next);
+          } else {
+            availableDrags ~= p.dragId;
+          }
         }
       }
 
-      while(!enemies.empty && enemies.front.s <= power) {
-        auto e = enemies.front;
-        enemies.removeFront;
-        power += e.g;
-        queue.insertBack(e.p);
+      State takeDrag(int d) {
+        auto drag = drags[d];
+        auto newState = State();
+        newState.power = min(10L^^9, power * drag.g);
+        newState.visited = visited.dup;
+        newState.visited[drag.p] = true;
+        newState.dragsUsed = dragsUsed | (1 << d);
+        newState.walk();
+        newState.power = min(newState.power, 10L^^9);
+        return newState;
+      }
+
+      int opCmp(State other) {
+        return cmp([power], [other.power]);
       }
     }
 
-    return !visited.canFind(false);
+    auto states = new State[](1 << drags.length);
+    states[0] = State(1, 0, true ~ false.repeat(N - 1).array);
+
+    foreach(from; 0..states.length.to!int) {
+      auto stateFrom = states[from];
+      if (stateFrom.power == 0) continue;
+
+      foreach(d; stateFrom.availableDrags) {
+        auto to = from | (1 << d);
+        auto stateTo = stateFrom.takeDrag(d);
+        // deb([from, d], stateTo);
+        states[to] = max(states[to], stateTo);
+      }
+    }
+
+    return !states[$ - 1].visited.canFind(false);
   }
 
   outputForAtCoder(&solve);
@@ -74,7 +125,7 @@ string asAnswer(T ...)(T t) {
   }
   return ret;
 }
-void deb(T ...)(T t){ debug asAnswer(t).writeln; }
+void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
   else if (is(T == string)) fn().writeln;
