@@ -2,36 +2,51 @@ void main() { runSolver(); }
 
 void problem() {
   auto T = scan!int;
-  auto Q = scan!ulong(3 * T).chunks(3);
+  auto Q = scan!long(3 * T).chunks(3);
 
   auto solve() {
-    ulong subSolve(ulong N, ulong X, ulong K) {
+    long subSolve(long N, long X, long K) {
       if (K == 0) return 1;
 
-      ulong size = 1; {
-        ulong n = N;
-        while(n > 1) {
-          n /= 2;
-          size++;
+      long count(long root, long dist) {
+        if (root > N) return 0;
+        if (dist == 0) return 1;
+
+        auto left = root;
+        auto right = root;
+        foreach(_; 0..dist) {
+          left *= 2L;
+          if (left > N) return 0;
+          if (right > N) break;
+
+          right *= 2L;
+          right++;
         }
+
+        // [root, dist, left, right].deb;
+        auto ret = min(N, right) - left + 1;
+        return ret;
       }
 
-      ulong base; {
-        ulong x = X;
-        while(x > 0) {
-          x /= 2;
-          base++;
-        }
-      }
+      long ans = count(X, K);
+      if (X == 1) return ans;
 
-      ulong ans;
-      auto forward = size - K;
-      if (forward <= size) {
-        ans += 2L ^^ forward;
-      }
-      
-      foreach(d; 1L..min(base, K + 1)) {
-        ans += 2L ^^ (K - d - 1);
+      auto pre = X;
+      while(X > 1) {
+        K--;
+        X /= 2;
+
+        if (K > 0) {
+          auto other = pre % 2 == 0 ? pre + 1 : pre - 1;
+          auto add = count(other, K - 1);
+          [X, K, pre, other, K - 1, add].deb;
+          ans += count(other, K - 1);
+        } else {
+          ans += 1;
+          break;
+        }
+
+        pre = X;
       }
 
       return ans;
@@ -39,7 +54,7 @@ void problem() {
 
     foreach(q; Q) {
       auto N = q[0];
-      auto X = q[1] - 1;
+      auto X = q[1];
       auto K = q[2];
 
       subSolve(N, X, K).writeln;
