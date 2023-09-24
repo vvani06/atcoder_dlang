@@ -58,10 +58,10 @@ void problem() {
 
     auto distScores = new int[](M + 1);
     foreach(m; 1..M + 1) {
-      distScores[m] += distsToZero[m]^^7;
-      distScores[m] += graphArr[m].map!(a => distsToZero[a]).sum;
+      distScores[m] += distsToZero[m]^^6;
+      distScores[m] += graphArr[m].map!(a => distsToZero[a]^^2).sum;
     }
-    foreach(g; graphArr) g.sort!((a, b) => distScores[a] > distScores[b]);
+    foreach(g; graphArr) g.sort!((a, b) => distScores[a] < distScores[b]);
 
     distScores.enumerate(0).array.sort!"a[1] > b[1]".each!deb;
 
@@ -211,8 +211,12 @@ void problem() {
         }
       }
     }
-
+    
     foreach(c; C[1..$ - 1]) writefln("%(%s %)", c[1..$ - 1]);
+
+    long score = 1;
+    foreach(c; C[1..$ - 1]) score += c[1..$ - 1].count(0);
+    score.deb;
   }
 
   solve();
