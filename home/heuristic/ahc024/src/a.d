@@ -36,6 +36,35 @@ void problem() {
       }
     }
 
+    auto graphArr = new int[][](M + 1, 0);
+    foreach(f; 0..M) foreach(t; f + 1..M + 1) {
+      if (graph[f][t]) {
+        graphArr[f] ~= t;
+        graphArr[t] ~= f;
+      }
+    }
+
+    auto distsToZero = new int[](M + 1); {
+      for(auto queue = DList!int(0); !queue.empty;) {
+        auto from = queue.front; queue.removeFront;
+        foreach(to; graph[from].enumerate(0).filter!"a[1]".map!"a[0]") {
+          if (to == 0 || distsToZero[to] != 0) continue;
+
+          queue.insertBack(to);
+          distsToZero[to] = distsToZero[from] + 1;
+        } 
+      }
+    }
+
+    auto distScores = new int[](M + 1);
+    foreach(m; 1..M + 1) {
+      distScores[m] += distsToZero[m]^^7;
+      distScores[m] += graphArr[m].map!(a => distsToZero[a]).sum;
+    }
+    foreach(g; graphArr) g.sort!((a, b) => distScores[a] > distScores[b]);
+
+    distScores.enumerate(0).array.sort!"a[1] > b[1]".each!deb;
+
     // LowLink による関節点検出 O(E + V)
     bool[Coord] calcBridges(ref int[][] grid, Coord from, int color) {
       bool[Coord] ret;
@@ -80,6 +109,7 @@ void problem() {
     }
     // graph.enumerate(0).each!(a => "%03d : %(%03d %)".format(a[0], a[1]).deb);
 
+
     bool canFill(Coord from, int colorTo) {
       // 元の色が連結しなくなる or 区の関係がみだれる で false
       auto colorFrom = from.of(C);
@@ -90,6 +120,7 @@ void problem() {
       if (!graph[colorFrom][colorTo]) return false;
 
       DList!Coord queue;
+      bool aroundContainsTo;
       foreach(dx, dy; AROUND) {
         auto coord = Coord(from.x + dx, from.y + dy);
         auto color = coord.of(C);
@@ -100,9 +131,12 @@ void problem() {
             toVisit.removeKey(coord);
           }
         } else {
+          if (color == colorTo) aroundContainsTo = true;
           if (!graph[color][colorTo]) return false;
         }
       }
+
+      if (!aroundContainsTo) return false;
 
       auto rel = new bool[](M + 1);
       rel[colorFrom] = true;
@@ -139,16 +173,40 @@ void problem() {
     
     foreach_reverse(coords; searchCoords) {
       foreach(coord; coords) {
-        bool aroundZero;
-        foreach(dx, dy; AROUND) {
-          auto around = Coord(coord.x + dx, coord.y + dy);
-          if (around.of(C) == 0) {
-            aroundZero = true;
-            break;
+        if (canFill(coord, 0)) {
+          fill(coord, 0);
+        }
+      }
+    }
+    
+    foreach(fromColor; distScores.enumerate(0).array.sort!"a[1] > b[1]".map!"a[0]") {
+      if (fromColor == 0) break;
+
+      auto outerNeighbors = new int[](0);
+      foreach(neighborColor; graphArr[fromColor]) {
+        if (distScores[fromColor] > distScores[neighborColor]) outerNeighbors ~= neighborColor;
+      }
+
+      while(true) {
+        bool filledAny;
+        foreach(coord; coordsByColor[fromColor].array) {
+          foreach(neighborColor; outerNeighbors) {
+            // deb(fromColor, " / ", neighborColor, " / ", coord);
+            if (canFill(coord, neighborColor)) {
+              fill(coord, neighborColor);
+              filledAny = true;
+              break;
+            }
           }
         }
 
-        if (aroundZero && canFill(coord, 0)) {
+        if (!filledAny) break;
+      }
+    }
+    
+    foreach_reverse(coords; searchCoords) {
+      foreach(coord; coords) {
+        if (canFill(coord, 0)) {
           fill(coord, 0);
         }
       }
