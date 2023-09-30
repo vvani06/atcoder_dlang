@@ -1,20 +1,12 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto N = scan!int;
+  auto S = scan;
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
-
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
-    }
-    foreach(i; 1..10) dfs(i, i);
-    
-    return rbt.array[K];
+    auto ans = S.countUntil("ABC");
+    return ans == -1 ? ans : ans + 1;
   }
 
   outputForAtCoder(&solve);
@@ -53,7 +45,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {

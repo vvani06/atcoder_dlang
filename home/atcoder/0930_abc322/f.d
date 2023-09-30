@@ -1,20 +1,46 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto N = scan!int;
+  auto QN = scan!int;
+  auto S = scan;
+  auto Q = scan!int(3 * QN).chunks(3);
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
-
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
+    auto swapped = [-1, N].redBlackTree;
+    foreach(i; 0..N - 1) {
+      if (S[i] != S[i + 1]) swapped.insert(i);
     }
-    foreach(i; 1..10) dfs(i, i);
     
-    return rbt.array[K];
+    foreach(q; Q) {
+      auto c = q[0];
+      auto l = q[1] - 1;
+      auto r = q[2];
+
+      if (c == 1) {
+        if (l > 0) {
+          if (swapped.removeKey(l - 1) == 0) swapped.insert(l - 1);
+        }
+        if (r < N) {
+          if (swapped.removeKey(r - 1) == 0) swapped.insert(r - 1);
+        }
+      } else if (c == 2) {
+        int ans;
+        auto target = swapped.upperBound(l - 1);
+        target.deb;
+        
+        auto pre = l - 1;
+        foreach(i; target) {
+          i = min(i, r - 1);
+          ans = max(ans, i - pre);
+          pre = i;
+
+          if (i == r - 1) break;
+        }
+
+        ans.writeln;
+      }
+    }
   }
 
   outputForAtCoder(&solve);

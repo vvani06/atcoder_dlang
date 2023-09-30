@@ -1,20 +1,58 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto N = scan!int;
+  auto M = scan!int;
+  auto R = scan!int(N * M).chunks(M).array;
+  
+  auto RND = Xorshift(unpredictableSeed);
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
+    auto A = M.iota.map!(m => N.iota.map!(n => R[n][m]).array).array;
+    swap(N, M);
 
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
+    const long idealScore = N * M;
+    auto scores = A.map!(a => a.dup.sort.array.uniq.array.length).array;
+    auto score = scores.sum;
+
+    auto ys = N.iota.array;
+    auto xs = M.iota.array;
+    int badCount;
+    while(!elapsed(1900)) {
+      if (score == idealScore) {
+        writeln("Yes");
+        auto ans = M.iota.map!(m => N.iota.map!(n => A[n][m]).array).array;
+        foreach(a; ans) "%(%s %)".writefln(a);
+        return;
+      }
+
+      ys.randomShuffle(RND);
+      auto x = xs.choice(RND);
+      auto y1 = ys[0];
+      auto y2 = ys[1];
+
+      swap(A[y1][x], A[y2][x]);
+
+      auto s1 = A[y1].dup.sort.array.uniq.array.length;
+      auto s2 = A[y2].dup.sort.array.uniq.array.length;
+      if (s1 + s2 + badCount/10 >= scores[y1] + scores[y2]) {
+        score -= scores[y1] + scores[y2];
+        scores[y1] = s1;
+        scores[y2] = s2;
+        score += scores[y1] + scores[y2];
+        badCount = 0;
+      } else {
+        badCount++;
+        swap(A[y1][x], A[y2][x]);
+      }
     }
-    foreach(i; 1..10) dfs(i, i);
-    
-    return rbt.array[K];
+
+    // score.deb;
+    writeln("No");
   }
 
   outputForAtCoder(&solve);

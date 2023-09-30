@@ -1,20 +1,50 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto P = scan!string(12).map!(s => s.map!(c => c == '#').array).array.chunks(4).array;
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
-
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
+    auto rotate(bool[][] grid) {
+      auto ret = grid.map!"a.dup".array;
+      foreach(y; 0..4) foreach(x; 0..4) {
+        ret[y][x] = grid[x][3 - y];
+      }
+      return ret;
     }
-    foreach(i; 1..10) dfs(i, i);
-    
-    return rbt.array[K];
+
+    auto rotated = new bool[][][][](3, 4, 4, 4);
+    foreach(i; 0..3) {
+      rotated[i][0] = rotate(P[i]);
+      foreach(r; 1..4) {
+        rotated[i][r] = rotate(rotated[i][r - 1]);
+      }
+    }
+
+    foreach(rots, xs, ys; cartesianProduct(basePacks(4, 3), basePacks(7, 3), basePacks(7, 3))) {
+      bool[4][4] grid;
+      int filled;
+
+      M: foreach(i; 0..3) {
+        auto p = rotated[i][rots[i]];
+        auto offsetX = xs[i];
+        auto offsetY = ys[i];
+
+        foreach(dy; 0..4)  foreach(dx; 0..4) {
+          if (!p[dy][dx]) continue;
+
+          auto y = offsetY - 3 + dy;
+          auto x = offsetX - 3 + dx;
+          if (min(x, y) < 0 || max(x, y) >= 4 || grid[y][x]) break M;
+
+          grid[y][x] = true;
+          filled++;
+        }
+      }
+
+      if (filled == 16) return true;
+    }
+
+    return false;
   }
 
   outputForAtCoder(&solve);
@@ -65,3 +95,15 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+long[][] basePacks(long base, long size) {
+  auto ret = new long[][](base^^size, size);
+  foreach(i; 0..base^^size) {
+    long x = i;
+    foreach(b; 0..size) {
+      ret[i][b] = x % base;
+      x /= base;
+    }
+  }
+  return ret;
+}

@@ -1,20 +1,19 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto N = scan!int;
+  auto M = scan!int;
+  auto S = scan;
+  auto T = scan;
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
+    auto pre = T.startsWith(S);
+    auto suf = T.endsWith(S);
 
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
-    }
-    foreach(i; 1..10) dfs(i, i);
-    
-    return rbt.array[K];
+    if (pre && suf) return 0;
+    if (pre) return 1;
+    if (suf) return 2;
+    return 3;
   }
 
   outputForAtCoder(&solve);

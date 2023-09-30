@@ -1,20 +1,63 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto K = scan!long;
+  auto N = scan!int;
+  auto K = scan!int;
+  auto P = scan!int;
+  auto CA = scan!int((K + 1) * N).chunks(K + 1).array;
 
   auto solve() {
-    auto rbt = [0L].redBlackTree;
+    enum INF = long.max / 3;
 
-    auto graph = 10.iota.map!(n => iota(n - 1, -1, -1).array).array;
-    
-    void dfs(long n, long pre) {
-      rbt.insert(n);
-      foreach(next; 0..pre) dfs(n*10 + next, next);
+    int[] div(int x) {
+      int[] ret;
+      foreach(i; 0..K) {
+        ret ~= x % 6;
+        x /= 6;
+      }
+
+      return ret;
     }
-    foreach(i; 1..10) dfs(i, i);
-    
-    return rbt.array[K];
+
+    int toId(int[] d) {
+      int ret;
+      foreach_reverse(a; d) {
+        ret *= 6;
+        ret += min(P, a);
+      }
+      return ret;
+    }
+
+    // div(292).deb;
+    // toId(div(292)).deb;
+
+    auto dp = new long[](6^^K);
+    dp[] = INF; dp[0] = 0;
+    auto pre = dp.dup;
+
+    // CA.deb;
+
+    long ans = INF;
+    foreach(ca; CA) {
+      long cost = ca[0];
+      auto add = ca[1..$];
+
+      pre = dp.dup;
+      foreach(from; 0..6^^K) {
+        // if (pre[from] == INF) continue;
+
+        int[] fp = div(from);
+        foreach(i; 0..K) fp[i] += add[i];
+        auto to = toId(fp);
+
+        if (dp[to].chmin(pre[from] + cost)) {
+          // deb(dp[to], fp);
+          if (fp.all!(a => a >= P)) ans = min(ans, dp[to]);
+        }
+      }
+    }
+
+    return ans == INF ? -1 : ans;
   }
 
   outputForAtCoder(&solve);
