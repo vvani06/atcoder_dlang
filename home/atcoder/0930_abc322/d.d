@@ -3,43 +3,69 @@ void main() { runSolver(); }
 void problem() {
   auto P = scan!string(12).map!(s => s.map!(c => c == '#').array).array.chunks(4).array;
 
-  auto solve() {
-    auto rotate(bool[][] grid) {
-      auto ret = grid.map!"a.dup".array;
-      foreach(y; 0..4) foreach(x; 0..4) ret[y][x] = grid[x][3 - y];
-      return ret;
+  struct Polyomino {
+    bool[4][4] p;
+    int minX = 4, minY = 4, maxX, maxY;
+
+    this(bool[][] v) {
+      foreach(x, y; cartesianProduct(4.iota, 4.iota)) p[y][x] = v[y][x];
     }
 
-    auto rotated = new bool[][][][](3, 4, 4, 4);
-    foreach(i; 0..3) {
-      rotated[i][0] = rotate(P[i]);
-      foreach(r; 1..4) rotated[i][r] = rotate(rotated[i][r - 1]);
+    bool valid() {
+      int c;
+      foreach(x, y; cartesianProduct(4.iota, 4.iota)) c += p[y][x];
+      return c >= 1;
     }
 
-    foreach(rots, xs, ys; cartesianProduct(basePacks(4, 3), basePacks(7, 3), basePacks(7, 3))) {
-      bool judge() {
-        bool[4][4] grid;
-        int filled;
-        static foreach(i; 0..3) {{
-          auto p = rotated[i][rots[i]];
-          auto offsetX = xs[i];
-          auto offsetY = ys[i];
-
-          static foreach(dx, dy; cartesianProduct(4.iota, 4.iota)) {
-            if (p[dy][dx]) {
-              auto y = offsetY - 3 + dy;
-              auto x = offsetX - 3 + dx;
-              if (min(x, y) < 0 || max(x, y) >= 4 || grid[y][x]) return false;
-
-              grid[y][x] = true;
-              filled++;
-            }
-          }
-        }}
-        return filled == 16;
+    Polyomino rotate() {
+      auto rotated = new bool[][](4, 4);
+      foreach(x, y; cartesianProduct(4.iota, 4.iota)) rotated[y][x] = p[x][3 - y];
+      return Polyomino(rotated);
+    }
+    
+    Polyomino shift(int x, int y) {
+      auto shifted = new bool[][](4, 4);
+      foreach(dx, dy; cartesianProduct(4.iota, 4.iota)) {
+        if (p[dy][dx]) {
+          auto nx = x + dx; 
+          auto ny = y + dy;
+          if (min(nx, ny) < 0 || max(nx, ny) >= 4) return Polyomino();
+          shifted[ny][nx] = p[dy][dx];
+        }
       }
+      return Polyomino(shifted);
+    }
+
+    int fill(ref bool[4][4] grid) {
+      int filled;
+      static foreach(x, y; cartesianProduct(4.iota, 4.iota)) {{
+        if (p[y][x]) {
+          if (grid[y][x]) return -1;
+
+          grid[y][x] = true;
+          filled++;
+        }
+      }}
+      return filled;
+    }
+  }
+
+  auto solve() {
+    auto polyominos = P.map!(p => [Polyomino(p)]).array;
+    foreach(i; 0..3) {
+      foreach(r; 1..4) polyominos[i] ~= polyominos[i][$ - 1].rotate();
+      foreach(r; 0..4) foreach(dx; -3..4) foreach(dy; -3..4) {
+        if (dx == 0 && dy == 0) continue;
+        auto shifted = polyominos[i][r].shift(dx, dy);
+        if (shifted.valid) polyominos[i] ~= shifted;
+      }
+    }
+    
+    foreach(choices; cartesianProduct(polyominos[0], polyominos[1], polyominos[2])) {
+      bool[4][4] grid;
       
-      if (judge()) return true;
+      auto filled = choices.array.map!(p => p.fill(grid)).array;
+      if (filled.all!"a >= 1" && filled.sum == 16) return true;
     }
 
     return false;
@@ -93,15 +119,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-long[][] basePacks(long base, long size) {
-  auto ret = new long[][](base^^size, size);
-  foreach(i; 0..base^^size) {
-    long x = i;
-    foreach(b; 0..size) {
-      ret[i][b] = x % base;
-      x /= base;
-    }
-  }
-  return ret;
-}
