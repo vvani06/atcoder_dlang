@@ -6,42 +6,40 @@ void problem() {
   auto solve() {
     auto rotate(bool[][] grid) {
       auto ret = grid.map!"a.dup".array;
-      foreach(y; 0..4) foreach(x; 0..4) {
-        ret[y][x] = grid[x][3 - y];
-      }
+      foreach(y; 0..4) foreach(x; 0..4) ret[y][x] = grid[x][3 - y];
       return ret;
     }
 
     auto rotated = new bool[][][][](3, 4, 4, 4);
     foreach(i; 0..3) {
       rotated[i][0] = rotate(P[i]);
-      foreach(r; 1..4) {
-        rotated[i][r] = rotate(rotated[i][r - 1]);
-      }
+      foreach(r; 1..4) rotated[i][r] = rotate(rotated[i][r - 1]);
     }
 
     foreach(rots, xs, ys; cartesianProduct(basePacks(4, 3), basePacks(7, 3), basePacks(7, 3))) {
-      bool[4][4] grid;
-      int filled;
+      bool judge() {
+        bool[4][4] grid;
+        int filled;
+        static foreach(i; 0..3) {{
+          auto p = rotated[i][rots[i]];
+          auto offsetX = xs[i];
+          auto offsetY = ys[i];
 
-      M: foreach(i; 0..3) {
-        auto p = rotated[i][rots[i]];
-        auto offsetX = xs[i];
-        auto offsetY = ys[i];
+          static foreach(dx, dy; cartesianProduct(4.iota, 4.iota)) {
+            if (p[dy][dx]) {
+              auto y = offsetY - 3 + dy;
+              auto x = offsetX - 3 + dx;
+              if (min(x, y) < 0 || max(x, y) >= 4 || grid[y][x]) return false;
 
-        foreach(dy; 0..4)  foreach(dx; 0..4) {
-          if (!p[dy][dx]) continue;
-
-          auto y = offsetY - 3 + dy;
-          auto x = offsetX - 3 + dx;
-          if (min(x, y) < 0 || max(x, y) >= 4 || grid[y][x]) break M;
-
-          grid[y][x] = true;
-          filled++;
-        }
+              grid[y][x] = true;
+              filled++;
+            }
+          }
+        }}
+        return filled == 16;
       }
-
-      if (filled == 16) return true;
+      
+      if (judge()) return true;
     }
 
     return false;
