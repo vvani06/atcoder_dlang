@@ -2,18 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto S = scan;
-  auto T = scan;
+  auto S = scan!int;
+  auto D = scan!int(N);
 
   auto solve() {
-    auto pre = T.startsWith(S);
-    auto suf = T.endsWith(S);
-
-    if (pre && suf) return 0;
-    if (pre) return 1;
-    if (suf) return 2;
-    return 3;
+    
   }
 
   outputForAtCoder(&solve);
