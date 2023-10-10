@@ -2,12 +2,60 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto A = scan!int(M).assumeSorted;
+  auto XYD = scan!int(3 * N).chunks(3).array;
+
+  enum BOUNDARY = 6001;
+  struct Coord {
+    int x, y;
+
+    Coord rotate45() {
+      auto rx = x + y;
+      auto ry = x - y + BOUNDARY/2;
+      return Coord(
+        min(BOUNDARY - 1, max(0, rx)),
+        min(BOUNDARY - 1, max(0, ry)),
+      );
+    }
+  }
 
   auto solve() {
-    foreach(i; 1..N + 1) {
-      writeln(A.upperBound(i - 1).front - i);
+    // 制約の X, Y, D が小さめなので、全ての座標に対してデータを持っておいて二次元累積和を作ることができる。
+    // 二次元累積和があると「とある四角形領域にいる人数」を 0(1) で答えられるようになる。
+    // ただし、今回は「マンハッタン距離」に基づく領域が問われており、これは菱形なので二次元累積和で使えない。
+    // そこで、座標の45度回転というテクニックを使って菱形を正方形として扱えるようにしている。
+
+    // 座標を45度回転して、2次元配列にフェネックの数をカウントしていく
+    auto matrix = new int[][](BOUNDARY, BOUNDARY);
+    foreach(xyd; XYD) {
+      auto c = Coord(xyd[0], xyd[1]);
+      auto r = c.rotate45();
+      matrix[r.y][r.x]++;
+    }
+    // ↑の2次元配列に対して「2次元累積和」を作成しておく
+    // 参考: https://qiita.com/drken/items/56a6b68edef8fc605821#4-%E4%BA%8C%E6%AC%A1%E5%85%83%E7%B4%AF%E7%A9%8D%E5%92%8C
+    auto accMatrix = new int[][](BOUNDARY + 1, BOUNDARY + 1);
+    foreach(y; 0..BOUNDARY) foreach(x; 0..BOUNDARY) {
+      accMatrix[y + 1][x + 1] = accMatrix[y][x + 1] + accMatrix[y + 1][x] - accMatrix[y][x];
+      if (matrix[y][x]) accMatrix[y + 1][x + 1]++;
+    }
+
+    foreach(xyd; XYD) {
+      auto x = xyd[0];
+      auto y = xyd[1];
+      auto d = xyd[2];
+      
+      // マンハッタン距離 d の範囲（＝菱形）を 45度回転 して正方形の領域にする
+      auto lt = Coord(x - d, y).rotate45();
+      auto lb = Coord(x, y - d).rotate45();
+      auto rt = Coord(x, y + d).rotate45();
+      auto rb = Coord(x + d, y).rotate45();
+
+      // 2次元配列に対してのクエリ算出部分
+      // 参考: https://qiita.com/drken/items/56a6b68edef8fc605821#4-%E4%BA%8C%E6%AC%A1%E5%85%83%E7%B4%AF%E7%A9%8D%E5%92%8C
+      int ans;
+      ans += accMatrix[lt.y][lt.x] + accMatrix[rb.y + 1][rb.x + 1];
+      ans -= accMatrix[lb.y + 1][lb.x] + accMatrix[rt.y][rt.x + 1];
+      writeln(ans);
     }
   }
 
@@ -47,7 +95,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
