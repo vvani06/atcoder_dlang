@@ -6,20 +6,43 @@ void problem() {
   auto R = scan!int(N);
 
   auto solve() {
-    auto pairCounts = 200001.iota.map!(n => n == 0 ? MInt9(0) : MInt9(1) / MInt9(n * (n + 1) / 2)).array;
+    enum MAX = 200_001;
+    auto invPairs = MAX.iota.map!(n => n == 0 ? MInt9(0) : MInt9(1) / MInt9(n * (n + 1) / 2)).array;
     
-    auto dp = new MInt9[](N);
+    auto deltas = new MInt9[](MAX * 2 + 1);
+    auto rates = new MInt9[](N + 1);
+    rates[0] = MInt9(1);
+    auto delta = MInt9(0);
+    auto rate = MInt9(0);
+
     MInt9 ans;
-    dp[0] = MInt9(1);
     foreach(x; 0..N) {
-      foreach(p; 1..R[x] + 1) {
-        if (p + x < N) {
-          dp[p + x] += dp[x] * MInt9(R[x] - p + 1) * pairCounts[R[x]];
-        } else {
-          ans += MInt9(p + x + 1) * dp[x] * MInt9(R[x] - p + 1) * pairCounts[R[x]];
-        }
-      }
+      rates[x] = x == 0 ? MInt9(1) : rate;
+
+      const r = x < N ? R[x] : 0;
+      delta += deltas[x];
+      deltas[x + 1] -= rates[x] * invPairs[r];
+      deltas[x + 1 + r] += rates[x] * invPairs[r];
+
+      rate += delta;
+      rate += rates[x] * MInt9(r) * invPairs[r];
     }
+    foreach(x; N..MAX * 2) {
+      ans += MInt9(x + 1) * rate;
+      delta += deltas[x];
+      rate += delta;
+    }
+
+  // O(N * ΣR) のナイーブ実装による答え
+  // ==================================
+  // 776412278
+  // ==================================
+  // 11
+  // ==================================
+  // 382380343
+  // ==================================
+  // 910922247
+  // ==================================
 
     return ans;
   }
