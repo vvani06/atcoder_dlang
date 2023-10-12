@@ -1,74 +1,27 @@
 void main() { runSolver(); }
 
+// https://products.sint.co.jp/hubfs/resource/topsic/pgb2021/3_3.pdf
 void problem() {
-  auto P = scan!string(12).map!(s => s.map!(c => c == '#').array).array.chunks(4).array;
-
-  struct Polyomino {
-    bool[4][4] p;
-    int minX = 4, minY = 4, maxX, maxY;
-
-    this(bool[][] v) {
-      foreach(x, y; cartesianProduct(4.iota, 4.iota)) p[y][x] = v[y][x];
-    }
-
-    bool valid() {
-      int c;
-      foreach(x, y; cartesianProduct(4.iota, 4.iota)) c += p[y][x];
-      return c >= 1;
-    }
-
-    Polyomino rotate() {
-      auto rotated = new bool[][](4, 4);
-      foreach(x, y; cartesianProduct(4.iota, 4.iota)) rotated[y][x] = p[x][3 - y];
-      return Polyomino(rotated);
-    }
-    
-    Polyomino shift(int x, int y) {
-      auto shifted = new bool[][](4, 4);
-      foreach(dx, dy; cartesianProduct(4.iota, 4.iota)) {
-        if (p[dy][dx]) {
-          auto nx = x + dx; 
-          auto ny = y + dy;
-          if (min(nx, ny) < 0 || max(nx, ny) >= 4) return Polyomino();
-          shifted[ny][nx] = p[dy][dx];
-        }
-      }
-      return Polyomino(shifted);
-    }
-
-    int fill(ref bool[4][4] grid) {
-      int filled;
-      static foreach(x, y; cartesianProduct(4.iota, 4.iota)) {{
-        if (p[y][x]) {
-          if (grid[y][x]) return -1;
-
-          grid[y][x] = true;
-          filled++;
-        }
-      }}
-      return filled;
-    }
-  }
+  auto N = scan!int;
+  auto R = scan!int(N);
 
   auto solve() {
-    auto polyominos = P.map!(p => [Polyomino(p)]).array;
-    foreach(i; 0..3) {
-      foreach(r; 1..4) polyominos[i] ~= polyominos[i][$ - 1].rotate();
-      foreach(r; 0..4) foreach(dx; -3..4) foreach(dy; -3..4) {
-        if (dx == 0 && dy == 0) continue;
-        auto shifted = polyominos[i][r].shift(dx, dy);
-        if (shifted.valid) polyominos[i] ~= shifted;
+    auto pairCounts = 200001.iota.map!(n => n == 0 ? MInt9(0) : MInt9(1) / MInt9(n * (n + 1) / 2)).array;
+    
+    auto dp = new MInt9[](N);
+    MInt9 ans;
+    dp[0] = MInt9(1);
+    foreach(x; 0..N) {
+      foreach(p; 1..R[x] + 1) {
+        if (p + x < N) {
+          dp[p + x] += dp[x] * MInt9(R[x] - p + 1) * pairCounts[R[x]];
+        } else {
+          ans += MInt9(p + x + 1) * dp[x] * MInt9(R[x] - p + 1) * pairCounts[R[x]];
+        }
       }
     }
-    
-    foreach(choices; cartesianProduct(polyominos[0], polyominos[1], polyominos[2])) {
-      bool[4][4] grid;
-      
-      auto filled = choices.array.map!(p => p.fill(grid)).array;
-      if (filled.all!"a >= 1" && filled.sum == 16) return true;
-    }
 
-    return false;
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -107,7 +60,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
