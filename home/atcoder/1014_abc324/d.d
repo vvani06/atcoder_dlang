@@ -5,26 +5,23 @@ void problem() {
   auto S = scan;
 
   auto solve() {
-    auto squares = new string[](0);
-    foreach(n; 0L..long.max) {
-      long sq = n^^2;
-
-      auto sqs = format("%0" ~ N.to!string ~ "d", sq);
-      if (sqs.length > N) break;
-
-      squares ~= sqs;
-    }
-
     auto idealCounts = new int[](10);
     foreach(c; S) idealCounts[c - '0']++;
 
+    const largest = S.array.sort!"a > b".to!string.to!long;
     int ans;
-    foreach(s; squares) {
-      auto counts = 0.repeat(10).array;
-      foreach(c; s) counts[c - '0']++;
+    for(long n = 0; n^^2 <= largest; n++) {
+      long sq = n ^^ 2;
 
-      if (counts == idealCounts) ans++;
+      auto counts = idealCounts.dup;
+      foreach(_; 0..N) {
+        if (--counts[sq % 10] < 0) break;
+        sq /= 10;
+      }
+
+      if (counts.all!"a == 0") ans++;
     }
+    
     return ans;
   }
 

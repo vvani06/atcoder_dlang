@@ -4,19 +4,9 @@ void problem() {
   auto N = scan!long;
 
   auto solve() {
-    foreach(x; 0..64) {
-      long a = 2L^^x;
-      if (a > N) break;
-
-      foreach(y; 0..64) {
-        if (a == N) return true;
-        if (a > N) break;
-
-        a *= 3L;
-      }
-    }
-
-    return false;
+    long n = N;
+    foreach(d; [2, 3]) while(n % d == 0) n /= d;
+    return n == 1;
   }
 
   outputForAtCoder(&solve);

@@ -7,10 +7,6 @@ void problem() {
 
   auto solve() {
     int[] ans;
-    auto base = 26.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T) {
-      base[c - 'a'].insert(i.to!int);
-    }
 
     foreach(n; 0..N) {
       bool isOk;
