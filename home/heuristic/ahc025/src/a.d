@@ -5,26 +5,76 @@ void main() {
   int D = scan!int;
   int Q = scan!int;
 
-  auto solve() {
-    foreach(_; 0..Q) {
-      int[] setL, setR;
+  struct Comparer {
+    int comparedCount;
 
-      setL ~= iota(N / 2).randomSample(3).array;
-      setR ~= iota(N / 2, N).randomSample(3).array;
-
-      writefln("%s %s %(%s %) %(%s %)", setL.length, setR.length, setL, setR);
+    int compare(T)(T l, T r) {
+      auto la = l.array;
+      auto ra = r.array;
+      writefln("%s %s %(%s %) %(%s %)", la.length, ra.length, la, ra);
       stdout.flush();
+      comparedCount++;
 
-      scan();
+      auto ret = scan();
+      return ret == "<" ? -1 : ret == "=" ? 0 : 1;
     }
 
-    int[] ans = new int[](N);
-    foreach(d; 0..D) {
-      ans[(N / D)*d..$] = d;
+    void finalize() {
+      while(comparedCount++ < Q) {
+        writeln("1 1 1 2");
+        stdout.flush();
+        scan();
+      }
     }
-    ans.randomShuffle();
 
-    writefln("%(%s %)", ans);
+    bool canCompare() {
+      return comparedCount < Q;
+    }
+  }
+
+  auto solve() {
+    auto sets = D.iota.map!(_ => new int[](0).redBlackTree).array; {
+      int[] setIds = new int[](N);
+      foreach(d; 0..D) setIds[(N / D)*d..$] = d;
+      setIds.randomShuffle();
+      foreach(i, sid; setIds) sets[sid].insert(i.to!int);
+    }
+    auto ans = () {
+      auto ret = new int[](N);
+      foreach(i, s; sets) foreach(n; s) ret[n] = i.to!int;
+      return ret;
+    };
+
+    auto comparer = Comparer();
+    while(comparer.canCompare()) {
+      writefln("#c %(%s %)", ans());
+      auto toSwap = D.iota.randomSample(2).array;
+
+      int l = toSwap[0];
+      int r = toSwap[1];
+      auto before = comparer.compare(sets[l], sets[r]);
+
+      if (!comparer.canCompare) break;
+      if (before == 0) continue;
+      
+      // l < r として、 ランダムに1つ r => l してもう一回測る
+      if (before == 1) swap(l, r);
+      if (sets[r].array.length == 1) continue;
+
+      auto swappee = sets[r].array.choice();
+      sets[r].removeKey(swappee);
+      sets[l].insert(swappee);
+      auto after = comparer.compare(sets[l], sets[r]);
+
+      // 大小が入れ替わるなら元に戻す
+      if (after == 1) {
+        sets[l].removeKey(swappee);
+        sets[r].insert(swappee);
+      }
+    }
+    
+    comparer.finalize();
+    writefln("%(%s %)", ans());
     stdout.flush();
   }
 
