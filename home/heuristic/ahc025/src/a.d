@@ -19,13 +19,10 @@ void main() {
     }
 
     int[] ans = new int[](N);
-    foreach(i; 0..N) {
-      if (i < D) {
-        ans[i] = i;
-      } else {
-        ans[i] = uniform(0, D);
-      }
+    foreach(d; 0..D) {
+      ans[(N / D)*d..$] = d;
     }
+    ans.randomShuffle();
 
     writefln("%(%s %)", ans);
     stdout.flush();
