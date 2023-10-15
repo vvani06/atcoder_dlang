@@ -1,5 +1,9 @@
 tester/**
 !tester/test.sh
 !tester/tester
+!tester/*.html
+!tester/*.d
+
+
 src/out
 tools/

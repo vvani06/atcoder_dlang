@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AHC025 score report</title>
+  </head>
+  <body>
+    <h1>AHC025 Score Reporter</h1>
+    <div id="app">
+      <table border>
+        <thead>
+          <tr>
+            <td nowrap>execution datetime</td>
+            <td nowrap>total %</td>
+            <td v-for="caseId in cases" nowrap>
+              case #{{ caseId }}
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="report in reports">
+            <td nowrap>{{ report.execute_datetime }}</td>
+            <td nowrap>{{ totalRate(report) }}</td>
+            <td v-for="caseId in cases" nowrap>
+              {{ scoreRateAt(report, caseId) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <script type="module">
+      import { createApp } from "https://unpkg.com/vue@3.2.4/dist/vue.esm-browser.js";
+      import totalReport from "./reports/total.json" assert { type: 'json' };
+
+      createApp({
+        setup() {
+          const reports = totalReport.reports;
+          let cases = [];
+          for(let i = 0; i < 100; i++) cases.push(i);
+
+          const scoreAt = (report, caseId) => report[`${caseId}`].score;
+          const worstScoreAt = (caseId) => Math.max(...reports.map(r => scoreAt(r, caseId)));
+          const scoreRateAt = (report, caseId) => parseInt(scoreAt(report, caseId) * 10000 / worstScoreAt(caseId));
+          const totalRate = (report) => cases.map(caseId => scoreRateAt(report, caseId)).reduce((a, b) => a + b, 0);
+
+          return {
+            cases,
+            reports,
+            scoreRateAt,
+            totalRate,
+          }
+        },
+      }).mount('#app');
+    </script>
+  </body>
+</html>
