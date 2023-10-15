@@ -19,7 +19,7 @@
         <tbody>
           <tr v-for="report in reports">
             <td nowrap>{{ report.execute_datetime }}</td>
-            <td nowrap>{{ totalRate(report) }}</td>
+            <td nowrap>{{ totalRateRate(report) }}</td>
             <td v-for="caseId in cases" nowrap>
               {{ scoreRateAt(report, caseId) }}
             </td>
@@ -41,12 +41,14 @@
           const worstScoreAt = (caseId) => Math.max(...reports.map(r => scoreAt(r, caseId)));
           const scoreRateAt = (report, caseId) => parseInt(scoreAt(report, caseId) * 10000 / worstScoreAt(caseId));
           const totalRate = (report) => cases.map(caseId => scoreRateAt(report, caseId)).reduce((a, b) => a + b, 0);
+          const worstTotalRate = () => Math.max(...reports.map(r => totalRate(r)));
+          const totalRateRate = (report) => parseInt(totalRate(report) * 10000 / worstTotalRate());
 
           return {
             cases,
             reports,
             scoreRateAt,
-            totalRate,
+            totalRateRate,
           }
         },
       }).mount('#app');
