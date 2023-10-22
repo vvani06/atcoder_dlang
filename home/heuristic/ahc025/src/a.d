@@ -5,12 +5,65 @@ void main() {
   int D = scan!int;
   int Q = scan!int;
 
+  struct Items {
+    RedBlackTree!int[] sets;
+
+    auto asAns() {
+      auto ret = new int[](N);
+      foreach(i, s; sets) foreach(n; s) ret[n] = i.to!int;
+      return ret;
+    }
+
+    bool swap(int l, int r, int item) {
+      if (!(item in sets[r])) return false;
+
+      sets[r].removeKey(item);
+      sets[l].insert(item);
+      return true;
+    }
+  }
+
   struct Comparer {
     int comparedCount;
+    Items items;
+    int[26][26] cache;
 
-    int compare(T)(T l, T r) {
-      auto la = l.array;
-      auto ra = r.array;
+    auto sets() { return items.sets; }
+    void initialize() {
+      foreach(i; 0..26) foreach(j; 0..26) cache[i][j] = 9;
+    }
+
+    int compareSwapped(int l, int r, int item) {
+      if (sets[l].empty && sets[r].empty) return 0;
+      if (sets[l].empty) return -1;
+      if (sets[r].empty) return 1;
+
+      if (comparedCount >= Q) throw new StringException("overcompared");
+
+      auto ls = sets[l].dup;
+      auto rs = sets[r].dup;
+      ls.insert(item);
+      rs.removeKey(item);
+
+      auto la = ls.array;
+      auto ra = rs.array;
+      writefln("%s %s %(%s %) %(%s %)", la.length, ra.length, la, ra);
+      stdout.flush();
+      comparedCount++;
+
+      auto ret = scan();
+      return ret == "<" ? -1 : ret == "=" ? 0 : 1;
+    }
+
+    int compare(int l, int r) {
+      if (sets[l].empty && sets[r].empty) return 0;
+      if (sets[l].empty) return -1;
+      if (sets[r].empty) return 1;
+
+      if (comparedCount >= Q) throw new StringException("overcompared");
+
+      auto la = sets[l].array;
+      auto ra = sets[r].array;
       writefln("%s %s %(%s %) %(%s %)", la.length, ra.length, la, ra);
       stdout.flush();
       comparedCount++;
@@ -27,6 +80,15 @@ void main() {
       }
     }
 
+    void swap(int l, int r, int item) {
+      if (!items.swap(l, r, item)) return;
+
+      foreach(i; 0..26) foreach(j; [l, r]) {
+        cache[i][j] = 9;
+        cache[j][i] = 9;
+      }
+    }
+
     bool canCompare() {
       return comparedCount < Q;
     }
@@ -39,42 +101,72 @@ void main() {
       setIds.randomShuffle();
       foreach(i, sid; setIds) sets[sid].insert(i.to!int);
     }
-    auto ans = () {
-      auto ret = new int[](N);
-      foreach(i, s; sets) foreach(n; s) ret[n] = i.to!int;
-      return ret;
-    };
+    auto items = Items(sets);
+    auto comparer = Comparer(0, items);
+    comparer.initialize();
 
-    auto comparer = Comparer();
-    while(comparer.canCompare()) {
-      writefln("#c %(%s %)", ans());
+    void randomSwap() {
       auto toSwap = D.iota.randomSample(2).array;
 
       int l = toSwap[0];
       int r = toSwap[1];
-      auto before = comparer.compare(sets[l], sets[r]);
-
-      if (!comparer.canCompare) break;
-      if (before == 0) continue;
+      auto before = comparer.compare(l, r);
+      if (before == 0) return;
       
       // l < r として、 ランダムに1つ r => l してもう一回測る
       if (before == 1) swap(l, r);
-      if (sets[r].array.length == 1) continue;
+      if (sets[r].array.length == 1) return;
 
       auto swappee = sets[r].array.choice();
-      sets[r].removeKey(swappee);
-      sets[l].insert(swappee);
-      auto after = comparer.compare(sets[l], sets[r]);
+      auto after = comparer.compareSwapped(l, r, swappee);
 
-      // 大小が入れ替わるなら元に戻す
-      if (after == 1) {
-        sets[l].removeKey(swappee);
-        sets[r].insert(swappee);
+      // l <= r が維持されているなら実際に入れ替える
+      if (after != 1) {
+        comparer.swap(l, r, swappee);
       }
+    }
+
+    void swapLargest() {
+      int largest;
+      foreach(i; 1..D) {
+        const c = comparer.compare(largest, i);
+        if (c == -1) largest = i;
+      }
+      writefln("# largest bag id: %s", largest);
+
+      auto sizes = D.iota.map!(a => [a, sets[a].length.to!int]).array.sort!"a[1] > b[1]";
+      auto sr = sets[largest].dup;
+      auto swappee = sr.array.choice();
+      foreach(i; sizes.map!"a[0]") {
+        if (i == largest) continue;
+
+        auto after = comparer.compareSwapped(i, largest, swappee);
+
+       // l <= r が維持されているなら実際に入れ替える
+        if (after != 1) {
+          comparer.swap(i, largest, swappee);
+          return;
+        }
+      }
+
+      // 巨大なアイテムしか残っていない
+      // TODO
+    }
+
+    for(int turn = 0; comparer.canCompare(); turn++) {
+      writefln("#c %(%s %)", items.asAns());
+      try {
+        if (turn % D == D - 1) {
+          swapLargest();
+        } else {
+          randomSwap();
+        }
+
+      } catch(Exception e) { break; } 
     }
     
     comparer.finalize();
-    writefln("%(%s %)", ans());
+    writefln("%(%s %)", items.asAns());
     stdout.flush();
   }
 
