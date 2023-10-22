@@ -50,6 +50,10 @@ void main() {
       }
       return -1;
     }
+
+    auto swappable() {
+      return D.iota.filter!(a => !fixed[a]).array;
+    }
   }
 
   struct Comparer {
@@ -146,10 +150,11 @@ void main() {
     }
 
     void randomSwap(int fixedFrom = -1) {
-      auto toSwap = D.iota.randomSample(2).array;
+      auto swappable = items.swappable;
+      auto toSwap = swappable.randomSample(2).array;
       if (fixedFrom != -1) {
         toSwap[1] = fixedFrom;
-        toSwap[0] = D.iota.filter!(a => a != fixedFrom).array.choice();
+        toSwap[0] = swappable.filter!(a => a != fixedFrom).array.choice();
       }
 
       int l = toSwap[0];
@@ -175,8 +180,11 @@ void main() {
     }
 
     void swapLargest() {
-      int largest;
-      foreach(i; 1..D) {
+      auto swappable = items.swappable();
+      if (swappable.length <= 1) return;
+
+      int largest = swappable[0];
+      foreach(i; swappable[1..$]) {
         const c = comparer.compare(largest, i);
         if (c == -1) largest = i;
       }
@@ -187,50 +195,31 @@ void main() {
         return;
       }
 
-      auto swappee = items.choiceFreeItem(largest);
-      if (swappee == -1) return;
+      int smallest = swappable[0];
+      foreach(i; swappable[1..$]) {
+        const c = comparer.compare(smallest, i);
+        if (c == 1) smallest = i;
+      }
+      writefln("# smallest bag id: %s", smallest);
 
-      auto sizes = D.iota.map!(a => [a, sets[a].length.to!int]).array.sort!"a[1] > b[1]";
-      foreach(i; sizes.map!"a[0]") {
-        if (i == largest || items.fixed[i]) continue;
+      foreach(swappee; sets[largest].dup) {
+        if (!items.isFree(swappee)) continue;
 
-        auto after = comparer.compareSwapped(i, largest, swappee);
+        auto after = comparer.compareSwapped(smallest, largest, swappee);
 
         // l <= r が維持されているなら実際に入れ替える
         if (after != 1) {
-          writefln("# largest swap %s: %s => %s", swappee, largest, i);
-          comparer.swap(i, largest, swappee);
-          comparer.setComparedCache(i, largest, after);
-          items.fix(swappee, i);
-          return;
+          writefln("# largest swap %s: %s => %s", swappee, largest, smallest);
+          comparer.swap(smallest, largest, swappee);
+          comparer.setComparedCache(smallest, largest, after);
+          // items.fix(swappee, smallest);
         }
       }
-
-      // 巨大なアイテムしか残っていない
-      foreach(i; sizes.map!"a[0]") {
-        if (i == largest || items.fixed[i]) continue;
-        
-        // 強制的に入れ替えて、そのアイテムは固定する
-        writefln("# largest swap2 %s: %s => %s", swappee, largest, i);
-        comparer.swap(i, largest, swappee);
-        items.fix(swappee, i);
-        break;
-      }
-
-      foreach(_; 0..D) {
-        randomSwap(largest);
-      }
-
-      // int smallest;
-      // foreach(i; 1..D) {
-      //   const c = comparer.compare(smallest, i);
-      //   if (c == 1) smallest = i;
-      // }
-      // foreach(_; )
+      
     }
 
     for(int turn = 0; comparer.canCompare(); turn++) {
-      if (elapsed(1800)) break;
+      if (elapsed(1800) || items.swappable.length <= 1) break;
       
       writefln("#c %(%s %)", items.asAns());
       try {
