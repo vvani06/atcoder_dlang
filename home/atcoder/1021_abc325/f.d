@@ -2,40 +2,44 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto T = scan;
-  auto S = scan!string(N);
+  auto M = scan!int;
+  auto E = scan!int(4 * M).chunks(4);
 
   auto solve() {
-    auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
+    alias Edge = Tuple!(int, "from", int, "to", int, "score", int, "cost");
+    
+    auto graph = new Edge[][](N, 0);
+    foreach(e; E) {
+      e[0]--;
+      e[1]--;
+      graph[e[0]] ~= Edge(e[0], e[1], e[2], e[3]);
     }
 
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
+    int[int][] evals;
+    evals.length = N;
+    evals[0][0] = 0;
+    foreach(node; 0..N) {
+      foreach(e; graph[node]) {
+        foreach(k, v; evals[node]) {
+          auto score = v + e.score;
+          auto cost = k + e.cost;
 
-      l = uppers.front;
-      prefix++;
+          if (cost in evals[e.to]) {
+            evals[e.to][cost].chmax(score);
+          } else {
+            evals[e.to][cost] = score;
+          }
+        }
+      }
     }
 
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
+    evals.deb;
 
-      r = lowers.back;
-      suffix++;
+    real ans = 0;
+    foreach(k, v; evals[N - 1]) {
+      ans = max(ans, v.to!real / k.to!real);
     }
-    [prefix, suffix].deb;
+    return ans;
   }
 
   outputForAtCoder(&solve);

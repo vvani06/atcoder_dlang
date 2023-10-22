@@ -2,40 +2,36 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto T = scan;
-  auto S = scan!string(N);
+  auto A = scan!long;
+  auto B = scan!long;
+  auto C = scan!long;
+  auto D = scan!long(N * N).chunks(N).array;
 
   auto solve() {
-    auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
+    alias Edge = Tuple!(int, "to", long, "cost");
+
+    long[] calcCosts(alias pred)(int start) {
+      auto costs = (long.max / 2).repeat(N).array;
+      costs[start] = 0;
+      for(auto queue = [Edge(start, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+        auto p = queue.front;
+        queue.removeFront;
+        if (costs[p.to] != p.cost) continue;
+
+        auto from = p.to;
+        foreach(to; 0..N) {
+          auto cost = p.cost + pred(from, to);
+          if (costs[to].chmin(cost)) {
+            queue.insert(Edge(to, cost));
+          }
+        }
+      }
+      return costs;
     }
 
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
-
-      l = uppers.front;
-      prefix++;
-    }
-
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
-
-      r = lowers.back;
-      suffix++;
-    }
-    [prefix, suffix].deb;
+    const byCar = (long f, long t) => D[f][t] * A;
+    const byTrain = (long f, long t) => D[f][t] * B + C;
+    return zip(calcCosts!byCar(0), calcCosts!byTrain(N - 1)).map!"a[0] + a[1]".minElement;
   }
 
   outputForAtCoder(&solve);

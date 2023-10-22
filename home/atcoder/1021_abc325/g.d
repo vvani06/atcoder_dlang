@@ -2,40 +2,9 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto T = scan;
-  auto S = scan!string(N);
 
   auto solve() {
-    auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
-    }
-
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
-
-      l = uppers.front;
-      prefix++;
-    }
-
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
-
-      r = lowers.back;
-      suffix++;
-    }
-    [prefix, suffix].deb;
+    "1 1000000000000".repeat(1000).joiner(" ").writeln;
   }
 
   outputForAtCoder(&solve);

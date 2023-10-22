@@ -2,40 +2,33 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto T = scan;
-  auto S = scan!string(N);
+  auto TD = scan!long(N * 2).chunks(2).map!(a => [a[0], a[0] + a[1]]).array;
 
   auto solve() {
-    auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
+    enum INF = long.max / 2;
+    long[][long] items;
+    foreach(td; TD) items[td[0]] ~= td[1];
+    auto times = (TD.map!"a[0]".array ~ INF).sort;
+
+    auto heap = new long[](0).redBlackTree!true;
+    long cur;
+
+    int ans;
+    while(!times.upperBound(cur).empty || !heap.empty) {
+      heap.insert(items.get(cur, []));
+      
+      if (heap.empty) {
+        if (!times.upperBound(cur).empty) cur = times.upperBound(cur).front;
+      } else {
+        while(!heap.empty && heap.front < cur) heap.removeFront;
+        if (!heap.empty) {
+          ans++;
+          cur++;
+          heap.removeFront;
+        }
+      }
     }
-
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
-
-      l = uppers.front;
-      prefix++;
-    }
-
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
-
-      r = lowers.back;
-      suffix++;
-    }
-    [prefix, suffix].deb;
+    return ans;
   }
 
   outputForAtCoder(&solve);

@@ -1,41 +1,31 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto T = scan;
-  auto S = scan!string(N);
+  auto H = scan!int;
+  auto W = scan!int;
+  auto S = scan!string(H);
 
   auto solve() {
-    auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
+    auto uf = UnionFind(H * W);
+
+    foreach(y; 0..H) foreach(x; 0..W) {
+      if (S[y][x] == '.') continue;
+
+      foreach(dx, dy; cartesianProduct(iota(-1, 2, 1), iota(-1, 2, 1))) {
+        auto nx = x + dx;
+        auto ny = y + dy;
+        if (min(nx, ny) < 0 || nx >= W || ny >= H) continue;
+        if (S[ny][nx] == '.') continue;
+
+        uf.unite(y * W + x, ny * W + nx);
+      }
     }
 
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
-
-      l = uppers.front;
-      prefix++;
+    bool[int] ans;
+    foreach(y; 0..H) foreach(x; 0..W) {
+      if (S[y][x] == '#') ans[uf.root(y * W + x)] = true;
     }
-
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
-
-      r = lowers.back;
-      suffix++;
-    }
-    [prefix, suffix].deb;
+    return ans.length;
   }
 
   outputForAtCoder(&solve);
@@ -86,3 +76,44 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct UnionFind {
+  int[] parent;
+  int[] sizes;
+ 
+  this(int size) {
+    parent = size.iota.array;
+    sizes = 1.repeat(size).array;
+  }
+ 
+  int root(int x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+ 
+  int unite(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    if (rootX == rootY) return rootY;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      sizes[rootY] += sizes[rootX];
+      return parent[rootX] = rootY;
+    } else {
+      sizes[rootX] += sizes[rootY];
+      return parent[rootY] = rootX;
+    }
+  }
+ 
+  bool same(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY;
+  }
+}
