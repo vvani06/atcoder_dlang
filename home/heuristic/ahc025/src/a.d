@@ -31,6 +31,7 @@ void main() {
 
       sets[r].removeKey(item);
       sets[l].insert(item);
+      writefln("#c %(%s %)", asAns());
       return true;
     }
 
@@ -53,6 +54,13 @@ void main() {
 
     auto swappable() {
       return D.iota.filter!(a => !fixed[a]).array;
+    }
+
+    auto bag(int item) {
+      foreach(i; 0..D) {
+        if (item in sets[i]) return i;        
+      }
+      return -1;
     }
   }
 
@@ -219,6 +227,34 @@ void main() {
       }
     }
 
+    void swapSmallest() {
+      auto swappable = items.swappable();
+      if (swappable.length <= 1) return;
+
+      int smallest = swappable[0];
+      foreach(i; swappable[1..$]) {
+        const c = comparer.compare(smallest, i);
+        if (c == 1) smallest = i;
+      }
+      writefln("# smallest bag id: %s", smallest);
+
+      foreach(swappee; items.freeItems) {
+        if (!items.isFree(swappee)) continue;
+
+        auto larger = items.bag(swappee);
+        if (larger == smallest) continue;
+
+        auto after = comparer.compareSwapped(smallest, larger, swappee);
+
+        // l <= r が維持されているなら実際に入れ替える
+        if (after != 1) {
+          writefln("# smallest swap %s: %s => %s", swappee, larger, smallest);
+          comparer.swap(smallest, larger, swappee);
+          comparer.setComparedCache(smallest, larger, after);
+        }
+      }
+    }
+
     for(int turn = 0; comparer.canCompare(); turn++) {
       if (elapsed(1800) || items.swappable.length <= 1) break;
       
@@ -226,6 +262,7 @@ void main() {
       try {
         if (comparer.comparedCount < (Q * 2 / 3) && turn % D == D - 1) {
           swapLargest();
+          // swapSmallest();
         } else {
           randomSwap();
         }
