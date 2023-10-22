@@ -202,20 +202,21 @@ void main() {
       }
       writefln("# smallest bag id: %s", smallest);
 
+      int swapped;
       foreach(swappee; sets[largest].dup) {
         if (!items.isFree(swappee)) continue;
 
         auto after = comparer.compareSwapped(smallest, largest, swappee);
 
         // l <= r が維持されているなら実際に入れ替える
-        if (after != 1) {
+        if (swapped == 0 || after != 1) {
+          swapped++;
           writefln("# largest swap %s: %s => %s", swappee, largest, smallest);
           comparer.swap(smallest, largest, swappee);
           comparer.setComparedCache(smallest, largest, after);
           // items.fix(swappee, smallest);
         }
       }
-      
     }
 
     for(int turn = 0; comparer.canCompare(); turn++) {
@@ -223,7 +224,7 @@ void main() {
       
       writefln("#c %(%s %)", items.asAns());
       try {
-        if (comparer.comparedCount < Q / 2 && turn % D == D - 1) {
+        if (comparer.comparedCount < (Q * 2 / 3) && turn % D == D - 1) {
           swapLargest();
         } else {
           randomSwap();
