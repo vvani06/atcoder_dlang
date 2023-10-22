@@ -5,6 +5,11 @@ void main() {
   int D = scan!int;
   int Q = scan!int;
 
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
+
   struct Items {
     RedBlackTree!int[] sets;
 
@@ -35,15 +40,15 @@ void main() {
 
     int compareSwapped(int l, int r, int item) {
       if (sets[l].empty && sets[r].empty) return 0;
-      if (sets[l].empty) return -1;
-      if (sets[r].empty) return 1;
-
-      if (comparedCount >= Q) throw new StringException("overcompared");
 
       auto ls = sets[l].dup;
       auto rs = sets[r].dup;
       ls.insert(item);
       rs.removeKey(item);
+
+      if (ls.empty) return -1;
+      if (rs.empty) return 1;
+      if (comparedCount >= Q) throw new StringException("overcompared");
 
       auto la = ls.array;
       auto ra = rs.array;
@@ -59,6 +64,7 @@ void main() {
       if (sets[l].empty && sets[r].empty) return 0;
       if (sets[l].empty) return -1;
       if (sets[r].empty) return 1;
+      if (cache[l][r] != 9) return cache[l][r];
 
       if (comparedCount >= Q) throw new StringException("overcompared");
 
@@ -69,7 +75,14 @@ void main() {
       comparedCount++;
 
       auto ret = scan();
-      return ret == "<" ? -1 : ret == "=" ? 0 : 1;
+      auto result = ret == "<" ? -1 : ret == "=" ? 0 : 1;
+      return setComparedCache(l, r, result);
+    }
+
+    int setComparedCache(int l, int r, int comparedResult) {
+      cache[l][r] = comparedResult;
+      cache[r][l] = comparedResult * -1;
+      return comparedResult;
     }
 
     void finalize() {
@@ -123,6 +136,7 @@ void main() {
       // l <= r が維持されているなら実際に入れ替える
       if (after != 1) {
         comparer.swap(l, r, swappee);
+        comparer.setComparedCache(l, r, after);
       }
     }
 
@@ -145,18 +159,27 @@ void main() {
        // l <= r が維持されているなら実際に入れ替える
         if (after != 1) {
           comparer.swap(i, largest, swappee);
+          comparer.setComparedCache(i, largest, after);
           return;
         }
       }
 
       // 巨大なアイテムしか残っていない
-      // TODO
+      foreach(i; sizes.map!"a[0]") {
+        if (i == largest) continue;
+        
+        // 強制的に入れ替えて、そのアイテムは固定する
+        comparer.swap(i, largest, swappee);
+        return;
+      }
     }
 
     for(int turn = 0; comparer.canCompare(); turn++) {
+      if (elapsed(1800)) break;
+      
       writefln("#c %(%s %)", items.asAns());
       try {
-        if (turn % D == D - 1) {
+        if (comparer.comparedCount < Q / 2 && turn % D == D - 1) {
           swapLargest();
         } else {
           randomSwap();
