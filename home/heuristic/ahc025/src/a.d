@@ -12,6 +12,13 @@ void main() {
 
   struct Items {
     RedBlackTree!int[] sets;
+    RedBlackTree!int fixedItems, freeItems;
+    bool[26] fixed;
+
+    void initialize() {
+      freeItems = N.iota.redBlackTree;
+      fixedItems = new int[](0).redBlackTree;
+    }
 
     auto asAns() {
       auto ret = new int[](N);
@@ -25,6 +32,23 @@ void main() {
       sets[r].removeKey(item);
       sets[l].insert(item);
       return true;
+    }
+
+    void fix(int item, int bag) {
+      fixedItems.insert(item);
+      freeItems.removeKey(item);
+      fixed[bag] = true;
+    }
+
+    bool isFree(int item) {
+      return (item in freeItems);
+    }
+
+    int choiceFreeItem(int bag) {
+      foreach(s; sets[bag].array.randomShuffle) {
+        if (isFree(s)) return s;
+      }
+      return -1;
     }
   }
 
@@ -114,12 +138,19 @@ void main() {
       setIds.randomShuffle();
       foreach(i, sid; setIds) sets[sid].insert(i.to!int);
     }
-    auto items = Items(sets);
-    auto comparer = Comparer(0, items);
-    comparer.initialize();
+    auto items = Items(sets); {
+      items.initialize();
+    }
+    auto comparer = Comparer(0, items); {
+      comparer.initialize();
+    }
 
-    void randomSwap() {
+    void randomSwap(int fixedFrom = -1) {
       auto toSwap = D.iota.randomSample(2).array;
+      if (fixedFrom != -1) {
+        toSwap[1] = fixedFrom;
+        toSwap[0] = D.iota.filter!(a => a != fixedFrom).array.choice();
+      }
 
       int l = toSwap[0];
       int r = toSwap[1];
@@ -130,11 +161,14 @@ void main() {
       if (before == 1) swap(l, r);
       if (sets[r].array.length == 1) return;
 
-      auto swappee = sets[r].array.choice();
+      auto swappee = items.choiceFreeItem(r);
+      if (swappee == -1) return;
+
       auto after = comparer.compareSwapped(l, r, swappee);
 
       // l <= r が維持されているなら実際に入れ替える
       if (after != 1) {
+        writefln("# random swap %s: %s => %s", swappee, r, l);
         comparer.swap(l, r, swappee);
         comparer.setComparedCache(l, r, after);
       }
@@ -148,30 +182,51 @@ void main() {
       }
       writefln("# largest bag id: %s", largest);
 
+      if (sets[largest].array.length == 1) {
+        items.fix(sets[largest].front, largest);
+        return;
+      }
+
+      auto swappee = items.choiceFreeItem(largest);
+      if (swappee == -1) return;
+
       auto sizes = D.iota.map!(a => [a, sets[a].length.to!int]).array.sort!"a[1] > b[1]";
-      auto sr = sets[largest].dup;
-      auto swappee = sr.array.choice();
       foreach(i; sizes.map!"a[0]") {
-        if (i == largest) continue;
+        if (i == largest || items.fixed[i]) continue;
 
         auto after = comparer.compareSwapped(i, largest, swappee);
 
-       // l <= r が維持されているなら実際に入れ替える
+        // l <= r が維持されているなら実際に入れ替える
         if (after != 1) {
+          writefln("# largest swap %s: %s => %s", swappee, largest, i);
           comparer.swap(i, largest, swappee);
           comparer.setComparedCache(i, largest, after);
+          items.fix(swappee, i);
           return;
         }
       }
 
       // 巨大なアイテムしか残っていない
       foreach(i; sizes.map!"a[0]") {
-        if (i == largest) continue;
+        if (i == largest || items.fixed[i]) continue;
         
         // 強制的に入れ替えて、そのアイテムは固定する
+        writefln("# largest swap2 %s: %s => %s", swappee, largest, i);
         comparer.swap(i, largest, swappee);
-        return;
+        items.fix(swappee, i);
+        break;
       }
+
+      foreach(_; 0..D) {
+        randomSwap(largest);
+      }
+
+      // int smallest;
+      // foreach(i; 1..D) {
+      //   const c = comparer.compare(smallest, i);
+      //   if (c == 1) smallest = i;
+      // }
+      // foreach(_; )
     }
 
     for(int turn = 0; comparer.canCompare(); turn++) {
