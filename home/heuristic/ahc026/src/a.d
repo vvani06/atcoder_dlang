@@ -5,24 +5,6 @@ void main() { runSolver(); }
 
 enum BOX_MAX = 200;
 
-// class Box {
-//   int id;
-//   Box parent, child;
-
-//   this(int id, Box parent, Box child) {
-//     this.id = id;
-//     this.parent = parent;
-//     this.parent = parent;
-//   }
-
-//   bool isBase() { return id >= BOX_MAX; }
-//   int stackId() {
-//     Box cur = this;
-//     while(!cur.isBase) cur = parent;
-//     return cur.id - BOX_MAX;
-//   }
-// }
-
 void problem() {
   int N = scan!int;
   int M = scan!int;
@@ -30,15 +12,44 @@ void problem() {
   alias Location = Tuple!(int, "stackId", int, "index");
   int score = 10000;
 
+  struct State {
+    Location[] locations;
+    DList!int[] stacks;
+    int score, boxId;
+
+    void move(int boxId, int to) {
+      auto from = locations[boxId];
+      // deb([boxId], from, to);
+
+      if (to != 0) {
+        foreach(b; stacks[to].array) locations[b].index += from.index;
+        score -= from.index + 1;
+      } 
+      int [] tmp;
+      foreach(i; 0..from.index) {
+        auto b = stacks[from.stackId].front;
+        stacks[from.stackId].removeFront;
+        locations[b].stackId = to;
+        tmp ~= b;
+      }
+      foreach_reverse(b; tmp) stacks[to].insertFront(b);
+      foreach(b; stacks[from.stackId].array) locations[b].index -= from.index;
+      // deb([boxId], from, to);
+      // writefln("%s %s", boxId, to);
+    }
+  }
+
   auto solve() {
     Location[] locations = new Location[](N + 1);
     auto sizes = new int[](M + 1);
-    auto stacks = (M + 1).iota.map!(m => new DList!int()).array;
+    auto stacks = (M + 1).iota.map!(m => DList!int()).array;
     foreach(m; 0..M) foreach_reverse(b; B[m]) {
       auto l = Location(m + 1, ++sizes[m + 1]);
       locations[b] = l;
       stacks[m + 1].insertBack(b);
     }
+
+    State state = State(locations, stacks, score);
 
     void move(int boxId, int to) {
       auto from = locations[boxId];
@@ -61,51 +72,44 @@ void problem() {
       writefln("%s %s", boxId, to);
     }
 
-    foreach(boxId; 1..N + 1) {
+    int boxId = 1;
+    while(boxId <= N) {
       auto loc = locations[boxId];
+      bool[int] neighbors;
+      foreach(b; boxId..min(N + 1, boxId + 5)) {
+        neighbors[locations[b].stackId] = true;
+      }
 
-      if (loc.index != 1) {
+      while (loc.index != 1) {
         int[] arr = stacks[loc.stackId].array[0..loc.index - 1];
-        int[][] subsets;
 
-        if (loc.index <= 2) {
-          subsets ~= [arr[0]];
+        if (loc.index <= 10) {
           int pre = arr[0];
-          foreach(a; arr[1..$]) {
+          foreach(i, a; arr[1..$]) {
             if (pre > a) {
-              subsets[$ - 1] ~= a;
-            } else {
-              subsets ~= [a];
+              arr = arr[0..i + 1];
+              break;
             }
             pre = a;
           }
-        } else {
-          subsets ~= arr;
         }
 
-        bool[int] neighbors;
-        foreach(b; boxId..min(N + 1, boxId + 5)) {
-          neighbors[locations[b].stackId] = true;
-        }
-
-        // subsets.deb;
-        // foreach(subset; arr.chunks(arr.length.to!real.pow(1).to!int + 1)) {
-        foreach(subset; subsets) {
-          auto target = subset[$ - 1];
-          int best;
-          real bestScore = 2.0L.pow(200);
-          foreach(t; iota(1, M + 1).filter!(m => !(m in neighbors))) {
-            real testScore = 0;
-            foreach(s; stacks[t].array) {
-              testScore += subset.map!(a => max(0, a - s).to!real.pow(11)).sum;
-            }
-            if (bestScore.chmin(testScore)) best = t;
+        auto target = arr[$ - 1];
+        int best;
+        real bestScore = 2.0L.pow(200);
+        foreach(t; iota(1, M + 1).filter!(m => !(m in neighbors))) {
+          real testScore = 0;
+          foreach(s; stacks[t].array) {
+            testScore += arr.map!(a => max(0, a - s).to!real.pow(11)).sum;
           }
-          move(target, best);
+          if (bestScore.chmin(testScore)) best = t;
         }
+        move(target, best);
+        loc = locations[boxId];
       }
+
       move(boxId, 0);
-      // stacks.map!"a.array".each!deb;
+      boxId++;
     }
 
     stderr.writefln("Score = %s", score);
