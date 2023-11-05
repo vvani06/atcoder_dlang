@@ -28,6 +28,7 @@ void problem() {
   int M = scan!int;
   int[][] B = scan!int(N).chunks(N / M).array;
   alias Location = Tuple!(int, "stackId", int, "index");
+  int score = 10000;
 
   auto solve() {
     Location[] locations = new Location[](N + 1);
@@ -45,6 +46,7 @@ void problem() {
 
       if (to != 0) {
         foreach(b; stacks[to].array) locations[b].index += from.index;
+        score -= from.index + 1;
       } 
       int [] tmp;
       foreach(i; 0..from.index) {
@@ -63,17 +65,26 @@ void problem() {
       auto loc = locations[boxId];
 
       if (loc.index != 1) {
-        int parent;
         int[] arr = stacks[loc.stackId].array[0..loc.index - 1];
-        parent = arr[$ - 1];
-
-        auto to = iota(1, M + 1).filter!(m => m != loc.stackId).array.choice();
-        move(parent, to);
-        // stacks.map!"a.array".each!deb;
+        foreach(subset; arr.chunks(arr.length.to!real.pow(0.333).to!int + 1)) {
+          auto target = subset[$ - 1];
+          int best;
+          long bestScore = int.max;
+          foreach(t; iota(1, M + 1).filter!(m => m != loc.stackId)) {
+            int score;
+            foreach(s; stacks[t].array) {
+              score += subset.map!(a => max(0, a - s).to!long).sum;
+            }
+            if (bestScore.chmin(score)) best = t;
+          }
+          move(target, best);
+        }
       }
       move(boxId, 0);
       // stacks.map!"a.array".each!deb;
     }
+
+    stderr.writefln("Score = %s", score);
   }
 
   solve();
