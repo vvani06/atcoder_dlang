@@ -66,16 +66,40 @@ void problem() {
 
       if (loc.index != 1) {
         int[] arr = stacks[loc.stackId].array[0..loc.index - 1];
-        foreach(subset; arr.chunks(arr.length.to!real.pow(1).to!int + 1)) {
+        int[][] subsets;
+
+        if (loc.index <= 2) {
+          subsets ~= [arr[0]];
+          int pre = arr[0];
+          foreach(a; arr[1..$]) {
+            if (pre > a) {
+              subsets[$ - 1] ~= a;
+            } else {
+              subsets ~= [a];
+            }
+            pre = a;
+          }
+        } else {
+          subsets ~= arr;
+        }
+
+        bool[int] neighbors;
+        foreach(b; boxId..min(N + 1, boxId + 5)) {
+          neighbors[locations[b].stackId] = true;
+        }
+
+        // subsets.deb;
+        // foreach(subset; arr.chunks(arr.length.to!real.pow(1).to!int + 1)) {
+        foreach(subset; subsets) {
           auto target = subset[$ - 1];
           int best;
-          long bestScore = int.max;
-          foreach(t; iota(1, M + 1).filter!(m => m != loc.stackId)) {
-            int score;
+          real bestScore = 2.0L.pow(200);
+          foreach(t; iota(1, M + 1).filter!(m => !(m in neighbors))) {
+            real testScore = 0;
             foreach(s; stacks[t].array) {
-              score += subset.map!(a => max(0, a - s).to!long^^3).sum;
+              testScore += subset.map!(a => max(0, a - s).to!real.pow(11)).sum;
             }
-            if (bestScore.chmin(score)) best = t;
+            if (bestScore.chmin(testScore)) best = t;
           }
           move(target, best);
         }
