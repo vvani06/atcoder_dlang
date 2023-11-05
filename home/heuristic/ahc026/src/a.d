@@ -66,14 +66,14 @@ void problem() {
 
       if (loc.index != 1) {
         int[] arr = stacks[loc.stackId].array[0..loc.index - 1];
-        foreach(subset; arr.chunks(arr.length.to!real.pow(0.333).to!int + 1)) {
+        foreach(subset; arr.chunks(arr.length.to!real.pow(1).to!int + 1)) {
           auto target = subset[$ - 1];
           int best;
           long bestScore = int.max;
           foreach(t; iota(1, M + 1).filter!(m => m != loc.stackId)) {
             int score;
             foreach(s; stacks[t].array) {
-              score += subset.map!(a => max(0, a - s).to!long).sum;
+              score += subset.map!(a => max(0, a - s).to!long^^3).sum;
             }
             if (bestScore.chmin(score)) best = t;
           }
