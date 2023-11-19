@@ -4,43 +4,52 @@ void problem() {
   auto N = scan!int;
   auto M = scan!int;
   auto S = scan;
-  auto T = scan.array;
+  auto T = scan;
 
   auto solve() {
-    bool[string][] memo;
-    memo.length = N + 1;
-    memo[0]["###########"[0..min(N, M * 2 - 1)]] = true;
+    enum REM = '.';
+    auto rems = (int n) => REM.repeat(n).array;
 
-    foreach(i; 0..N - M + 1) {
-      auto patterns = iota(min(M, N - i - M + 1)).array;
-      foreach(memoStr; memo[i].keys) {
+    int[] findIndecies(S, T)(S s, T t) {
+      auto ret = new int[](0);
+      auto sl = s.length.to!int;
+      auto tl = t.length.to!int;
 
-        foreach(x; 0..memoStr.length.to!int) {
-          if (memoStr[x] == S[i + x]) {
-            memo[i + x + 1][memoStr[x + 1..$].to!string] = true;
-          } else {
-            break;
-          }
+      bool match(int i) {
+        // zip(s[i..i + tl], t).deb;
+        foreach(cs, ct; zip(s[i..i + tl], t)) {
+          if (cs != REM && cs != ct) return false;
         }
 
-        foreach(s; 1..patterns.length.to!int + 1) foreach(comb; combinations(patterns, s)) {
-          auto stamped = (memoStr ~ "#########")[0..patterns[$ - 1] + M].array;
-          foreach(p; comb.permutations) {
-            foreach(index; p) stamped[index..index + M] = T;
-          }
+        return true;
+      }
 
-          foreach(x; 0..M) {
-            if (stamped[x] == S[i + x]) {
-              memo[i + x + 1][stamped[x + 1..$].to!string] = true;
-            } else {
-              break;
-            }
-          }
+      for(int i = 0; i + tl - 1 < sl; i++) {
+        if (match(i)) ret ~= i;
+      }
+
+      return ret;
+    }
+
+    auto s = S.array;
+    auto removed = new bool[N];
+    for(auto queue = DList!int(findIndecies(S, T)); !queue.empty;) {
+      auto i = queue.front; queue.removeFront;
+      removed[i] = true;
+
+      s[i..i + M][] = REM;
+      auto l = max(0, i - M*2);
+      auto r = i + M*3;
+      foreach(found; findIndecies(s[l..min($, r)], T.array)) {
+        if (!removed[l + found]) {
+          removed[l + found] = true;
+          queue.insertBack(l + found);
         }
       }
     }
 
-    return !memo[N].empty;
+    // s.deb;
+    return s.all!(c => c == REM);
   }
 
   outputForAtCoder(&solve);
@@ -91,55 +100,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct CombinationRange(T) {
-  private {
-    int combinationSize;
-    int elementSize;
-    int pointer;
-    int[] cursor;
-    T[] elements;
-    T[] current;
-  }
-
-  public:
-
-  this(T[] t, int combinationSize) {
-    this.combinationSize = combinationSize;
-    this.elementSize = cast(int)t.length;
-    pointer = combinationSize - 1;
-    cursor = new int[combinationSize];
-    current = new T[combinationSize];
-    elements = t.dup;
-    foreach(i; 0..combinationSize) {
-      cursor[i] = i;
-      current[i] = elements[i];
-    }
-  }
-
-  @property T[] front() {
-    return current;
-  }
-
-  void popFront() {
-    if (pointer == -1) return;
-
-    if (cursor[pointer] == elementSize + pointer - combinationSize) {
-      pointer--;
-      popFront();
-      if (pointer < 0) return;
-
-      pointer++;
-      cursor[pointer] = cursor[pointer - 1];
-      current[pointer] = elements[cursor[pointer]];
-    }
-
-    cursor[pointer]++;
-    current[pointer] = elements[cursor[pointer]];
-  }
-
-  bool empty() {
-    return pointer == -1;
-  }
-}
-CombinationRange!T combinations(T)(T[] t, int size) { return CombinationRange!T(t, size); }

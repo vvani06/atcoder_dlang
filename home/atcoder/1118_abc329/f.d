@@ -6,47 +6,18 @@ void problem() {
   auto C = scan!int(N);
   auto AB = scan!int(2 * Q).map!"a - 1".chunks(2);
 
-  struct Colors {
-    RedBlackTree!int rbt;
-    int size;
-
-    this(int c) {
-      rbt = [c].redBlackTree;
-      size = 1;
-    }
-
-    void clear() {
-      rbt = new int[](0).redBlackTree;
-      size = 0;
-    }
-
-    void merge(Colors other) {
-      // [rbt, other.rbt].deb;
-      if (other.size > size) {
-        swap(other.rbt, rbt);
-        swap(other.size, size);
-        // "swapped".deb;
-      }
-
-      size += rbt.insert(other.rbt.array);
-      // [this.rbt, other.rbt].deb;
-    }
-
-    alias rbt this;
-  }
-
   auto solve() {
-    auto colors = C.map!(c => Colors(c)).array;
+    auto colors = new bool[int][N];
+    foreach(i, c; C.enumerate(0)) colors[i][c] = true;
 
     foreach(q; AB) {
       auto from = q[0];
       auto to = q[1];
-      // deb(from, "=>", to);
 
-      colors[to].merge(colors[from]);
+      if (colors[from].length > colors[to].length) colors.swapAt(from, to);
+      foreach(c; colors[from].keys) colors[to][c] = true;
       colors[from].clear();
-      colors[to].size.writeln;
-      // colors[to].rbt.deb;
+      colors[to].length.writeln;
     }
   }
 
