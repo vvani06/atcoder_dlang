@@ -2,85 +2,23 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto K = scan!long;
-  auto XY = scan!int(2 * N).chunks(2).array;
+  auto Q = scan!int;
+  auto C = scan!int(N);
+  auto AB = scan!int(2 * Q).map!"a - 1".chunks(2);
 
   auto solve() {
-    auto xs = XY.map!"a[0]".array.sort;
-    auto ys = XY.map!"a[1]".array.sort;
+    auto colors = new bool[int][N];
+    foreach(i, c; C.enumerate(0)) colors[i][c] = true;
 
-    long[] calcCosts(T)(T sr, int mid) {
-      long[] ret = 0L.repeat(N + 1).array; {
-        int i = 0; long pre = sr.back;
-        foreach_reverse(a; sr.upperBound(mid - 1)) {
-          ret[i++] += pre - a;
-          pre = a;
-        }
+    foreach(q; AB) {
+      auto from = q[0];
+      auto to = q[1];
 
-        i = 0; pre = sr.front;
-        foreach(a; sr.lowerBound(mid + 1)) {
-          ret[i++] += a - pre;
-          pre = a;
-        }
-      }
-      return ret;
+      if (colors[from].length > colors[to].length) colors.swapAt(from, to);
+      foreach(c; colors[from].keys) colors[to][c] = true;
+      colors[from].clear();
+      colors[to].length.writeln;
     }
-    
-    long[] calcBestCosts(T)(T sr) {
-      long best = long.max;
-      long[] ret = 0L.repeat(N + 1).array;
-      if (sr.length == 1) return ret;
-
-      foreach(mid; sr[$/2 - 1..$/2 + 1]) {
-        auto costs = calcCosts(sr, mid);
-
-        long total;
-        foreach(c, t; costs) total += c * t;
-        if (best.chmin(total)) ret = costs;
-      }
-
-      return ret;
-    }
-    
-    auto tx = calcBestCosts(xs);
-    auto ty = calcBestCosts(ys);
-
-    long[] sizes = [xs.back - xs.front, ys.back - ys.front];
-    int costX = 0, costY = 0;
-    while(K > 0 && sizes.minElement > 0) {
-      if (sizes[0] == sizes[1]) {
-        while(tx[costX] == 0) costX++;
-        while(ty[costY] == 0) costY++;
-        if (costX + costY > K) break;
-
-        auto times = min(tx[costX], ty[costY], K / (costX + costY));
-        sizes[] -= times;
-        tx[costX] -= times;
-        ty[costY] -= times;
-        K -= times * (costX + costY);
-      } else if (sizes[0] > sizes[1]) {
-        while(tx[costX] == 0) costX++;
-        if (costX > K) break;
-
-        auto times = min(sizes[0] - sizes[1], tx[costX], K / costX);
-        sizes[0] -= times;
-        tx[costX] -= times;
-        K -= times * costX;
-      } else {
-        while(ty[costY] == 0) costY++;
-        if (costY > K) break;
-
-        auto times = min(sizes[1] - sizes[0], ty[costY], K / costY);
-        sizes[1] -= times;
-        ty[costY] -= times;
-        K -= times * costY;
-      }
-
-      sizes.deb;
-      [costX, costY, K].deb;
-    }
-
-    return sizes.maxElement;
   }
 
   outputForAtCoder(&solve);

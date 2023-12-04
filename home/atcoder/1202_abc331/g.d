@@ -2,85 +2,33 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto M = scan!int;
   auto K = scan!long;
-  auto XY = scan!int(2 * N).chunks(2).array;
+  alias Edge = Tuple!(int, "from", int, "to", long, "cost");
+  auto E = scan!long(3 * M).chunks(3).map!(e => Edge(e[0].to!int - 1, e[1].to!int - 1, e[2]));
 
   auto solve() {
-    auto xs = XY.map!"a[0]".array.sort;
-    auto ys = XY.map!"a[1]".array.sort;
+    auto graph = new int[][](N, 0);
+    foreach(i, e; E.enumerate(0)) {
+      graph[e.from] ~= i;
+      graph[e.to] ~= i;
+    }
+    
+    long dfs(UnionFind uf, int node, long cost) {
+      if (uf.size(0) == N) return cost;
 
-    long[] calcCosts(T)(T sr, int mid) {
-      long[] ret = 0L.repeat(N + 1).array; {
-        int i = 0; long pre = sr.back;
-        foreach_reverse(a; sr.upperBound(mid - 1)) {
-          ret[i++] += pre - a;
-          pre = a;
-        }
+      long ret = long.max;
+      foreach(e; graph[node]) {
+        if (uf.same(E[e].from, E[e].to)) continue;
 
-        i = 0; pre = sr.front;
-        foreach(a; sr.lowerBound(mid + 1)) {
-          ret[i++] += a - pre;
-          pre = a;
-        }
+        auto connected =  uf.dup;
+        connected.unite(E[e].from, E[e].to);
+        ret = min(ret, dfs(connected, node + 1, (cost + E[e].cost) % K));
       }
       return ret;
     }
-    
-    long[] calcBestCosts(T)(T sr) {
-      long best = long.max;
-      long[] ret = 0L.repeat(N + 1).array;
-      if (sr.length == 1) return ret;
 
-      foreach(mid; sr[$/2 - 1..$/2 + 1]) {
-        auto costs = calcCosts(sr, mid);
-
-        long total;
-        foreach(c, t; costs) total += c * t;
-        if (best.chmin(total)) ret = costs;
-      }
-
-      return ret;
-    }
-    
-    auto tx = calcBestCosts(xs);
-    auto ty = calcBestCosts(ys);
-
-    long[] sizes = [xs.back - xs.front, ys.back - ys.front];
-    int costX = 0, costY = 0;
-    while(K > 0 && sizes.minElement > 0) {
-      if (sizes[0] == sizes[1]) {
-        while(tx[costX] == 0) costX++;
-        while(ty[costY] == 0) costY++;
-        if (costX + costY > K) break;
-
-        auto times = min(tx[costX], ty[costY], K / (costX + costY));
-        sizes[] -= times;
-        tx[costX] -= times;
-        ty[costY] -= times;
-        K -= times * (costX + costY);
-      } else if (sizes[0] > sizes[1]) {
-        while(tx[costX] == 0) costX++;
-        if (costX > K) break;
-
-        auto times = min(sizes[0] - sizes[1], tx[costX], K / costX);
-        sizes[0] -= times;
-        tx[costX] -= times;
-        K -= times * costX;
-      } else {
-        while(ty[costY] == 0) costY++;
-        if (costY > K) break;
-
-        auto times = min(sizes[1] - sizes[0], ty[costY], K / costY);
-        sizes[1] -= times;
-        ty[costY] -= times;
-        K -= times * costY;
-      }
-
-      sizes.deb;
-      [costX, costY, K].deb;
-    }
-
-    return sizes.maxElement;
+    return dfs(UnionFind(N), 0, 0); 
   }
 
   outputForAtCoder(&solve);
@@ -131,3 +79,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct UnionFind {
+  int[] parent;
+  int[] sizes;
+ 
+  this(int size) {
+    parent = size.iota.array;
+    sizes = 1.repeat(size).array;
+  }
+ 
+  int root(int x) {
+    if (parent[x] == x) return x;
+    return parent[x] = root(parent[x]);
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+ 
+  int unite(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    if (rootX == rootY) return rootY;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      sizes[rootY] += sizes[rootX];
+      return parent[rootX] = rootY;
+    } else {
+      sizes[rootX] += sizes[rootY];
+      return parent[rootY] = rootX;
+    }
+  }
+ 
+  bool same(int x, int y) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY;
+  }
+
+  UnionFind dup() {
+    auto ret = UnionFind(parent.length.to!int);
+    ret.parent = parent.dup;
+    ret.sizes = sizes.dup;
+    return ret;
+  }
+}
