@@ -20,7 +20,7 @@ RUN cd /tmp/tools/auto_builder && \
     dub build && \
     cp auto_builder /usr/bin/build_auto
 
-ENV PATH $PATH:/root/.code-d/bin
+ENV PATH $PATH:/workspace/.code-d/bin
 
-WORKDIR /root/
+WORKDIR /workspace/
 CMD fish

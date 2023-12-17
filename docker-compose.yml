@@ -3,5 +3,5 @@ services:
   atcoder-dlang:
     build: .
     volumes:
-      - ./home:/root
+      - ./home:/workspace
       - ~/.ssh:/root/.ssh
