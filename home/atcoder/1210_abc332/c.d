@@ -6,25 +6,22 @@ void problem() {
   auto S = scan;
 
   auto solve() {
-    int m = M;
-    int l, ans;
+    int m = M;  // 無地シャツの在庫。負の値は許容しない。休みの日に回復する。
+    int l;      // ロゴ入りシャツの在庫。負の数を許容し、その絶対値を答えとする。休みの日に0になる。
+    int ans;
     foreach(c; S) {
       if (c == '0') {
         m = M;
         l = 0;
       } else if (c == '1') {
-        if (m > 0) {
-          m--;
-        } else {
-          l++;
-        }
+        if (m > 0) m--; else l--;
       } else {
-        l++;
+        l--;
       }
-      ans = max(ans, l);
+      ans = min(ans, l);
     }
 
-    return ans;
+    return ans.abs;
   }
 
   outputForAtCoder(&solve);

@@ -8,8 +8,13 @@ void problem() {
   auto seed = unpredictableSeed;
 
   alias Matrix = long[][];
+
   auto sumHash(Matrix matrix) {
-    return matrix.joiner.array.idup;
+    long s;
+    foreach(y; 0..H) foreach(x; 0..W) {
+      s ^= (((y + 1) * 10) + (x + 1)) * matrix[y][x].hashOf(seed);
+    }
+    return s;
   }
 
   Matrix swapY(Matrix matrix, int i) {
@@ -29,11 +34,11 @@ void problem() {
 
   auto solve() {
     auto goal = sumHash(B);
-    bool[long[]] visited;
+    bool[long] visited;
 
     int step;
     for(auto queue = DList!Matrix([A]); !queue.empty;) {
-      Matrix[long[]] nexts;
+      Matrix[long] nexts;
       foreach(m; queue) {
         queue.removeFront;
         if (sumHash(m) == goal) {

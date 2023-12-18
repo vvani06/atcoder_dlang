@@ -3,46 +3,36 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto D = scan!int;
-  auto W = scan!long(N);
+  auto W = scan!real(N);
 
   auto solve() {
-    real ans = long.max;
-    real avg = W.sum.to!real / D;
-
-    auto weights = D.iota.map!(_ => new DList!long()).array;
-    auto sums = new long[](D);
-    void dfs(int cur, int bags) {
-      if (cur == N) {
-        real v = sums.map!(s => pow(s.to!real - avg, 2)).sum;
-        if (ans.chmin(v)) { 
-          // weights.map!"a.array".deb;
-        }
-        return;
+    auto MAX_STATES = 1 << N;
+    real avg = W.sum / D;
+    auto ws = new real[](MAX_STATES);
+    foreach(s; 0..MAX_STATES) {
+      ws[s] = 0;
+      foreach(i; 0..N) {
+        if ((2^^i & s) != 0) ws[s] += W[i];
       }
+      ws[s] = (ws[s] - avg).pow(2);
+    }
 
-      if (D - bags < N - cur) {
-        foreach(toAdd; 0..bags) {
-          if (sums[toAdd] + W[cur] > avg * 1.32) continue;
+    auto dp = long.max.to!real.repeat(MAX_STATES).array;
+    dp[$ - 1] = 0;
+    foreach(_; 0..D) {
+      auto pre = long.max.to!real.repeat(MAX_STATES).array;
+      swap(pre, dp);
 
-          weights[toAdd].insertBack(W[cur]);
-          sums[toAdd] += W[cur];
-          dfs(cur + 1, bags);
-          weights[toAdd].removeBack();
-          sums[toAdd] -= W[cur];
+      foreach(s; 0..MAX_STATES) {
+        for(int t = s;; t = (t - 1) & s) {
+          dp[s ^ t].chmin(pre[s] + ws[t]);
+
+          if (t == 0) break;
         }
-      }
-
-      if (bags < D) {
-        weights[bags].insertBack(W[cur]);
-        sums[bags] += W[cur];
-        dfs(cur + 1, bags + 1);
-        weights[bags].removeBack();
-        sums[bags] -= W[cur];
       }
     }
 
-    dfs(0, 0);
-    return ans / D;
+    return dp[0] / D;
   }
 
   outputForAtCoder(&solve);
@@ -51,6 +41,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
