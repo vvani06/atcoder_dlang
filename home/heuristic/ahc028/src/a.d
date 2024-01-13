@@ -142,12 +142,33 @@ void problem() {
       }
     }
 
-    foreach(c; ans) {
+    alias Item = Tuple!(int, "cost", Coord, "from");
+    auto dp = new Item[Coord][](finalRoute.length);
+    dp[0][Coord(sx, sy)] = Item(1, Coord(sx, sy));
+    foreach(i, c; finalRoute[1..$].enumerate(1)) {
+      foreach(from, v; dp[i - 1]) {
+        foreach(to; coordsByChar[c]) {
+          auto dist = from.distance(to);
+          auto newCost = v.cost + dist + 1;
+          if (!(to in dp[i]) || dp[i][to].cost.chmin(newCost)) {
+            dp[i][to] = Item(newCost, from);
+          }
+        }
+      }
+    }
+
+    Coord[] dpAns;
+    Coord trace = dp[$ - 1].keys.minElement!(c => dp[$ - 1][c].cost);
+    dpAns ~= trace;
+    foreach_reverse(d; dp[1..$]) {
+      trace = d[trace].from;
+      dpAns ~= trace;
+    }
+
+    foreach(c; dpAns.reverse) {
       writefln("%d %d", c.y, c.x);
     }
-    stderr.writeln(max(1001, 10000 - cost));
-    ans.length.deb;
-    finalRoute.deb;
+    stderr.writeln(max(1001, 10000 - dp[$ - 1].values.map!"a.cost".minElement));
   }
 
   solve();
