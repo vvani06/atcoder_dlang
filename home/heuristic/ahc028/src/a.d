@@ -21,6 +21,12 @@ void problem() {
   string[] A = scan!string(N);
   string[] T = scan!string(M);
   enum CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
+  auto RND = Xorshift(0);
+
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
 
   auto solve() {
     int[][] commonSize = new int[][](M, M);
@@ -42,8 +48,8 @@ void problem() {
     int[][] routes; {
       int bestReduced = -1;
 
-      foreach(_; 0..1_000) {
-        int[] order = M.iota.filter!(i => T[i][0] == A[sy][sx]).array.randomShuffle ~ M.iota.filter!(i => T[i][0] != A[sy][sx]).array.randomShuffle;
+      foreach(_; 0..30) {
+        int[] order = M.iota.filter!(i => T[i][0] == A[sy][sx]).array.randomShuffle(RND) ~ M.iota.filter!(i => T[i][0] != A[sy][sx]).array.randomShuffle(RND);
         int tryReduced = -1;
         int[][] tryRoutes;
         bool[] visited = new bool[](M);
@@ -51,15 +57,11 @@ void problem() {
         foreach(i; order) {
           if (visited[i]) continue;
 
-          int[] bestRoute;
           DList!int route;
           route.insertBack(i);
           visited[i] = true;
-
           void dfs(int cur, int reduced) {
-            if (tryReduced.chmax(reduced)) {
-              bestRoute = route.array;
-            }
+            if (tryReduced.chmax(reduced)) {}
             
             foreach(next; forwarders[cur].filter!(n => !visited[n])) {
               route.insertBack(next);
@@ -106,69 +108,73 @@ void problem() {
       }
     }
 
-    int cost;
-    int pre = -1;
-    Coord cur = Coord(sx, sy);
     Coord[] ans;
+    int bestCost = int.max;
 
-    auto candidates = routes.length.to!int.iota.redBlackTree;
-    int nextRouteIndex = 0;
+    int tried;
+    while(!elapsed(1900)) {
+      tried++;
+      int pre = -1;
+      Coord cur = Coord(sx, sy);
+      auto candidates = routes.length.to!int.iota.redBlackTree;
 
-    string finalRoute; 
-    while(!candidates.empty) {
-      candidates.removeKey(nextRouteIndex);
-
-      foreach(ti; routes[nextRouteIndex]) {
-        auto t = pre == -1 ? T[ti] : T[ti][commonSize[pre][ti]..$];
-        pre = ti;
-
-        foreach(c; t) {
-          auto nexts = indiciesByCoordAndChar[cur.y][cur.x][c];
-          auto next = coordsByChar[c][nexts[0]];
-          ans ~= next;
-          cost += abs(cur.x - next.x) + abs(cur.y - next.y) + 1;
-          cur = next;
-          finalRoute ~= c;
-        }
-      
+      string finalRoute; 
+      while(!candidates.empty) {
         int bestDistance = int.max;
-        foreach(nextRoute; candidates.array) {
+        int nextRouteIndex = 0;
+        foreach(nextRoute; candidates.array.randomShuffle(RND)) {
           auto c = T[routes[nextRoute][0]][0];
           auto nearest = indiciesByCoordAndChar[cur.y][cur.x][c][0];
           if (bestDistance.chmin(cur.distance(coordsByChar[c][nearest]))) {
             nextRouteIndex = nextRoute;
           }
         }
-      }
-    }
+        candidates.removeKey(nextRouteIndex);
 
-    alias Item = Tuple!(int, "cost", Coord, "from");
-    auto dp = new Item[Coord][](finalRoute.length);
-    dp[0][Coord(sx, sy)] = Item(1, Coord(sx, sy));
-    foreach(i, c; finalRoute[1..$].enumerate(1)) {
-      foreach(from, v; dp[i - 1]) {
-        foreach(to; coordsByChar[c]) {
-          auto dist = from.distance(to);
-          auto newCost = v.cost + dist + 1;
-          if (!(to in dp[i]) || dp[i][to].cost.chmin(newCost)) {
-            dp[i][to] = Item(newCost, from);
+        foreach(ti; routes[nextRouteIndex]) {
+          auto t = pre == -1 ? T[ti] : T[ti][commonSize[pre][ti]..$];
+          pre = ti;
+
+          foreach(c; t) {
+            auto nexts = indiciesByCoordAndChar[cur.y][cur.x][c];
+            auto next = coordsByChar[c][nexts[0]];
+            cur = next;
+            finalRoute ~= c;
           }
         }
       }
+
+      alias Item = Tuple!(int, "cost", Coord, "from");
+      auto dp = new Item[Coord][](finalRoute.length);
+      dp[0][Coord(sx, sy)] = Item(1, Coord(sx, sy));
+      foreach(i, c; finalRoute[1..$].enumerate(1)) {
+        foreach(from, v; dp[i - 1]) {
+          foreach(to; coordsByChar[c]) {
+            auto dist = from.distance(to);
+            auto newCost = v.cost + dist + 1;
+            if (!(to in dp[i]) || dp[i][to].cost.chmin(newCost)) {
+              dp[i][to] = Item(newCost, from);
+            }
+          }
+        }
+      }
+
+      Coord[] dpAns;
+      Coord trace = dp[$ - 1].keys.minElement!(c => dp[$ - 1][c].cost);
+      int cost = dp[$ - 1][trace].cost;
+
+      if (bestCost.chmin(cost)) {
+        dpAns ~= trace;
+        foreach_reverse(d; dp[1..$]) {
+          trace = d[trace].from;
+          dpAns ~= trace;
+        }
+        ans = dpAns.reverse.array;
+      }
     }
 
-    Coord[] dpAns;
-    Coord trace = dp[$ - 1].keys.minElement!(c => dp[$ - 1][c].cost);
-    dpAns ~= trace;
-    foreach_reverse(d; dp[1..$]) {
-      trace = d[trace].from;
-      dpAns ~= trace;
-    }
-
-    foreach(c; dpAns.reverse) {
-      writefln("%d %d", c.y, c.x);
-    }
-    stderr.writeln(max(1001, 10000 - dp[$ - 1].values.map!"a.cost".minElement));
+    foreach(c; ans) writefln("%d %d", c.y, c.x);
+    stderr.writeln(max(1001, 10000 - bestCost));
   }
 
   solve();
