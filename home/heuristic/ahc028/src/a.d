@@ -11,8 +11,6 @@ struct Coord {
   inout int opCmp(inout Coord other) { return id == other.id ? 0 : id < other.id ? -1 : 1; }
 }
 
-enum AROUND = zip([0, -1, 0, 1], [-1, 0, 1, 0]);
-
 void problem() {
   int N = scan!int;
   int M = scan!int;
@@ -22,7 +20,6 @@ void problem() {
   string[] A = scan!string(N);
   string[] T = scan!string(M);
   enum CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
-
 
   auto solve() {
     int[][] commonSize = new int[][](M, M);
@@ -42,40 +39,46 @@ void problem() {
     }
 
     int[][] routes; {
-      bool[] visited = new bool[](M);
-      int routeSize = 1000;
-      int[] order = M.iota.filter!(i => T[i][0] != A[sy][sx]).array;
-      order = M.iota.filter!(i => T[i][0] == A[sy][sx]).array ~ order;
+      int bestReduced = -1;
 
-      foreach(i; order) {
-        if (visited[i]) continue;
+      foreach(_; 0..1_000) {
+        int[] order = M.iota.filter!(i => T[i][0] == A[sy][sx]).array.randomShuffle ~ M.iota.filter!(i => T[i][0] != A[sy][sx]).array.randomShuffle;
+        int tryReduced = -1;
+        int[][] tryRoutes;
+        bool[] visited = new bool[](M);
 
-        int bestReduced = -1;
-        int[] bestRoute;
-        DList!int route;
-        route.insertBack(i);
-        visited[i] = true;
+        foreach(i; order) {
+          if (visited[i]) continue;
 
-        void dfs(int cur, int reduced) {
-          if (bestReduced.chmax(reduced)) {
-            bestRoute = route.array;
+          int[] bestRoute;
+          DList!int route;
+          route.insertBack(i);
+          visited[i] = true;
+
+          void dfs(int cur, int reduced) {
+            if (tryReduced.chmax(reduced)) {
+              bestRoute = route.array;
+            }
+            
+            foreach(next; forwarders[cur].filter!(n => !visited[n])) {
+              route.insertBack(next);
+              visited[next] = true;
+              dfs(next, reduced + commonSize[cur][next]);
+              // route.removeBack();
+              // visited[next] = false;
+              break;
+            }
           }
-          
-          foreach(next; forwarders[cur].filter!(n => !visited[n])) {
-            route.insertBack(next);
-            visited[next] = true;
-            dfs(next, reduced + commonSize[cur][next]);
-            // route.removeBack();
-            // visited[next] = false;
-            break;
-          }
+
+          dfs(i, 0);
+          // bestRoute.deb;
+          // [[bestRoute.length, bestReduced]].deb;
+          tryRoutes ~= route.array;
         }
 
-        dfs(i, 0);
-        // bestRoute.deb;
-        // [[bestRoute.length, bestReduced]].deb;
-        routes ~= bestRoute;
-        routeSize -= bestReduced;
+        if (bestReduced.chmax(tryReduced)) {
+          routes = tryRoutes;
+        }
       }
     }
 
