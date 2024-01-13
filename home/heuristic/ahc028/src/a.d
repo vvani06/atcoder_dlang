@@ -7,6 +7,7 @@ struct Coord {
 
   T of(T)(T[][] grid) { return grid[y][x]; }
   T set(T)(T[][] grid, T value) { return grid[y][x] = value; }
+  int distance(Coord other) { return abs(x - other.x) + abs(y - other.y); }
   inout int id() { return y*100 + x; }
   inout int opCmp(inout Coord other) { return id == other.id ? 0 : id < other.id ? -1 : 1; }
 }
@@ -90,7 +91,15 @@ void problem() {
 
     foreach(y; 0..N) foreach(x; 0..N) {
       foreach(c; CHARS) {
-        if (A[y][x] == c) continue;
+        if (A[y][x] == c) {
+          foreach(i, co; coordsByChar[c]) {
+            if (co.x == x && co.y == y) {
+              indiciesByCoordAndChar[y][x][c] ~= i.to!int;
+              break;
+            }
+          }
+          continue;
+        }
 
         int dist(Coord co) { return abs(co.x - x) + abs(co.y - y); }
         indiciesByCoordAndChar[y][x][c] = coordsByChar[c].enumerate(0).array.sort!((a, b) => dist(a[1]) < dist(b[1])).map!"a[0]".array;
@@ -101,21 +110,34 @@ void problem() {
     int pre = -1;
     Coord cur = Coord(sx, sy);
     Coord[] ans;
-    foreach(route; routes) foreach(ti; route) {
-      auto t = pre == -1 ? T[ti] : T[ti][commonSize[pre][ti]..$];
-      pre = ti;
 
-      foreach(c; t) {
-        auto nexts = indiciesByCoordAndChar[cur.y][cur.x][c];
-        
-        if (nexts.empty) {
-          ans ~= cur;
-          cost++;
-        } else {
+    auto candidates = routes.length.to!int.iota.redBlackTree;
+    int nextRouteIndex = 0;
+
+    string finalRoute; 
+    while(!candidates.empty) {
+      candidates.removeKey(nextRouteIndex);
+
+      foreach(ti; routes[nextRouteIndex]) {
+        auto t = pre == -1 ? T[ti] : T[ti][commonSize[pre][ti]..$];
+        pre = ti;
+
+        foreach(c; t) {
+          auto nexts = indiciesByCoordAndChar[cur.y][cur.x][c];
           auto next = coordsByChar[c][nexts[0]];
           ans ~= next;
           cost += abs(cur.x - next.x) + abs(cur.y - next.y) + 1;
           cur = next;
+          finalRoute ~= c;
+        }
+      
+        int bestDistance = int.max;
+        foreach(nextRoute; candidates.array) {
+          auto c = T[routes[nextRoute][0]][0];
+          auto nearest = indiciesByCoordAndChar[cur.y][cur.x][c][0];
+          if (bestDistance.chmin(cur.distance(coordsByChar[c][nearest]))) {
+            nextRouteIndex = nextRoute;
+          }
         }
       }
     }
@@ -125,6 +147,7 @@ void problem() {
     }
     stderr.writeln(max(1001, 10000 - cost));
     ans.length.deb;
+    finalRoute.deb;
   }
 
   solve();
