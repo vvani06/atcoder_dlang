@@ -1,44 +1,35 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
+  auto N = scan!int;
+  auto E = scan!int(2 * N).chunks(2);
 
   auto solve() {
-    auto s = "_" ~ N.to!string;
-    auto MAX_DIGIT = s.length.to!int;
-    auto MAX_DSUM = MAX_DIGIT * 9 + 1;
-
-    long ans;
-    foreach(ds; 1..MAX_DSUM) {
-      auto dpL = new long[][](MAX_DSUM, ds);
-      auto dpE = new long[][](MAX_DSUM, ds);
-      dpE[0][0] = 1;
-      long geta = 10L ^^ (MAX_DIGIT - 1);
-      
-      foreach(digit; 1..MAX_DIGIT) {
-        auto dn = s[digit].to!long - '0';
-        geta /= 10;
-
-        auto preL = new long[][](MAX_DSUM, ds);
-        auto preE = new long[][](MAX_DSUM, ds);
-        swap(dpL, preL);
-        swap(dpE, preE);
-
-        foreach(preSum; 0..digit * 9 - 8) foreach(preMod; 0..ds) {
-          foreach(d; 0L..10L) {
-            auto dsum = preSum + d;
-            auto mod = (preMod + d * geta) % ds;
-
-            dpL[dsum][mod] += preL[preSum][preMod];
-            if (d < dn) dpL[dsum][mod] += preE[preSum][preMod];
-            if (d == dn) dpE[dsum][mod] += preE[preSum][preMod];
-          }
+    auto other = new int[](2 * N);
+    foreach(e; E) {
+      e[0]--; e[1]--;
+      other[e[0]] = e[1];
+      other[e[1]] = e[0];
+    }
+    
+    auto lt = [-1].redBlackTree;
+    auto rt = [2 * N].redBlackTree;
+    foreach(i; 0..2 * N) {
+      if (other[i] > i) {
+        if (rt.front < other[i]) {
+          return true;
         }
+        lt.insert(i);
+        rt.insert(other[i]);
+      } else {
+        lt.removeKey(other[i]);
+        rt.removeKey(i);
       }
-      ans += dpL[ds][0] + dpE[ds][0];
+      // [i, other[i]].deb;
+      // [lt, rt].deb;
     }
 
-    return ans;
+    return false;
   }
 
   outputForAtCoder(&solve);

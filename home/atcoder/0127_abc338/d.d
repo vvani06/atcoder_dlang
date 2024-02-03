@@ -3,23 +3,34 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto M = scan!int;
-  auto X = scan!int(M).map!"a - 1".array;
+  auto X = scan!long(M).map!"a - 1".array;
 
   auto solve() {
-    long dist(int a, int b) {
-      auto l = min(a, b);
-      auto r = max(a, b);
-      return min(r - l, l + N - r);
+    auto delta = new long[](N);
+    long mid = N / 2;
+
+    long sum;
+    foreach(f, t; zip(X[0..$-1], X[1..$])) {
+      auto d = abs(f - t);
+      sum += d;
+
+      auto dx = abs(d - (N - d));
+      auto l = min(f, t);
+      auto r = max(f, t);
+      if (d <= mid) {
+        delta[l] += dx;
+        delta[r] -= dx;
+      } else {
+        delta[l] -= dx;
+        delta[r] += dx;
+      }
     }
 
-    long ans;
-
-    int cur = X[0];
-    foreach(next; X[1..$]) {
-      ans += dist(cur, next);
-      cur = next;
+    auto ans = sum;
+    foreach(i; 0..N - 1) {
+      sum += delta[i];
+      ans = min(ans, sum);
     }
-
     return ans;
   }
 
