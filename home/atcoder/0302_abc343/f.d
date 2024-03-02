@@ -2,27 +2,69 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!string(N);
-  auto L = A.map!(a => a.length.to!int).array;
-  auto B = A.map!(a => BigInt(a)).array;
+  auto QN = scan!int;
+  auto A = scan!int(N);
+  auto Q = scan!int(3 * QN).chunks(3);
 
   auto solve() {
-    long[BigInt][int] counts;
-    foreach(i; 0..N) counts[L[i]][B[i]]++;
+    // auto nums = A ~ Q.filter!"a[0] == 1".map!"a[2]".array;
+    // auto comp = nums.compress;
+    // nums.deb;
+    // comp.deb;
+    // int[int] conv;
+    // foreach(i, n; nums) conv[n] = comp[i];
+    // conv.deb;
 
-    long ans;
-    foreach(i; 0..N) {
-      foreach(j; 0..N) {
-        auto ml = L[i] + L[j] - 1;
-        foreach(l; ml..ml + 2) {
-          if (!(l in counts)) continue;
+    struct NC {
+      int first = 0, firstCount = 0;
+      int second = 0, secondCount = 0;
 
-          ans += counts[l].get(B[i] * B[j], 0);
-        }
+      NC add(NC other) {
+        NC ret;
+
+        ret.first = max(first, other.first);
+        if (ret.first == first) ret.firstCount += firstCount;
+        if (ret.first == other.first) ret.firstCount += other.firstCount;
+
+        if (first < ret.first) ret.second = first;
+        if (other.first < ret.first) ret.second.chmax(other.first);
+        ret.second.chmax(max(second, other.second));
+
+        if (ret.second == first) ret.secondCount += firstCount;
+        if (ret.second == other.first) ret.secondCount += other.firstCount;
+        if (ret.second == second) ret.secondCount += secondCount;
+        if (ret.second == other.second) ret.secondCount += other.secondCount;
+
+        // if (first == other.first) {
+        //   ret.firstCunt = firstCount + other.firstCount;
+          
+        // }
+        // if (ret.first == first) {
+        //   ret.firstCount = firstCount;
+        //   if (other.first == first) ret.firstCount += other.firstCount;
+        // } else {
+          
+        // }
+
+        return ret;
       }
     }
 
-    return ans;
+    auto segtree = SegTree!("a.add(b)", NC)(A.map!(a => NC(a, 1, 0, 0)).array, NC(-1, 0, 0, 0));
+
+    foreach(q; Q) {
+      if (q[0] == 1) {
+        auto p = q[1] - 1;
+        auto x = q[2];
+        segtree.update(p, NC(x, 1, 0, 0));
+      } else {
+        auto l = q[1] - 1;
+        auto r = q[2];
+
+        segtree.sum(l, r).secondCount.writeln;
+      }
+    }
+
   }
 
   outputForAtCoder(&solve);
@@ -31,7 +73,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -74,3 +115,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}

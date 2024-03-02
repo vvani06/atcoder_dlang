@@ -1,25 +1,15 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto A = scan!string(N);
-  auto L = A.map!(a => a.length.to!int).array;
-  auto B = A.map!(a => BigInt(a)).array;
+  auto N = scan!long;
 
   auto solve() {
-    long[BigInt][int] counts;
-    foreach(i; 0..N) counts[L[i]][B[i]]++;
-
     long ans;
-    foreach(i; 0..N) {
-      foreach(j; 0..N) {
-        auto ml = L[i] + L[j] - 1;
-        foreach(l; ml..ml + 2) {
-          if (!(l in counts)) continue;
+    for(long x = 1; x^^3 <= N; x++) {
+      long t = x ^^ 3;
 
-          ans += counts[l].get(B[i] * B[j], 0);
-        }
-      }
+      auto s = t.to!string;
+      if (s == s.retro.to!string) ans = t;
     }
 
     return ans;
@@ -31,7 +21,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }

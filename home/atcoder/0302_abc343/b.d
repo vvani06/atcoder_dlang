@@ -2,27 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!string(N);
-  auto L = A.map!(a => a.length.to!int).array;
-  auto B = A.map!(a => BigInt(a)).array;
 
   auto solve() {
-    long[BigInt][int] counts;
-    foreach(i; 0..N) counts[L[i]][B[i]]++;
-
-    long ans;
-    foreach(i; 0..N) {
-      foreach(j; 0..N) {
-        auto ml = L[i] + L[j] - 1;
-        foreach(l; ml..ml + 2) {
-          if (!(l in counts)) continue;
-
-          ans += counts[l].get(B[i] * B[j], 0);
-        }
-      }
+    foreach(_; 0..N) {
+      writefln("%(%s %)", scan!int(N).enumerate(1).filter!"a[1] == 1".map!"a[0]");
     }
-
-    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -31,7 +15,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -62,7 +45,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -74,3 +57,31 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}

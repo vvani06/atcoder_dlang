@@ -2,27 +2,26 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!string(N);
-  auto L = A.map!(a => a.length.to!int).array;
-  auto B = A.map!(a => BigInt(a)).array;
+  auto T = scan!int;
+  auto AB = scan!long(2 * T).chunks(2);
 
   auto solve() {
-    long[BigInt][int] counts;
-    foreach(i; 0..N) counts[L[i]][B[i]]++;
+    int[long] counts;
+    auto scores = new long[](N);
+    counts[0] = N;
 
-    long ans;
-    foreach(i; 0..N) {
-      foreach(j; 0..N) {
-        auto ml = L[i] + L[j] - 1;
-        foreach(l; ml..ml + 2) {
-          if (!(l in counts)) continue;
+    foreach(ab; AB) {
+      auto a = ab[0] - 1;
+      auto b = ab[1];
 
-          ans += counts[l].get(B[i] * B[j], 0);
-        }
-      }
+      counts[scores[a]]--;
+      if (counts[scores[a]] == 0) counts.remove(scores[a]);
+
+      scores[a] += b;
+      counts[scores[a]]++;
+      
+      counts.length.writeln;
     }
-
-    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -31,7 +30,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -74,3 +72,60 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
+}

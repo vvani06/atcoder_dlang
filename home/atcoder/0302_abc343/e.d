@@ -1,28 +1,51 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto A = scan!string(N);
-  auto L = A.map!(a => a.length.to!int).array;
-  auto B = A.map!(a => BigInt(a)).array;
+  auto V = 0 ~ scan!int(3);
 
   auto solve() {
-    long[BigInt][int] counts;
-    foreach(i; 0..N) counts[L[i]][B[i]]++;
-
-    long ans;
-    foreach(i; 0..N) {
-      foreach(j; 0..N) {
-        auto ml = L[i] + L[j] - 1;
-        foreach(l; ml..ml + 2) {
-          if (!(l in counts)) continue;
-
-          ans += counts[l].get(B[i] * B[j], 0);
-        }
-      }
+    int[14][14][14] m;
+    void incr(int a, int b, int c) {
+      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
+        m[x][y][z]++;
+      } 
+    }
+    void decr(int a, int b, int c) {
+      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
+        m[x][y][z]--;
+      } 
     }
 
-    return ans;
+    int[] count() {
+      int[] ret = new int[4];
+      foreach(x; 0..14) foreach(y; 0..14) foreach(z; 0..14) {
+        ret[m[x][y][z]]++;
+      }
+
+      ret[0] = 0;
+      return ret;
+    }
+
+    incr(0, 0, 0);
+    foreach(a2; 0..8) foreach(b2; 0..8) foreach(c2; 0..8) {
+      incr(a2, b2, c2);
+      foreach(a3; 0..8) foreach(b3; 0..8) foreach(c3; 0..8) {
+        incr(a3, b3, c3);
+        if (count() == V) {
+          writeln("Yes");
+          writefln("%(%s %)", [0, 0, 0, a2, b2, c2, a3, b3, c3]);
+          return;
+        }
+        decr(a3, b3, c3);
+      }
+      decr(a2, b2, c2);
+    }
+
+    incr(0, 0, 0);
+    incr(7, 0, 0);
+    count.deb;
+
+    writeln("No");
   }
 
   outputForAtCoder(&solve);
@@ -31,7 +54,6 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -74,3 +96,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}
