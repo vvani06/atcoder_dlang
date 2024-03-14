@@ -35,22 +35,11 @@ void problem() {
         if (ret.second == second) ret.secondCount += secondCount;
         if (ret.second == other.second) ret.secondCount += other.secondCount;
 
-        // if (first == other.first) {
-        //   ret.firstCunt = firstCount + other.firstCount;
-          
-        // }
-        // if (ret.first == first) {
-        //   ret.firstCount = firstCount;
-        //   if (other.first == first) ret.firstCount += other.firstCount;
-        // } else {
-          
-        // }
-
         return ret;
       }
     }
 
-    auto segtree = SegTree!("a.add(b)", NC)(A.map!(a => NC(a, 1, 0, 0)).array, NC(-1, 0, 0, 0));
+    auto segtree = SegTree!("a.add(b)", NC)(A.map!(a => NC(a, 1, 0, 0)).array, NC(0, 0, 0, 0));
 
     foreach(q; Q) {
       if (q[0] == 1) {

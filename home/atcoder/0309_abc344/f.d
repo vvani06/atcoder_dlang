@@ -1,47 +1,64 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto N = scan!int;
+  auto P = scan!long(N * N).chunks(N).array;
+  auto R = scan!long(N * N - N).chunks(N - 1).array;
+  auto D = scan!long(N * N - N).chunks(N).array;
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
-    }
+    struct Memo {
+      static long[long] empty;
+      long[long][long] m;
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
+      void add(long maxEarn, long step, long money) {
+        m.require(maxEarn, empty.dup);
 
-      ret[0] = 0;
-      return ret;
-    }
-
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
+        auto s = m[maxEarn].keys;
+        if (s.empty) {
+          m[maxEarn][step] = money;
+        } else if (s[0] > step) {
+          m[maxEarn].clear;
+          m[maxEarn][step] = money;
+        } else if (s[0] == step) {
+          m[maxEarn][step].chmin(money);
         }
-        decr(a3, b3, c3);
       }
-      decr(a2, b2, c2);
     }
 
-    writeln("No");
+    auto memo = new Memo[][](N, N);
+    memo[0][0] = Memo();
+    memo[0][0].add(P[0][0], 0, 0);
+
+    struct Coord { int x, y; }
+    bool[Coord] queued;
+    
+    for(auto queue = DList!Coord(Coord(0, 0)); !queue.empty;) {
+      auto p = queue.front; queue.removeFront;
+
+      foreach(maxEarn, kv; memo[p.x][p.y].m) foreach(step, money; kv) {
+        alias Move = Tuple!(Coord, long);
+        Move[] moves;
+        if (p.x < N - 1) moves ~= Move(Coord(p.x + 1, p.y), money - D[p.x][p.y]);
+        if (p.y < N - 1) moves ~= Move(Coord(p.x, p.y + 1), money - R[p.x][p.y]);
+        // moves.deb;
+
+        foreach(move; moves) {
+          auto coord = move[0];
+          auto movedMoney = move[1];
+          auto earn = max(maxEarn, P[coord.x][coord.y]);
+          long addStep = movedMoney < 0 ? (movedMoney.abs + earn - 1) / earn : 0;
+
+          memo[coord.x][coord.y].add(max(maxEarn, P[coord.x][coord.y]), step + addStep, movedMoney + addStep * earn);
+          if (!(coord in queued)) {
+            queue.insertBack(coord);
+            queued[coord] = true;
+          }
+        }
+      }
+    }
+
+    return memo[N - 1][N - 1].m.values.map!"a.keys.minElement".minElement + N*2 - 2;
   }
 
   outputForAtCoder(&solve);

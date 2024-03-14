@@ -1,47 +1,31 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto T = scan;
+  auto N = scan!int;
+  string[][] S;
+  foreach(_; 0..N) S ~= scan!string(scan!int);
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
-    }
+    int[string] memo;
+    memo[""] = 0;
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
+    foreach(sa; S) {
+      foreach(k; memo.keys) {
+        foreach(s; sa) {
+          auto t = k ~ s;
+          if (!T.startsWith(t)) continue;
 
-      ret[0] = 0;
-      return ret;
-    }
-
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
+          if (t in memo) {
+            memo[t].chmin(memo[k] + 1);
+          } else {
+            memo[t] = memo[k] + 1;
+          }
         }
-        decr(a3, b3, c3);
       }
-      decr(a2, b2, c2);
     }
 
-    writeln("No");
+    return memo.get(T, -1);
   }
 
   outputForAtCoder(&solve);
@@ -92,3 +76,60 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
+}

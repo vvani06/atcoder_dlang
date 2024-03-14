@@ -1,47 +1,82 @@
 void main() { runSolver(); }
 
+class Item {
+  int num;
+  Item prev, next;
+
+  this(int num) {
+    this.num = num;
+  }
+
+  void add(Item toAdd) {
+    if (next) {
+      next.prev = toAdd;
+      toAdd.next = next;
+    }
+    toAdd.prev = this;
+    next = toAdd;
+  }
+
+  void remove() {
+    if (next) {
+      next.prev = prev;
+    } 
+    if (prev) {
+      prev.next = next;
+    }
+  }
+}
+
+class Items {
+  Item[int] items;
+
+  void add(int prev, int num) {
+    items[num] = new Item(num);
+
+    if (prev != -1) {
+      items[prev].add(items[num]);
+    }
+  }
+
+  void remove(int num) {
+    items[num].remove();
+    items.remove(num);
+  }
+
+  Item head() {
+    auto ret = items.values[0];
+    while(ret.prev !is null) ret = ret.prev;
+    return ret;
+  }
+}
+
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto N = scan!int;
+  auto A = scan!int(N);
+  auto QN = scan!int;
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
-    }
+    Items items = new Items();
+    foreach(i; 0..N) items.add(i == 0 ? -1 : A[i - 1], A[i]);
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
+    foreach(_; 0..QN) {
+      auto t = scan!int;
+
+      if (t == 1) {
+        auto x = scan!int;
+        auto y = scan!int;
+        items.add(x, y);
+      } else {
+        auto x = scan!int;
+        items.remove(x);
       }
-
-      ret[0] = 0;
-      return ret;
     }
 
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
-        }
-        decr(a3, b3, c3);
-      }
-      decr(a2, b2, c2);
+    int[] ans;
+    for(auto n = items.head(); n !is null; n = n.next) {
+      ans ~= n.num;
     }
-
-    writeln("No");
+    return ans;
   }
 
   outputForAtCoder(&solve);

@@ -1,47 +1,16 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  // auto N = scan!int;
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
+    int[] arr;
+    while(true) {
+      arr ~= scan!int;
+      if (arr[$ - 1] == 0) break;
     }
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
-
-      ret[0] = 0;
-      return ret;
-    }
-
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
-        }
-        decr(a3, b3, c3);
-      }
-      decr(a2, b2, c2);
-    }
-
-    writeln("No");
+    foreach(a; arr.reverse) a.writeln;
   }
 
   outputForAtCoder(&solve);
@@ -80,7 +49,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -92,3 +61,31 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}

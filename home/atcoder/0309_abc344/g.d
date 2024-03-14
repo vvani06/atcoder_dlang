@@ -1,47 +1,35 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto N = scan!int;
+  auto QN = scan!int;
+  auto S = scan!string;
+  auto Q = scan!int(3 * QN).chunks(3);
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
+    auto segtree = SegTree!("a | b", bool)(new bool[](N));
+    auto bads = new int[](0).redBlackTree;
+    foreach(i; 0..N - 1) {
+      if (S[i..i + 2] == "11" || S[i..i + 2] == "00") bads.insert(i);
     }
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
+    bool[] ans;
+    foreach(q; Q) {
+      auto t = q[0];
+      auto l = q[1] - 1;
+      auto r = q[2];
 
-      ret[0] = 0;
-      return ret;
-    }
-
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
+      if (t == 1) {
+        foreach(x; [l, r - 2]) {
+          if (x in bads) bads.insert(x); else bads.removeKey(x);
         }
-        decr(a3, b3, c3);
+      } else {
+        auto right = bads.upperBound(l);
+        ans ~= right.empty || right.front >= r - 1;
       }
-      decr(a2, b2, c2);
     }
 
-    writeln("No");
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -50,6 +38,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -92,3 +81,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}

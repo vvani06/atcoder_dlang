@@ -1,47 +1,24 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto N = scan!int;
+  auto A = scan!long(N);
+  auto M = scan!int;
+  auto B = scan!long(M);
+  auto L = scan!int;
+  auto C = scan!long(L);
+  auto Q = scan!int;
+  auto X = scan!long(Q);
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
+    auto set = new long[](0).redBlackTree;
+    foreach(a, b, c; cartesianProduct(A, B, C)) {
+      set.insert(a + b + c);
     }
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
-
-      ret[0] = 0;
-      return ret;
+    foreach(x; X) {
+      writeln(x in set ? "Yes" : "No");
     }
-
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
-          writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
-          return;
-        }
-        decr(a3, b3, c3);
-      }
-      decr(a2, b2, c2);
-    }
-
-    writeln("No");
   }
 
   outputForAtCoder(&solve);
