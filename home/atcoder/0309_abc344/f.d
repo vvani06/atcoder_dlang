@@ -2,63 +2,88 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto P = scan!long(N * N).chunks(N).array;
+  auto P = scan!long(N * N).array;
   auto R = scan!long(N * N - N).chunks(N - 1).array;
   auto D = scan!long(N * N - N).chunks(N).array;
 
   auto solve() {
-    struct Memo {
-      static long[long] empty;
-      long[long][long] m;
+    struct Edge {
+      int tx, ty;
+      long cost;
 
-      void add(long maxEarn, long step, long money) {
-        m.require(maxEarn, empty.dup);
-
-        auto s = m[maxEarn].keys;
-        if (s.empty) {
-          m[maxEarn][step] = money;
-        } else if (s[0] > step) {
-          m[maxEarn].clear;
-          m[maxEarn][step] = money;
-        } else if (s[0] == step) {
-          m[maxEarn][step].chmin(money);
-        }
-      }
+      int toId() { return ty * N + tx; }
     }
 
-    auto memo = new Memo[][](N, N);
-    memo[0][0] = Memo();
-    memo[0][0].add(P[0][0], 0, 0);
+    Edge[][] graph = new Edge[][](N^^2, 0);
+    foreach(y; 0..N) foreach(x; 0..N) {
+      if (y < N - 1) graph[y * N + x] ~= Edge(x, y + 1, D[y][x]);
+      if (x < N - 1) graph[y * N + x] ~= Edge(x + 1, y, R[y][x]);
+    }
 
-    struct Coord { int x, y; }
-    bool[Coord] queued;
-    
-    for(auto queue = DList!Coord(Coord(0, 0)); !queue.empty;) {
-      auto p = queue.front; queue.removeFront;
+    long[][] allCosts;
+    enum INF = long.max / 3;
+    foreach(i; 0..N ^^ 2) {
+      auto costs = new long[](N ^^ 2);
+      costs[] = INF;
+      costs[i] = 0;
 
-      foreach(maxEarn, kv; memo[p.x][p.y].m) foreach(step, money; kv) {
-        alias Move = Tuple!(Coord, long);
-        Move[] moves;
-        if (p.x < N - 1) moves ~= Move(Coord(p.x + 1, p.y), money - D[p.x][p.y]);
-        if (p.y < N - 1) moves ~= Move(Coord(p.x, p.y + 1), money - R[p.x][p.y]);
-        // moves.deb;
+      for(auto queue = [Edge(i % N, i / N, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (costs[cur.toId] != cur.cost) continue;
 
-        foreach(move; moves) {
-          auto coord = move[0];
-          auto movedMoney = move[1];
-          auto earn = max(maxEarn, P[coord.x][coord.y]);
-          long addStep = movedMoney < 0 ? (movedMoney.abs + earn - 1) / earn : 0;
-
-          memo[coord.x][coord.y].add(max(maxEarn, P[coord.x][coord.y]), step + addStep, movedMoney + addStep * earn);
-          if (!(coord in queued)) {
-            queue.insertBack(coord);
-            queued[coord] = true;
+        foreach(e; graph[cur.toId]) {
+          auto c = cur.cost + e.cost;
+          if (costs[e.toId].chmin(c)) {
+            queue.insert(Edge(e.tx, e.ty, c));
           }
         }
       }
+
+      costs[i] = INF;
+      allCosts ~= costs;
     }
 
-    return memo[N - 1][N - 1].m.values.map!"a.keys.minElement".minElement + N*2 - 2;
+    struct Walk {
+      int node;
+      long cost = INF;
+      long money = -INF;
+
+      int opCmp(Walk other) {
+        return cmp(
+          [cost, -money],
+          [other.cost, -other.money]
+        );
+      }
+    }
+
+    Walk[] walks = new Walk[](N ^^ 2);
+    walks[0] = Walk(0, 0, 0);
+    for(auto queue = [Walk(0, 0, 0)].heapify!"a > b"; !queue.empty;) {
+      auto cur = queue.front;
+      queue.removeFront;
+      if (cur != walks[cur.node]) continue;
+
+      foreach(to, cost; allCosts[cur.node]) {
+        if (cost >= INF) continue;
+
+        long fx = cur.node % N;
+        long tx = to % N;
+        long fy = cur.node / N;
+        long ty = to / N;
+
+        auto earnUnit = P[cur.node];
+        auto earnTimes = max(0, (cost - cur.money + earnUnit - 1) / earnUnit);
+        auto movedCost = cur.cost + earnTimes + tx + ty - fx - fy;
+        auto movedMoney = cur.money + earnTimes * earnUnit - cost;
+        auto walk = Walk(to.to!int, movedCost, movedMoney);
+        if (walks[to].chmin(walk)) {
+          queue.insert(walk);
+        }
+      }
+    }
+
+    return walks[N^^2 - 1].cost;
   }
 
   outputForAtCoder(&solve);
