@@ -32,14 +32,19 @@ void problem() {
       while(curLarge >= curSmall) {
         int waste = int.max;
         int bestSmall, bestRowSize = W - preRow;
-        foreach(small; 0..min(5, curLarge - curSmall)) {
+        foreach(small; 0..min(12, curLarge - curSmall + 1)) {
           int seg = segs[curLarge];
           foreach(i; curSmall..curSmall + small) seg += segs[i];
 
-          int rowSize = (seg + W - 1) / W;
-          if (waste.chmin(rowSize * W - seg)) {
-            bestSmall = small;
-            bestRowSize = rowSize;
+          int baseRowSize = (seg + W - 1) / W;
+          foreach(rowSize; baseRowSize .. min(W - preRow, baseRowSize + 250)) {
+            int l = segs[curSmall..curSmall + small].map!(s => (s + rowSize - 1) / rowSize).sum;
+            int segLack = max(0, segs[curLarge] - (W - l) * rowSize);
+            
+            if (waste.chmin(segLack*100 + rowSize * W - seg)) {
+              bestSmall = small;
+              bestRowSize = rowSize;
+            }
           }
         }
 
@@ -57,7 +62,11 @@ void problem() {
         preRow += bestRowSize;
       }
 
+      foreach(i; 0..N) {
+        if (ans[i].b == preRow) ans[i].b = W;
+      }
       foreach(r; ans) r.toString.writeln;
+      "".writeln;
     }
 
     "FIN".deb;
