@@ -3,6 +3,11 @@ void main() { runSolver(); }
 // ---------------------------------------------
 
 void problem() {
+  auto StartTime = MonoTime.currTime();
+  bool elapsed(int ms) { 
+    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
+  }
+
   int W = scan!int;
   int D = scan!int;
   int N = scan!int;
@@ -16,14 +21,22 @@ void problem() {
     }
   }
 
-  auto solve() {
-    auto maximums = N.iota.map!(i => A.map!(a => a[i]).maxElement).array;
-    maximums.deb;
+  struct PredefinedRect {
+    int rectId, offset, rowSize, usedColumn;
 
-    A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
+    bool use(int columnSize, int requiredRestSegment) {
+      if (rowSize * (W - usedColumn - columnSize) < requiredRestSegment) return false;
+
+      usedColumn += columnSize;
+      return true;
+    }
+  }
+
+  Rect[][] solveWithTwoPointers() {
+    Rect[][] ret;
 
     foreach(segs; A) {
-      Rect[] ans = new Rect[](N);
+      Rect[] rects = new Rect[](N);
 
       int preRow;
       int curLarge = N - 1;
@@ -52,27 +65,90 @@ void problem() {
         int preColumn;
         foreach(s; curSmall..curSmall + bestSmall) {
           int columnSize = (segs[s] + bestRowSize - 1) / bestRowSize;
-          ans[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize);
+          rects[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize);
           preColumn += columnSize;
         }
         curSmall += bestSmall;
 
-        ans[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize);
+        rects[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize);
         curLarge--;
         preRow += bestRowSize;
       }
 
-      foreach(i; 0..N) {
-        if (ans[i].b == preRow) ans[i].b = W;
-      }
-      foreach(r; ans) r.toString.writeln;
-      "".writeln;
+      foreach(i; 0..N) if (rects[i].b == preRow) rects[i].b = W;
+      ret ~= rects;
     }
-
-    "FIN".deb;
+    return ret;
   }
 
-  solve();
+  auto solveWithPredefinedRects() {
+    Rect[][] ret;
+
+    auto maximums = N.iota.map!(i => A.map!(a => a[i]).maxElement).array;
+    maximums.deb;
+    maximums[$ - 3..$].sum.deb;
+    A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
+
+    auto preDefRects = new Rect[](N);
+    PredefinedRect[] predefined = new PredefinedRect[](0); {
+      int preDefRow;
+      foreach_reverse(i; 0..N) {
+        int rowSize = (maximums[i] + W - 1) / W;
+        if (preDefRow >= W * 75 / 100) rowSize = W - preDefRow;
+        if (rowSize * W < maximums[i]) {
+          predefined[$ - 1].rowSize += W - preDefRow;
+          break;
+        }
+
+        preDefRects[i] = Rect(0, preDefRow, W, preDefRow + rowSize);
+        predefined ~= PredefinedRect(i, preDefRow, rowSize, 0);
+        preDefRow += rowSize;
+
+        if (preDefRow >= W) break;
+      }
+    }
+
+    foreach(segs; A) {
+      Rect[] rects = preDefRects.dup;
+
+      LOOP: while(true) {
+        if (elapsed(2900)) return null;
+
+        PredefinedRect[] predef = predefined.dup;
+        foreach_reverse(i; (N - predef.length).iota.array.randomShuffle) {
+          bool placed;
+          foreach(ref p; predef.randomShuffle) {
+            int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
+            if (p.use(columnSize, segs[p.rectId])) {
+              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize);
+              rects[p.rectId].l = p.usedColumn;
+              placed = true;
+              break;
+            }
+          }
+
+          if (!placed) continue LOOP;
+        }
+        break;
+      }
+
+      ret ~= rects;
+    }
+
+    return ret;
+  }
+
+  auto ans = solveWithTwoPointers();
+  auto ansPredefined = solveWithPredefinedRects();
+  if (ansPredefined !is null) ans = ansPredefined;
+
+  foreach(rectsPerDay; ans) {
+    foreach(rect; rectsPerDay) rect.toString().writeln;
+    "".writeln;
+  }
+
+  "--- FIN ---".deb;
+  (MonoTime.currTime() - StartTime).total!"msecs".deb;
 }
 
 // ----------------------------------------------
