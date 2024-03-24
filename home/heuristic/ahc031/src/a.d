@@ -32,51 +32,55 @@ void problem() {
     }
   }
 
+  Rect[] solveDayWithTwoPointers(int[] segs) {
+    Rect[] rects = new Rect[](N);
+
+    int preRow;
+    int curLarge = N - 1;
+    int curSmall = 0;
+    
+    while(curLarge >= curSmall) {
+      int waste = int.max;
+      int bestSmall, bestRowSize = W - preRow;
+      foreach(small; 0..min(12, curLarge - curSmall + 1)) {
+        int seg = segs[curLarge];
+        foreach(i; curSmall..curSmall + small) seg += segs[i];
+
+        int baseRowSize = (seg + W - 1) / W;
+        foreach(rowSize; baseRowSize .. min(W - preRow, baseRowSize + 250)) {
+          int l = segs[curSmall..curSmall + small].map!(s => (s + rowSize - 1) / rowSize).sum;
+          int segLack = max(0, segs[curLarge] - (W - l) * rowSize);
+          
+          if (waste.chmin(segLack*100 + rowSize * W - seg)) {
+            bestSmall = small;
+            bestRowSize = rowSize;
+          }
+        }
+      }
+
+      [bestSmall, bestRowSize].deb;
+      int preColumn;
+      foreach(s; curSmall..curSmall + bestSmall) {
+        int columnSize = (segs[s] + bestRowSize - 1) / bestRowSize;
+        rects[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize);
+        preColumn += columnSize;
+      }
+      curSmall += bestSmall;
+
+      rects[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize);
+      curLarge--;
+      preRow += bestRowSize;
+    }
+
+    foreach(i; 0..N) if (rects[i].b == preRow) rects[i].b = W;
+    return rects;
+  }
+
   Rect[][] solveWithTwoPointers() {
     Rect[][] ret;
 
     foreach(segs; A) {
-      Rect[] rects = new Rect[](N);
-
-      int preRow;
-      int curLarge = N - 1;
-      int curSmall = 0;
-      
-      while(curLarge >= curSmall) {
-        int waste = int.max;
-        int bestSmall, bestRowSize = W - preRow;
-        foreach(small; 0..min(12, curLarge - curSmall + 1)) {
-          int seg = segs[curLarge];
-          foreach(i; curSmall..curSmall + small) seg += segs[i];
-
-          int baseRowSize = (seg + W - 1) / W;
-          foreach(rowSize; baseRowSize .. min(W - preRow, baseRowSize + 250)) {
-            int l = segs[curSmall..curSmall + small].map!(s => (s + rowSize - 1) / rowSize).sum;
-            int segLack = max(0, segs[curLarge] - (W - l) * rowSize);
-            
-            if (waste.chmin(segLack*100 + rowSize * W - seg)) {
-              bestSmall = small;
-              bestRowSize = rowSize;
-            }
-          }
-        }
-
-        [bestSmall, bestRowSize].deb;
-        int preColumn;
-        foreach(s; curSmall..curSmall + bestSmall) {
-          int columnSize = (segs[s] + bestRowSize - 1) / bestRowSize;
-          rects[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize);
-          preColumn += columnSize;
-        }
-        curSmall += bestSmall;
-
-        rects[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize);
-        curLarge--;
-        preRow += bestRowSize;
-      }
-
-      foreach(i; 0..N) if (rects[i].b == preRow) rects[i].b = W;
-      ret ~= rects;
+      ret ~= solveDayWithTwoPointers(segs);
     }
     return ret;
   }
@@ -84,7 +88,10 @@ void problem() {
   auto solveWithPredefinedRects() {
     Rect[][] ret;
 
-    auto maximums = N.iota.map!(i => A.map!(a => a[i]).maxElement).array;
+    auto sortedPerRectId = N.iota.map!(i => A.map!(a => a[i]).array.sort).array;
+    sortedPerRectId.each!deb;
+
+    auto maximums = N.iota.map!(i => A.map!(a => a[i] > W^^2 / 2 ? 0 : a[i]).maxElement).array;
     maximums.deb;
     maximums[$ - 3..$].sum.deb;
     A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
@@ -94,9 +101,11 @@ void problem() {
       int preDefRow;
       foreach_reverse(i; 0..N) {
         int rowSize = (maximums[i] + W - 1) / W;
+        [[[preDefRow]]].deb;
         if (preDefRow >= W * 75 / 100) rowSize = W - preDefRow;
         if (rowSize * W < maximums[i]) {
           predefined[$ - 1].rowSize += W - preDefRow;
+          preDefRects[i + 1].b = W;
           break;
         }
 
@@ -109,11 +118,23 @@ void problem() {
     }
 
     foreach(segs; A) {
+      bool cannotUsePredefinedLayout;
+      foreach(i, p; predefined) {
+        if (p.rowSize * W < segs[$ - i - 1]) {
+          cannotUsePredefinedLayout = true;
+        }
+      }
+
+      if (cannotUsePredefinedLayout) {
+        ret ~= solveDayWithTwoPointers(segs);
+        continue;
+      }
+
       Rect[] rects = preDefRects.dup;
 
-      LOOP: while(true) {
-        if (elapsed(2900)) return null;
-
+      int tried;
+      LOOP: foreach(_; 0..10000) {
+        tried++;
         PredefinedRect[] predef = predefined.dup;
         foreach_reverse(i; (N - predef.length).iota.array.randomShuffle) {
           bool placed;
@@ -132,7 +153,11 @@ void problem() {
         break;
       }
 
-      ret ~= rects;
+      if (tried < 10000) {
+        ret ~= rects;
+      } else {
+        ret ~= solveDayWithTwoPointers(segs);
+      }
     }
 
     return ret;
