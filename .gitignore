@@ -9,3 +9,4 @@ home/dlang/
 .DS_Store
 **/out/*
 home/heuristic/ahc031/output/out
+home/heuristic/ahc031/vis.html

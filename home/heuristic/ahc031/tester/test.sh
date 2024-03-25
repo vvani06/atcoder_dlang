@@ -1,20 +1,22 @@
-#!/bin/bash -e
+#!/bin/bash
 
 cd `dirname $0`
 
 ldmd2 -O -release ../src/a.d -of ./a
 touch score
+mkdir -p out
+mkdir -p logs
 rm score
 rm out/*
 
-for i in {0000..0149}; do
-  ./a < in/${i}.txt > out/${i}.txt 2>> out/${i}_score &
+for i in {0000..0099}; do
+  ./a < in/${i}.txt > out/${i}.txt
 done
 
 wait
 
-for i in {0000..0149}; do
-  cat out/${i}_score >> score
+for i in {0000..0099}; do
+  ./vis in/${i}.txt out/${i}.txt >> score
 done
 
 SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'`
