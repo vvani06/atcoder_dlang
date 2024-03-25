@@ -100,9 +100,9 @@ void problem() {
     PredefinedRect[] predefined = new PredefinedRect[](0); {
       int preDefRow;
       foreach_reverse(i; 0..N) {
-        int rowSize = (maximums[i] + W - 1) / W;
+        int rowSize = (maximums[i] + W - 1) / W + 15;
         [[[preDefRow]]].deb;
-        if (preDefRow >= W * 75 / 100) rowSize = W - preDefRow;
+        if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
         if (rowSize * W < maximums[i]) {
           predefined[$ - 1].rowSize += W - preDefRow;
           preDefRects[i + 1].b = W;
