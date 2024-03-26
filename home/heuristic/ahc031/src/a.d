@@ -17,6 +17,10 @@ void problem() {
     int l, t, r, b;
     int rectId, requiredSegment;
 
+    int rowSize() { return b - t; }
+    int columnSize() { return r - l; }
+    int segment() { return rowSize * columnSize; }
+
     string toString() {
       return "%(%d %)".format([l, t, r, b]);
     }
@@ -126,7 +130,7 @@ void problem() {
       int preDefRow;
       foreach_reverse(i; 0..N) {
         int rowSize = (maximums[i] + W - 1) / W + 12;
-        if (preDefRow >= W * (70 + N/2) / 100) rowSize = W - preDefRow;
+        if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
         if (rowSize * W < maximums[i]) {
           predefined[$ - 1].rowSize += W - preDefRow;
           preDefRects[i + 1].b = W;
@@ -158,6 +162,7 @@ void problem() {
       }
 
       Rect[] rects = preDefRects.dup;
+      foreach(i; 0..N) rects[i].requiredSegment = segs[i];
 
       {
         int numPlaced;
@@ -212,9 +217,40 @@ void problem() {
     return ret;
   }
 
-  auto ans = solveWithTwoPointers();
-  auto ansPredefined = solveWithPredefinedRects();
-  if (ansPredefined !is null) ans = ansPredefined;
+  auto ans = solveWithPredefinedRects();
+  if (ans is null) ans = solveWithTwoPointers();
+
+  foreach(d; 0..D - 1) {
+    if (!(ans[d].usePredefinedLayout && ans[d + 1].usePredefinedLayout)) continue;
+
+
+    foreach(row; 0..ans[d].rects.length.to!int) {
+      auto rects = [ans[d].rects[row], ans[d + 1].rects[row]];
+
+      foreach(i; 0..min(rects[0].length.to!int, rects[1].length.to!int)) {
+        void expand(Rect[] rc, int i, int r) {
+          if (rc[i].r >= r) return;
+
+          int diff = r - rc[i].r;
+          int diffSeg = diff * rc[i].rowSize;
+          [rc[$ - 1].segment, rc[$ - 1].requiredSegment].deb;
+          if (rc[$ - 1].segment - diffSeg >= rc[$ - 1].requiredSegment) {
+            rc[i].r += diff;
+            foreach(j; i + 1..rc.length) {
+              rc[j].l += diff;
+              rc[j].r = min(W, rc[j].r + diff);
+            }
+
+            "adjasted".deb;
+          }
+        }
+
+        auto larger = max(rects[0][i].r, rects[1][i].r);
+        expand(rects[0], i, larger);
+        expand(rects[1], i, larger);
+      }
+    }
+  }
 
   foreach(day; ans) day.output();
 
