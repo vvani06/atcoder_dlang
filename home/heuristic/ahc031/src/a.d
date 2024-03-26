@@ -100,7 +100,7 @@ void problem() {
     PredefinedRect[] predefined = new PredefinedRect[](0); {
       int preDefRow;
       foreach_reverse(i; 0..N) {
-        int rowSize = (maximums[i] + W - 1) / W + 15;
+        int rowSize = (maximums[i] + W - 1) / W + 12;
         [[[preDefRow]]].deb;
         if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
         if (rowSize * W < maximums[i]) {
@@ -132,8 +132,29 @@ void problem() {
 
       Rect[] rects = preDefRects.dup;
 
+      {
+        int numPlaced;
+        PredefinedRect[] predef = predefined.dup;
+        foreach(i; (N - predef.length).iota) {
+          foreach(ref p; predef.sort!"a.rowSize < b.rowSize") {
+            int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
+            if (p.use(columnSize, segs[p.rectId])) {
+              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize);
+              rects[p.rectId].l = p.usedColumn;
+              numPlaced++;
+              break;
+            }
+          }
+        }
+
+        if (numPlaced == N - predef.length) {
+          ret ~= rects;
+          continue;
+        }
+      }
+
       int tried;
-      LOOP: foreach(_; 0..10000) {
+      LOOP: foreach(_; 0..15000) {
         tried++;
         PredefinedRect[] predef = predefined.dup;
         foreach_reverse(i; (N - predef.length).iota.array.randomShuffle) {
@@ -153,7 +174,7 @@ void problem() {
         break;
       }
 
-      if (tried < 10000) {
+      if (tried < 15000) {
         ret ~= rects;
       } else {
         ret ~= solveDayWithTwoPointers(segs);
