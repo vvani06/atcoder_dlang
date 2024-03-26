@@ -15,6 +15,7 @@ void problem() {
 
   struct Rect {
     int l, t, r, b;
+    int rectId, requiredSegment;
 
     string toString() {
       return "%(%d %)".format([l, t, r, b]);
@@ -31,10 +32,35 @@ void problem() {
       return true;
     }
   }
+  
+  struct Day {
+    bool usePredefinedLayout;
+    Rect[][] rects;
 
-  Rect[] solveDayWithTwoPointers(int[] segs) {
-    Rect[] rects = new Rect[](N);
+    this(bool up, Rect[] rects) {
+      usePredefinedLayout = up;
+      foreach(rc; rects.multiSort!("a.t < b.t", "a.l < b.l").chunkBy!"a.t") {
+        this.rects ~= rc[1].array;
+      }
+    }
 
+    void output() {
+      string[] outputs = new string[](N);
+      foreach(r; rects.joiner) {
+        outputs[r.rectId] = r.toString;
+      }
+
+      foreach(o; outputs) o.writeln;
+      "".writeln;
+    }
+  }
+
+  Rect[] rectsBySegments(int[] segs) {
+    return N.iota.map!(i => Rect(0, 0, 0, 0, i, segs[i])).array;
+  }
+
+  Day solveDayWithTwoPointers(int[] segs) {
+    Rect[] rects = rectsBySegments(segs);
     int preRow;
     int curLarge = N - 1;
     int curSmall = 0;
@@ -58,26 +84,25 @@ void problem() {
         }
       }
 
-      [bestSmall, bestRowSize].deb;
       int preColumn;
       foreach(s; curSmall..curSmall + bestSmall) {
         int columnSize = (segs[s] + bestRowSize - 1) / bestRowSize;
-        rects[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize);
+        rects[s] = Rect(preColumn, preRow, preColumn + columnSize, preRow + bestRowSize, s, segs[s]);
         preColumn += columnSize;
       }
       curSmall += bestSmall;
 
-      rects[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize);
+      rects[curLarge] = Rect(preColumn, preRow, W, preRow + bestRowSize, curLarge, segs[curLarge]);
       curLarge--;
       preRow += bestRowSize;
     }
 
     foreach(i; 0..N) if (rects[i].b == preRow) rects[i].b = W;
-    return rects;
+    return Day(false, rects);
   }
 
-  Rect[][] solveWithTwoPointers() {
-    Rect[][] ret;
+  Day[] solveWithTwoPointers() {
+    Day[] ret;
 
     foreach(segs; A) {
       ret ~= solveDayWithTwoPointers(segs);
@@ -85,8 +110,8 @@ void problem() {
     return ret;
   }
 
-  auto solveWithPredefinedRects() {
-    Rect[][] ret;
+  Day[] solveWithPredefinedRects() {
+    Day[] ret;
 
     auto sortedPerRectId = N.iota.map!(i => A.map!(a => a[i]).array.sort).array;
     sortedPerRectId.each!deb;
@@ -96,26 +121,28 @@ void problem() {
     maximums[$ - 3..$].sum.deb;
     A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
 
-    auto preDefRects = new Rect[](N);
+    Rect[] preDefRects = rectsBySegments(A[0]);
     PredefinedRect[] predefined = new PredefinedRect[](0); {
       int preDefRow;
       foreach_reverse(i; 0..N) {
         int rowSize = (maximums[i] + W - 1) / W + 12;
-        [[[preDefRow]]].deb;
-        if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
+        if (preDefRow >= W * (70 + N/2) / 100) rowSize = W - preDefRow;
         if (rowSize * W < maximums[i]) {
           predefined[$ - 1].rowSize += W - preDefRow;
           preDefRects[i + 1].b = W;
           break;
         }
 
-        preDefRects[i] = Rect(0, preDefRow, W, preDefRow + rowSize);
+        preDefRects[i] = Rect(0, preDefRow, W, preDefRow + rowSize, i, maximums[i]);
         predefined ~= PredefinedRect(i, preDefRow, rowSize, 0);
         preDefRow += rowSize;
 
         if (preDefRow >= W) break;
       }
     }
+
+    auto predefinedIndicies = predefined.length.to!int.iota.array;
+    auto restIndicied = (N - predefined.length).to!int.iota.array;
 
     foreach(segs; A) {
       bool cannotUsePredefinedLayout;
@@ -135,11 +162,11 @@ void problem() {
       {
         int numPlaced;
         PredefinedRect[] predef = predefined.dup;
-        foreach(i; (N - predef.length).iota) {
+        foreach(i; (N - predef.length.to!int).iota) {
           foreach(ref p; predef.sort!"a.rowSize < b.rowSize") {
             int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
             if (p.use(columnSize, segs[p.rectId])) {
-              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize);
+              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize, i, segs[i]);
               rects[p.rectId].l = p.usedColumn;
               numPlaced++;
               break;
@@ -148,7 +175,7 @@ void problem() {
         }
 
         if (numPlaced == N - predef.length) {
-          ret ~= rects;
+          ret ~= Day(true, rects);
           continue;
         }
       }
@@ -157,12 +184,13 @@ void problem() {
       LOOP: foreach(_; 0..15000) {
         tried++;
         PredefinedRect[] predef = predefined.dup;
-        foreach_reverse(i; (N - predef.length).iota.array.randomShuffle) {
+        foreach_reverse(i; restIndicied.randomShuffle) {
           bool placed;
-          foreach(ref p; predef.randomShuffle) {
+          foreach(pi; predefinedIndicies.randomShuffle) {
+            auto p = &predef[pi];
             int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
             if (p.use(columnSize, segs[p.rectId])) {
-              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize);
+              rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize, i, segs[i]);
               rects[p.rectId].l = p.usedColumn;
               placed = true;
               break;
@@ -175,7 +203,7 @@ void problem() {
       }
 
       if (tried < 15000) {
-        ret ~= rects;
+        ret ~= Day(true, rects);
       } else {
         ret ~= solveDayWithTwoPointers(segs);
       }
@@ -188,13 +216,13 @@ void problem() {
   auto ansPredefined = solveWithPredefinedRects();
   if (ansPredefined !is null) ans = ansPredefined;
 
-  foreach(rectsPerDay; ans) {
-    foreach(rect; rectsPerDay) rect.toString().writeln;
-    "".writeln;
-  }
+  foreach(day; ans) day.output();
 
-  "--- FIN ---".deb;
-  (MonoTime.currTime() - StartTime).total!"msecs".deb;
+  debug {
+    ans.deb;
+    "--- FIN ---".deb;
+    (MonoTime.currTime() - StartTime).total!"msecs".deb;
+  }
 }
 
 // ----------------------------------------------
