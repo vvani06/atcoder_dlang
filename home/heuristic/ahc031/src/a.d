@@ -7,6 +7,7 @@ void problem() {
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
   }
+  auto RND = Xorshift(0);
 
   int W = scan!int;
   int D = scan!int;
@@ -189,9 +190,9 @@ void problem() {
       LOOP: foreach(_; 0..15000) {
         tried++;
         PredefinedRect[] predef = predefined.dup;
-        foreach_reverse(i; restIndicied.randomShuffle) {
+        foreach(i; restIndicied.randomShuffle(RND)) {
           bool placed;
-          foreach(pi; predefinedIndicies.randomShuffle) {
+          foreach(pi; predefinedIndicies.randomShuffle(RND)) {
             auto p = &predef[pi];
             int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
             if (p.use(columnSize, segs[p.rectId])) {
@@ -222,7 +223,6 @@ void problem() {
 
   foreach(d; 0..D - 1) {
     if (!(ans[d].usePredefinedLayout && ans[d + 1].usePredefinedLayout)) continue;
-
 
     foreach(row; 0..ans[d].rects.length.to!int) {
       auto rects = [ans[d].rects[row], ans[d + 1].rects[row]];
