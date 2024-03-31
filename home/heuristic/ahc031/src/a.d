@@ -3,7 +3,6 @@ void main() { runSolver(); }
 // ---------------------------------------------
 
 void problem() {
-  GC.disable();
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
@@ -14,6 +13,13 @@ void problem() {
   int D = scan!int;
   int N = scan!int;
   int[][] A = scan!int(D * N).chunks(N).array;
+
+  int restEffort = 2700;
+  auto checkedTime = MonoTime.currTime();
+  void checkTime() { checkedTime = MonoTime.currTime(); }
+  bool elapsedFromChecked(int ms) { return ms <= (MonoTime.currTime() - checkedTime).total!"msecs"; }
+  void useTimeFromChecked() { restEffort -= (MonoTime.currTime() - checkedTime).total!"msecs"; }
+  int restDay = D + 1;
 
   struct Rect {
     int l, t, r, b;
@@ -189,6 +195,8 @@ void problem() {
     auto restIndicied = (N - predefined.length).to!int.iota.array;
 
     foreach(segs; A) {
+      restDay--;
+
       bool cannotUsePredefinedLayout;
       foreach(i, p; predefined) {
         if (p.rowSize * W < segs[$ - i - 1]) {
@@ -232,7 +240,9 @@ void problem() {
       Day preDay = ret.empty ? Day() : ret[$ - 1];
       int[] baseRectCountsByRow = 1.repeat(preDay.rectCountsByRow.length).array;
 
-      foreach(_; 0..12000) {
+      auto loopTime = restEffort / restDay;
+      checkTime();
+      while(!elapsedFromChecked(loopTime)) {
         scope PredefinedRect[] predef = predefined.dup;
         scope int placed;
         scope int[] rectCountsByRow = baseRectCountsByRow.dup;
@@ -260,6 +270,7 @@ void problem() {
           bestRects = rects.dup;
         }
       }
+      useTimeFromChecked();
 
       if (bestPenalty < INF) {
         ret ~= Day(true, bestRects);
