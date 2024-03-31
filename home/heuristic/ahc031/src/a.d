@@ -266,8 +266,8 @@ void problem() {
           int c = adjusted[day][row];
           while(target[min(c + 1, $ - 1)].r < base) c++;
 
-          [target].deb;
-          [baseDay, day, row, base, c].deb;
+          // [target].deb;
+          // [baseDay, day, row, base, c].deb;
           if (expand(target, c, base)) {
             adjusted[day][row] = c + 1;
             "adjusted".deb;
@@ -275,6 +275,25 @@ void problem() {
             break;
           }
         }
+      }
+    }
+  }
+
+  foreach(d; 0..D - 1) {
+    if (!(ans[d].usePredefinedLayout && ans[d + 1].usePredefinedLayout)) continue;
+
+    foreach(row; 0..ans[d].rects.length.to!int) {
+      auto rects = [ans[d].rects[row], ans[d + 1].rects[row]];
+
+      int i, j;
+      while(i < rects[0].length && j < rects[1].length) {
+        if (rects[0][i].r < rects[1][j].r) {
+          i++;
+          continue;
+        }
+
+        if (expand(rects[1], j, rects[0][i].r)) i++;
+        j++;
       }
     }
   }
