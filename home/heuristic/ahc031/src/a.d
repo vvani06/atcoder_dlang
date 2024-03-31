@@ -78,7 +78,7 @@ void problem() {
         foreach(i; curSmall..curSmall + small) seg += segs[i];
 
         int baseRowSize = (seg + W - 1) / W;
-        foreach(rowSize; baseRowSize .. min(W - preRow, baseRowSize + 250)) {
+        foreach(rowSize; baseRowSize .. min(W - preRow, baseRowSize + 100)) {
           int l = segs[curSmall..curSmall + small].map!(s => (s + rowSize - 1) / rowSize).sum;
           int segLack = max(0, segs[curLarge] - (W - l) * rowSize);
           
@@ -106,25 +106,16 @@ void problem() {
     return Day(false, rects);
   }
 
-  Day[] solveWithTwoPointers() {
-    Day[] ret;
-
-    foreach(segs; A) {
-      ret ~= solveDayWithTwoPointers(segs);
-    }
-    return ret;
-  }
-
   Day[] solveWithPredefinedRects() {
     Day[] ret;
 
     auto sortedPerRectId = N.iota.map!(i => A.map!(a => a[i]).array.sort).array;
-    sortedPerRectId.each!deb;
+    // sortedPerRectId.each!deb;
 
     auto maximums = N.iota.map!(i => A.map!(a => a[i] > W^^2 / 2 ? 0 : a[i]).maxElement).array;
-    maximums.deb;
-    maximums[$ - 3..$].sum.deb;
-    A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
+    // maximums.deb;
+    // maximums[$ - 3..$].sum.deb;
+    // A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
 
     Rect[] preDefRects = rectsBySegments(A[0]);
     PredefinedRect[] predefined = new PredefinedRect[](0); {
@@ -187,10 +178,11 @@ void problem() {
       }
 
       int tried;
-      LOOP: foreach(_; 0..15000) {
+      auto indicies = (N - predefined.length).to!int.iota.array;
+      LOOP: foreach(_; 0..18000) {
         tried++;
         PredefinedRect[] predef = predefined.dup;
-        foreach(i; restIndicied.randomShuffle(RND)) {
+        foreach_reverse(i; indicies) {
           bool placed;
           foreach(pi; predefinedIndicies.randomShuffle(RND)) {
             auto p = &predef[pi];
@@ -208,7 +200,7 @@ void problem() {
         break;
       }
 
-      if (tried < 15000) {
+      if (tried < 18000) {
         ret ~= Day(true, rects);
       } else {
         ret ~= solveDayWithTwoPointers(segs);
@@ -219,8 +211,6 @@ void problem() {
   }
 
   auto ans = solveWithPredefinedRects();
-  if (ans is null) ans = solveWithTwoPointers();
-
   bool expand(Rect[] rc, int i, int r) {
     if (rc[i].r >= r) return false;
 
