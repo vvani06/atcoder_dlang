@@ -7,54 +7,52 @@ void problem() {
 
   auto solve() {
     auto SN = S.length.to!long;
-    auto accByChar = new long[][](26, S.length + 1);
+    auto accByChar = new long[][](26, SN + 1);
     foreach(i, c; S) {
       foreach(x; 0..26) {
         accByChar[x][i + 1] = accByChar[x][i] + (c == x ? 1 : 0);
       }
     }
+
+    auto acc = accByChar.map!assumeSorted.array;
     auto totalByChar = accByChar.map!(a => a[$ - 1] * N).array;
 
     bool isOk(long k) {
       auto totals = totalByChar.dup;
       long offset;
 
-      foreach(c; T) {
+      foreach(long ci, c; T) {
         long rest = k;
-
         if (totals[c] < rest) return false;
 
-        [c, offset, rest].deb;
-        accByChar[c].deb;
-
-        if (accByChar[c][$ - 1] - accByChar[c][offset] == rest) {
-          accByChar[c][offset..$].assumeSorted.lowerBound(accByChar[c][offset] + rest - 1).deb;
-          auto l = accByChar[c][offset..$].assumeSorted.lowerBound(accByChar[c][offset] + rest - 1).length;
-          rest -= accByChar[c][offset + l] - accByChar[c][offset];
+        if (offset > 0) {
+          auto l = acc[c][offset..$].lowerBound(acc[c][offset] + rest).length;
+          rest -= acc[c][min($ - 1, offset + l)] - acc[c][offset];
           foreach(i; 0..26) {
-            totals[i] -= accByChar[i][offset + l] - accByChar[i][offset];
-          }
-          offset = (offset + l) % SN;
-        } else {
-          auto l = SN - offset;
-          rest -= accByChar[c][offset + l] - accByChar[c][offset];
-          foreach(i; 0..26) {
-            totals[i] -= accByChar[i][offset + l] - accByChar[i][offset];
+            totals[i] -= acc[i][min($ - 1, offset + l)] - acc[i][offset];
           }
           offset = (offset + l) % SN;
         }
 
-        if (rest > accByChar[c][$ - 1]) {
-          long cycle = rest / accByChar[c][$ - 1];
-
+        if (rest > acc[c][$ - 1]) {
+          long cycle = (rest - 1) / acc[c][$ - 1];
+          rest -= acc[c][$ - 1] * cycle;
+          foreach(i; 0..26) {
+            totals[i] -= acc[i][$ - 1] * cycle;
+          }
         }
 
+        if (rest > 0) {
+          auto l = acc[c].lowerBound(rest).length;
+          foreach(i; 0..26) totals[i] -= acc[i][l];
+          offset = l % SN;
+        }
       }
 
       return true;
     }
 
-    return binarySearch(&isOk, 0, N + 1);
+    return binarySearch(&isOk, 0, N * SN / T.length + 1);
   }
 
   outputForAtCoder(&solve);

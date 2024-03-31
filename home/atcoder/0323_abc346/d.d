@@ -15,22 +15,16 @@ void problem() {
 
     foreach(c, cost; zip(S[1..$], C[1..$])) {
       swap(pre, dp);
-      dp[0][] = INF;
-      dp[1][] = INF;
+      dp[0][] = dp[1][] = INF;
 
-      if (c == '0') {
-        dp[1][0].chmin(min(pre[0][0], pre[1][1]));
-        dp[1][1].chmin(min(pre[1][0] + cost, pre[0][1] + cost));
+      const cost0 = c == '0' ? 0 : cost;
+      const cost1 = c == '0' ? cost : 0;
 
-        dp[0][0].chmin(pre[0][1]);
-        dp[0][1].chmin(pre[0][0] + cost);
-      } else {
-        dp[1][0].chmin(min(pre[0][0] + cost, pre[1][1] + cost));
-        dp[1][1].chmin(min(pre[1][0], pre[0][1]));
+      dp[1][0].chmin(min(pre[0][0], pre[1][1]) + cost0);
+      dp[1][1].chmin(min(pre[1][0], pre[0][1]) + cost1);
 
-        dp[0][0].chmin(pre[0][1] + cost);
-        dp[0][1].chmin(pre[0][0]);
-      }
+      dp[0][0].chmin(pre[0][1] + cost0);
+      dp[0][1].chmin(pre[0][0] + cost1);
     }
 
     return dp[1].minElement;
