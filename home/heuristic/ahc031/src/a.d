@@ -3,6 +3,7 @@ void main() { runSolver(); }
 // ---------------------------------------------
 
 void problem() {
+  GC.disable();
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
@@ -25,10 +26,14 @@ void problem() {
     string toString() {
       return "%(%d %)".format([l, t, r, b]);
     }
+
+    long penalty() {
+      return max(0L, requiredSegment - segment());
+    }
   }
 
   struct PredefinedRect {
-    int rectId, offset, rowSize, usedColumn;
+    int rectId, offset, rowSize, usedColumn, rowId;
 
     bool use(int columnSize, int requiredRestSegment) {
       if (rowSize * (W - usedColumn - columnSize) < requiredRestSegment) return false;
@@ -57,6 +62,32 @@ void problem() {
 
       foreach(o; outputs) o.writeln;
       "".writeln;
+    }
+
+    int[] memoRectCountsByRow;
+    int[] rectCountsByRow() {
+      if (!usePredefinedLayout) return 0.repeat(N).array;
+      return memoRectCountsByRow = rects.map!"a.length.to!int".array;
+    }
+
+    Day shiftOnePixel(int row) {
+      if (row >= rects.length - 1) return this;
+
+      Rect[] shifted = rects[0..row].joiner.array;
+      foreach(r; rects[row]) {
+        shifted ~= r;
+        shifted[$ - 1].b--;
+      }
+      foreach(r; rects[row + 1..$].joiner) {
+        shifted ~= r;
+        shifted[$ - 1].t--;
+        if (shifted[$ - 1].b != W) shifted[$ - 1].b--;
+      }
+      return Day(usePredefinedLayout, shifted);
+    }
+
+    long penalty() {
+      return rects.joiner.map!(r => r.penalty()).sum;
     }
   }
 
@@ -103,7 +134,24 @@ void problem() {
     }
 
     foreach(i; 0..N) if (rects[i].b == preRow) rects[i].b = W;
-    return Day(false, rects);
+
+    auto candidate = Day(false, rects);
+    if (candidate.penalty > 0) {
+      foreach(_; 0..8) {
+        long bestPenalty = candidate.penalty;
+        Day bestShifted;
+        foreach(r; 0..candidate.rects.length.to!int - 1) {
+          auto shifted = candidate.shiftOnePixel(r);
+          if (bestPenalty.chmin(shifted.penalty)) {
+            bestShifted = shifted;
+          }
+        }
+
+        if (bestPenalty >= candidate.penalty) break;
+        candidate = bestShifted;
+      }
+    }
+    return candidate;
   }
 
   Day[] solveWithPredefinedRects() {
@@ -119,7 +167,7 @@ void problem() {
 
     Rect[] preDefRects = rectsBySegments(A[0]);
     PredefinedRect[] predefined = new PredefinedRect[](0); {
-      int preDefRow;
+      int preDefRow, rowId;
       foreach_reverse(i; 0..N) {
         int rowSize = (maximums[i] + W - 1) / W + 12;
         if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
@@ -130,7 +178,7 @@ void problem() {
         }
 
         preDefRects[i] = Rect(0, preDefRow, W, preDefRow + rowSize, i, maximums[i]);
-        predefined ~= PredefinedRect(i, preDefRow, rowSize, 0);
+        predefined ~= PredefinedRect(i, preDefRow, rowSize, 0, rowId++);
         preDefRow += rowSize;
 
         if (preDefRow >= W) break;
@@ -177,31 +225,44 @@ void problem() {
         }
       }
 
-      int tried;
       auto indicies = (N - predefined.length).to!int.iota.array;
-      LOOP: foreach(_; 0..18000) {
-        tried++;
-        PredefinedRect[] predef = predefined.dup;
+      enum INF = long.max / 100;
+      long bestPenalty = INF;
+      auto bestRects = rects.dup;
+      Day preDay = ret.empty ? Day() : ret[$ - 1];
+      int[] baseRectCountsByRow = 1.repeat(preDay.rectCountsByRow.length).array;
+
+      foreach(_; 0..12000) {
+        scope PredefinedRect[] predef = predefined.dup;
+        scope int placed;
+        scope int[] rectCountsByRow = baseRectCountsByRow.dup;
+
         foreach_reverse(i; indicies) {
-          bool placed;
           foreach(pi; predefinedIndicies.randomShuffle(RND)) {
             auto p = &predef[pi];
             int columnSize = (segs[i] + p.rowSize - 1) / p.rowSize;
             if (p.use(columnSize, segs[p.rectId])) {
               rects[i] = Rect(p.usedColumn - columnSize, p.offset, p.usedColumn, p.offset + p.rowSize, i, segs[i]);
               rects[p.rectId].l = p.usedColumn;
-              placed = true;
+              placed++;
+              rectCountsByRow[p.rowId]++;
               break;
             }
           }
-
-          if (!placed) continue LOOP;
         }
-        break;
+
+        int penalty;
+        foreach(a, b; zip(preDay.rectCountsByRow, rectCountsByRow)) {
+          penalty += abs(a - b) ^^ 2;
+        }
+
+        if (placed == indicies.length && bestPenalty.chmin(penalty)) {
+          bestRects = rects.dup;
+        }
       }
 
-      if (tried < 18000) {
-        ret ~= Day(true, rects);
+      if (bestPenalty < INF) {
+        ret ~= Day(true, bestRects);
       } else {
         ret ~= solveDayWithTwoPointers(segs);
       }
@@ -260,7 +321,6 @@ void problem() {
           // [baseDay, day, row, base, c].deb;
           if (expand(target, c, base)) {
             adjusted[day][row] = c + 1;
-            "adjusted".deb;
           } else {
             break;
           }
@@ -288,18 +348,20 @@ void problem() {
     }
   }
 
-  foreach(day; ans) day.output();
 
   debug {
     // ans.deb;
     "--- FIN ---".deb;
     (MonoTime.currTime() - StartTime).total!"msecs".deb;
+  } else {
+    foreach(day; ans) day.output();
   }
 }
 
 // ----------------------------------------------
 
 import std;
+import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
