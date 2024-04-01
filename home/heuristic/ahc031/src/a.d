@@ -14,12 +14,15 @@ void problem() {
   int N = scan!int;
   int[][] A = scan!int(D * N).chunks(N).array;
 
-  int restEffort = 2700;
+  int restEffort = 2850;
   auto checkedTime = MonoTime.currTime();
   void checkTime() { checkedTime = MonoTime.currTime(); }
   bool elapsedFromChecked(int ms) { return ms <= (MonoTime.currTime() - checkedTime).total!"msecs"; }
   void useTimeFromChecked() { restEffort -= (MonoTime.currTime() - checkedTime).total!"msecs"; }
   int restDay = D + 1;
+
+  long E = (W^^2 * D - A.map!sum.sum) / D;
+  [[E]].deb;
 
   struct Rect {
     int l, t, r, b;
@@ -166,7 +169,7 @@ void problem() {
     auto sortedPerRectId = N.iota.map!(i => A.map!(a => a[i]).array.sort).array;
     // sortedPerRectId.each!deb;
 
-    auto maximums = N.iota.map!(i => A.map!(a => a[i] > W^^2 / 2 ? 0 : a[i]).maxElement).array;
+    auto maximums = N.iota.map!(i => A.map!(a => a[i] >= W^^2 / 2 ? 0 : a[i]).maxElement).array;
     // maximums.deb;
     // maximums[$ - 3..$].sum.deb;
     // A.map!(a => (W^^2 - a.sum)*10000L / W^^2).deb;
@@ -176,12 +179,18 @@ void problem() {
       int preDefRow, rowId;
       foreach_reverse(i; 0..N) {
         int rowSize = (maximums[i] + W - 1) / W + 12;
-        if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
+
+        if (E <= 9000) {
+          if (preDefRow >= W * (65 + N/2) / 100) rowSize = W - preDefRow;
+        } else {
+          if (preDefRow >= W * (75 + N/3) / 100) rowSize = W - preDefRow;
+        }
         if (rowSize * W < maximums[i]) {
           predefined[$ - 1].rowSize += W - preDefRow;
           preDefRects[i + 1].b = W;
           break;
         }
+        rowSize = min(rowSize, W - preDefRow);
 
         preDefRects[i] = Rect(0, preDefRow, W, preDefRow + rowSize, i, maximums[i]);
         predefined ~= PredefinedRect(i, preDefRow, rowSize, 0, rowId++);
@@ -212,6 +221,7 @@ void problem() {
       Rect[] rects = preDefRects.dup;
       foreach(i; 0..N) rects[i].requiredSegment = segs[i];
 
+      Day preDay = ret.empty ? Day() : ret[$ - 1];
       {
         int numPlaced;
         PredefinedRect[] predef = predefined.dup;
@@ -237,10 +247,11 @@ void problem() {
       enum INF = long.max / 100;
       long bestPenalty = INF;
       auto bestRects = rects.dup;
-      Day preDay = ret.empty ? Day() : ret[$ - 1];
       int[] baseRectCountsByRow = 1.repeat(preDay.rectCountsByRow.length).array;
+      int[] bestRectCountsByRow = 1.repeat(preDay.rectCountsByRow.length).array;
 
       auto loopTime = restEffort / restDay;
+      auto rowSizes = predefined.map!"a.rowSize".array;
       checkTime();
       while(!elapsedFromChecked(loopTime)) {
         scope PredefinedRect[] predef = predefined.dup;
@@ -262,17 +273,23 @@ void problem() {
         }
 
         int penalty;
-        foreach(a, b; zip(preDay.rectCountsByRow, rectCountsByRow)) {
-          penalty += abs(a - b) ^^ 2;
+        foreach(r, rowSize; rowSizes) {
+          penalty += rectCountsByRow[r] * rowSize / 5;
+          penalty += abs(rectCountsByRow[r] - preDay.rectCountsByRow[r]) * rowSize;
+          // abs(a - b) ^^ 2;
         }
 
         if (placed == indicies.length && bestPenalty.chmin(penalty)) {
           bestRects = rects.dup;
+          bestRectCountsByRow = rectCountsByRow.dup;
         }
+        if (bestPenalty == 0) break;
       }
       useTimeFromChecked();
 
       if (bestPenalty < INF) {
+        bestPenalty.deb;
+        [preDay.rectCountsByRow, bestRectCountsByRow].deb;
         ret ~= Day(true, bestRects);
       } else {
         ret ~= solveDayWithTwoPointers(segs);
@@ -283,6 +300,7 @@ void problem() {
   }
 
   auto ans = solveWithPredefinedRects();
+
   bool expand(Rect[] rc, int i, int r) {
     if (rc[i].r >= r) return false;
 
@@ -296,6 +314,12 @@ void problem() {
       rc[j].r = min(W, rc[j].r + diff);
     }
     return true;
+  }
+
+  foreach(d; 0..D) {
+    foreach(rects; ans[d].rects) {
+      rects[0].l = 0;
+    }
   }
 
   foreach(t; 0..300) foreach(d; 0..D - 1) {
@@ -358,7 +382,6 @@ void problem() {
       }
     }
   }
-
 
   debug {
     // ans.deb;
