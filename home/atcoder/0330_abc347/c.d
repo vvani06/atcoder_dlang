@@ -7,9 +7,12 @@ void problem() {
   auto D = scan!int(N);
 
   auto solve() {
-    auto dm = D.map!(d => (d - D[0]) % (A + B)).array;
+    auto w = A + B;
+    auto dm = D.map!(d => d % w).array.sort.array;
+    dm ~= dm[0] + w;
     dm.deb;
-    return dm.maxElement - dm.minElement < A;
+    
+    return N.iota.any!(i => (dm[i + 1] - dm[i]) > B);
   }
 
   outputForAtCoder(&solve);
