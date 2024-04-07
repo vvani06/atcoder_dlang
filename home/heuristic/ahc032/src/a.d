@@ -9,7 +9,8 @@ void problem() {
   }
   auto RND = Xorshift(0);
   enum long MOD = 998_244_353;
-  enum long COST_WEIGHT = 350;
+  enum long COST_WEIGHT = 500;
+  enum int DFS_LIMIT = 3;
 
   int N = scan!int;
   int M = scan!int;
@@ -115,25 +116,26 @@ void problem() {
 
   // 縦を3つに割って、右端から最大4回のスタンプを全通り試して最大化する
   // ここまでで 21 * 4 = 84回
-  foreach(r; [0, 3, 6]) foreach(c; iota(6, -1, -1)) {
+  foreach(r; [0, 2, 4, 6]) foreach(c; iota(6, -1, -1)) {
+    auto size = r == 6 ? 3 : 2;
     DList!int stamps;
     int[] bestStamps;
-    long[] rights = 3.iota.map!(d => initStateR.values[(r + d)*N + c + 2]).array;
+    long[] rights = size.iota.map!(d => initStateR.values[(r + d)*N + c + 2]).array;
     long bestRight = rights.sum;
 
     void dfs(int type, int count) {
       if (bestRight.chmax(rights.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
-      if (count >= 4) return;
+      if (count >= min(DFS_LIMIT, K - initStateB.stamps.length)) return;
 
       foreach(t; type..M) {
         stamps.insertBack(t);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..size) {
           rights[d] = (rights[d] + S[t][3 * d + 2]) % MOD;
-        }}
+        }
         dfs(type, count + 1);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..size) {
           rights[d] = (rights[d] + MOD - S[t][3 * d + 2]) % MOD;
-        }}
+        }
         stamps.removeBack();
       }
     }
@@ -154,17 +156,17 @@ void problem() {
 
     void dfs(int type, int count) {
       if (bestBottom.chmax(bottoms.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
-      if (count >= min(4, K - initStateR.stamps.length)) return;
+      if (count >= min(DFS_LIMIT, K - initStateR.stamps.length)) return;
 
       foreach(t; type..M) {
         stamps.insertBack(t);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..3) {
           bottoms[d] = (bottoms[d] + S[t][6 + d]) % MOD;
-        }}
+        }
         dfs(type, count + 1);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..3) {
           bottoms[d] = (bottoms[d] + MOD - S[t][6 + d]) % MOD;
-        }}
+        }
         stamps.removeBack();
       }
     }
@@ -176,26 +178,27 @@ void problem() {
   }
 
   // ↑の処理と縦横の順を反転させたバージョン
-  foreach(r; iota(6, -1, -1)) foreach(c; [0, 3, 6]) {
+  foreach(r; iota(6, -1, -1)) foreach(c; [0, 2, 4, 6]) {
+    auto size = c == 6 ? 3 : 2;
     DList!int stamps;
     int[] bestStamps;
     const b = (r + 2) * N + c;
-    long[] bottoms = initStateB.values[b..b + 3];
+    long[] bottoms = initStateB.values[b..b + size];
     long bestBottom = bottoms.sum;
 
     void dfs(int type, int count) {
       if (bestBottom.chmax(bottoms.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
-      if (count >= min(4, K - initStateB.stamps.length)) return;
+      if (count >= min(DFS_LIMIT, K - initStateB.stamps.length)) return;
 
       foreach(t; type..M) {
         stamps.insertBack(t);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..size) {
           bottoms[d] = (bottoms[d] + S[t][6 + d]) % MOD;
-        }}
+        }
         dfs(type, count + 1);
-        static foreach(d; 0..3) {{
+        foreach(d; 0..size) {
           bottoms[d] = (bottoms[d] + MOD - S[t][6 + d]) % MOD;
-        }}
+        }
         stamps.removeBack();
       }
     }
@@ -213,7 +216,7 @@ void problem() {
 
     void dfs(int type, int count) {
       if (bestRight.chmax(rights.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
-      if (count >= 4) return;
+      if (count >= min(DFS_LIMIT, K - initStateB.stamps.length)) return;
 
       foreach(t; type..M) {
         stamps.insertBack(t);
