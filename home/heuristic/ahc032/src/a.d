@@ -15,7 +15,7 @@ void problem() {
   int K = scan!int;
   long[] A = scan!long(N * N).array;
   long[][] S = scan!long(9 * M).chunks(9).array;
-  S ~= 0L.repeat(9).array;
+  
 
   struct Stamp {
     int type = 1, r, c;
@@ -110,33 +110,19 @@ void problem() {
     }
   }
 
-  bool addOneStampGreedy(State state) {
-    long best;
-    Stamp bestStamp;
-    foreach(t; 0..M) foreach(r; 0..N - 3) foreach(c; 0..N - 3) {
-      auto stamp = Stamp(t, r, c);
-      if (best.chmax(state.evaluate(stamp))) bestStamp = stamp;
-    }
+  State initStateR = new State(A);
+  State initStateB = new State(A);
 
-    if (best <= 0) return false;
-
-    state.add(bestStamp);
-    return true;
-  }
-
-  State initState = new State(A);
-
-
-
+  // 縦を3つに割って、右端から最大4回のスタンプを全通り試して最大化する
+  // ここまでで 21 * 4 = 84回
   foreach(r; [0, 3, 6]) foreach(c; iota(6, -1, -1)) {
     DList!int stamps;
     int[] bestStamps;
-    State state = initState.dup;
-    long[] rights = 3.iota.map!(d => initState.values[(r + d)*N + c + 2]).array;
+    long[] rights = 3.iota.map!(d => initStateR.values[(r + d)*N + c + 2]).array;
     long bestRight = rights.sum;
 
     void dfs(int type, int count) {
-      if (bestRight.chmax(rights.sum)) bestStamps = stamps.array;
+      if (bestRight.chmax(rights.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
       if (count >= 4) return;
 
       foreach(t; type..M) {
@@ -154,40 +140,129 @@ void problem() {
 
     dfs(0, 0);
     foreach(s; bestStamps) {
-      initState.add(Stamp(s, r, c));
+      initStateR.add(Stamp(s, r, c));
     }
   }
 
-  // foreach(_; 0..K) {
-  //   if (!addOneStampGreedy(initState)) break;
-  // }
+  // 左端に絞って、下から最大化する
+  foreach(r; iota(6, -1, -1)) {
+    DList!int stamps;
+    int[] bestStamps;
+    const b = (r + 2) * N;
+    long[] bottoms = initStateR.values[b..b + 3];
+    long bestBottom = bottoms.sum;
+
+    void dfs(int type, int count) {
+      if (bestBottom.chmax(bottoms.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (count >= min(4, K - initStateR.stamps.length)) return;
+
+      foreach(t; type..M) {
+        stamps.insertBack(t);
+        static foreach(d; 0..3) {{
+          bottoms[d] = (bottoms[d] + S[t][6 + d]) % MOD;
+        }}
+        dfs(type, count + 1);
+        static foreach(d; 0..3) {{
+          bottoms[d] = (bottoms[d] + MOD - S[t][6 + d]) % MOD;
+        }}
+        stamps.removeBack();
+      }
+    }
+
+    dfs(0, 0);
+    foreach(s; bestStamps) {
+      initStateR.add(Stamp(s, r, 0));
+    }
+  }
+
+  // ↑の処理と縦横の順を反転させたバージョン
+  foreach(r; iota(6, -1, -1)) foreach(c; [0, 3, 6]) {
+    DList!int stamps;
+    int[] bestStamps;
+    const b = (r + 2) * N + c;
+    long[] bottoms = initStateB.values[b..b + 3];
+    long bestBottom = bottoms.sum;
+
+    void dfs(int type, int count) {
+      if (bestBottom.chmax(bottoms.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (count >= min(4, K - initStateB.stamps.length)) return;
+
+      foreach(t; type..M) {
+        stamps.insertBack(t);
+        static foreach(d; 0..3) {{
+          bottoms[d] = (bottoms[d] + S[t][6 + d]) % MOD;
+        }}
+        dfs(type, count + 1);
+        static foreach(d; 0..3) {{
+          bottoms[d] = (bottoms[d] + MOD - S[t][6 + d]) % MOD;
+        }}
+        stamps.removeBack();
+      }
+    }
+
+    dfs(0, 0);
+    foreach(s; bestStamps) {
+      initStateB.add(Stamp(s, r, c));
+    }
+  }
+  foreach(r; [0]) foreach(c; iota(6, -1, -1)) {
+    DList!int stamps;
+    int[] bestStamps;
+    long[] rights = 3.iota.map!(d => initStateB.values[(r + d)*N + c + 2]).array;
+    long bestRight = rights.sum;
+
+    void dfs(int type, int count) {
+      if (bestRight.chmax(rights.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (count >= 4) return;
+
+      foreach(t; type..M) {
+        stamps.insertBack(t);
+        static foreach(d; 0..3) {{
+          rights[d] = (rights[d] + S[t][3 * d + 2]) % MOD;
+        }}
+        dfs(type, count + 1);
+        static foreach(d; 0..3) {{
+          rights[d] = (rights[d] + MOD - S[t][3 * d + 2]) % MOD;
+        }}
+        stamps.removeBack();
+      }
+    }
+
+    dfs(0, 0);
+    foreach(s; bestStamps) {
+      initStateB.add(Stamp(s, r, c));
+    }
+  }
+
+  auto initState = initStateR.dup;
+  if (initStateB.modSum > initState.modSum) initState = initStateB.dup;
 
   State bestState = initState.dup;
-  // while(!elapsed(1900)) {
-  //   auto state = initState.dup;
+  while(!elapsed(1970)) {
+    auto state = initState.dup;
 
-  //   foreach(rem; 0..iota(0, min(5, state.stamps.length)).choice(RND)) {
-  //     foreach(r; 0..rem) {
-  //       auto l = state.stamps.length.to!int;
-  //       state.remove(l.iota.choice(RND));
-  //     }
-  //   }
+    foreach(rem; 0..iota(0, min(4, state.stamps.length)).choice(RND)) {
+      foreach(r; 0..rem) {
+        auto l = state.stamps.length.to!int;
+        state.remove(l.iota.choice(RND));
+      }
+    }
 
-  //   foreach(l; 0..K - state.stamps.length) {
-  //     auto t = M.iota.choice(RND);
-  //     auto r = (N - 3).iota.choice(RND);
-  //     auto c = (N - 3).iota.choice(RND);
-  //     state.add(Stamp(t, r, c));
+    foreach(l; 0..K - state.stamps.length) {
+      auto t = M.iota.choice(RND);
+      auto r = 3.iota.choice(RND);
+      auto c = 3.iota.choice(RND);
+      state.add(Stamp(t, r, c));
 
-  //     if (bestState.modSum < state.modSum) {
-  //       auto bef = bestState.modSum;
-  //       bestState = state.dup;
-  //       deb(bef, " => ", bestState.modSum);
-  //     }
-  //   }
-  // }
+      if (bestState.modSum < state.modSum) {
+        auto bef = bestState.modSum;
+        bestState = state.dup;
+        deb(bef, " => ", bestState.modSum);
+      }
+    }
+  }
 
-  bestState.modSum.deb;
+  stderr.writefln("Score = %d", bestState.modSum);
   bestState.printAns();
 }
 
