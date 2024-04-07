@@ -9,13 +9,13 @@ void problem() {
   }
   auto RND = Xorshift(0);
   enum long MOD = 998_244_353;
+  enum long COST_WEIGHT = 350;
 
   int N = scan!int;
   int M = scan!int;
   int K = scan!int;
   long[] A = scan!long(N * N).array;
   long[][] S = scan!long(9 * M).chunks(9).array;
-  
 
   struct Stamp {
     int type = 1, r, c;
@@ -122,7 +122,7 @@ void problem() {
     long bestRight = rights.sum;
 
     void dfs(int type, int count) {
-      if (bestRight.chmax(rights.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (bestRight.chmax(rights.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
       if (count >= 4) return;
 
       foreach(t; type..M) {
@@ -153,7 +153,7 @@ void problem() {
     long bestBottom = bottoms.sum;
 
     void dfs(int type, int count) {
-      if (bestBottom.chmax(bottoms.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (bestBottom.chmax(bottoms.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
       if (count >= min(4, K - initStateR.stamps.length)) return;
 
       foreach(t; type..M) {
@@ -184,7 +184,7 @@ void problem() {
     long bestBottom = bottoms.sum;
 
     void dfs(int type, int count) {
-      if (bestBottom.chmax(bottoms.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (bestBottom.chmax(bottoms.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
       if (count >= min(4, K - initStateB.stamps.length)) return;
 
       foreach(t; type..M) {
@@ -212,7 +212,7 @@ void problem() {
     long bestRight = rights.sum;
 
     void dfs(int type, int count) {
-      if (bestRight.chmax(rights.sum * 100 / (100 + count * 2))) bestStamps = stamps.array;
+      if (bestRight.chmax(rights.sum * 10000L / (10000L + count * COST_WEIGHT))) bestStamps = stamps.array;
       if (count >= 4) return;
 
       foreach(t; type..M) {
@@ -241,17 +241,17 @@ void problem() {
   while(!elapsed(1970)) {
     auto state = initState.dup;
 
-    foreach(rem; 0..iota(0, min(4, state.stamps.length)).choice(RND)) {
-      foreach(r; 0..rem) {
-        auto l = state.stamps.length.to!int;
-        state.remove(l.iota.choice(RND));
-      }
-    }
+    // foreach(rem; 0..iota(0, min(4, state.stamps.length)).choice(RND)) {
+    //   foreach(r; 0..rem) {
+    //     auto l = state.stamps.length.to!int;
+    //     state.remove(l.iota.choice(RND));
+    //   }
+    // }
 
     foreach(l; 0..K - state.stamps.length) {
       auto t = M.iota.choice(RND);
-      auto r = 3.iota.choice(RND);
-      auto c = 3.iota.choice(RND);
+      auto r = 1.iota.choice(RND);
+      auto c = 1.iota.choice(RND);
       state.add(Stamp(t, r, c));
 
       if (bestState.modSum < state.modSum) {
