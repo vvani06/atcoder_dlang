@@ -12,37 +12,40 @@ void problem() {
       graph[e[1]] ~= e[0];
     }
 
-    alias Edge = Tuple!(int, "node", int, "from");
-    alias Value = Tuple!(long, "sum", long, "acc");
-
+    alias Value = Tuple!(int, "node", long, "sum", long, "acc");
     Value[int] memo;
     Value subTreeAcc(int node, int from) {
-      Edge e = Edge(node, from);
       if (node in memo) return memo[node];
 
-      Value ret = Value(C[node], 0);
+      Value ret = Value(node, C[node], 0);
       foreach(n; graph[node]) {
         if (n == from) continue;
 
         auto st = subTreeAcc(n, node);
         ret.sum += st.sum;
-        ret.acc += st.acc;
+        ret.acc += st.acc + st.sum;
       }
-      ret.acc += ret.sum;
 
       return memo[node] = ret;
     }
+    subTreeAcc(0, 0);
 
-    long ans = long.max;
-    foreach(node; N.iota.array.sort!((a, b) => graph[a].length < graph[b].length)) {
-      long v;
-      foreach(n; graph[node]) {
-        v += subTreeAcc(n, node).acc;
+    long dfs(int node, int pre, long sum, long acc) {
+      long ret = memo[node].acc + acc;
+
+      foreach(next; graph[node]) {
+        if (next == pre) continue;
+
+        auto nextSum = sum + memo[node].sum - memo[next].sum;
+        auto nextAcc = acc + memo[node].acc - (memo[next].acc + memo[next].sum) + nextSum;
+
+        ret = min(ret, dfs(next, node, nextSum, nextAcc));
       }
-      ans = min(ans, v);
+
+      return ret;
     }
 
-    return ans;
+    return dfs(0, 0, 0, 0);
   }
 
   outputForAtCoder(&solve);
