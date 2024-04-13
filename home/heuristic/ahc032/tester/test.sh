@@ -13,10 +13,14 @@ rm score
 rm out/*
 
 for i in {0000..0149}; do
-  ./a ${D_OPT} < in/${i}.txt > out/${i}.txt 2>> score
+  ./a ${D_OPT} < in/${i}.txt > out/${i}.txt 2>> out/${i}_score.txt &
 done
 
 wait
+
+for i in {0000..0149}; do
+  cat out/${i}_score.txt >> score
+done
 
 SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'`
 echo $SCORE
