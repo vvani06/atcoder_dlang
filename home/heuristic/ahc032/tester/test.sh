@@ -12,11 +12,16 @@ mkdir -p logs
 rm score
 rm out/*
 
-for i in {0000..0149}; do
-  ./a ${D_OPT} < in/${i}.txt > out/${i}.txt 2>> out/${i}_score.txt &
-done
+TEST_CASES=150
+PARARELL_SIZE=5
 
-wait
+for ((i=0; i<$(($TEST_CASES / $PARARELL_SIZE)); i++)); do
+  for ((j=0; j<$PARARELL_SIZE; j++)); do
+    case_no=$(printf "%04d" "$(($i * $PARARELL_SIZE + $j))")
+    ./a ${D_OPT} < in/${case_no}.txt > out/${case_no}.txt 2>> out/${case_no}_score.txt &
+  done
+  wait
+done
 
 for i in {0000..0149}; do
   cat out/${i}_score.txt >> score
