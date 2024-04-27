@@ -1,86 +1,28 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto A = scan!long(9);
+  auto N = scan!long;
+  auto A = scan!long;
+  auto X = scan!real;
+  auto Y = scan!real;
 
   auto solve() {
-    const half = A.sum / 2;
+    real[long] memo;
+    memo[0] = 0;
 
-    int[] toMatrix(int pattern) {
-      int[] ret;
-      foreach(_; 0..9) {
-        ret ~= (pattern % 3);
-        pattern /= 3;
+    real ans(long n) {
+      if (n in memo) return memo[n];
+
+      real retX = ans(n / A) + X;
+      real retY = Y * 6 / 5;
+      foreach(a; 2..7) {
+        retY += ans(n / a) / 5;
       }
-      return ret;
+
+      return memo[n] = min(retX, retY);
     }
 
-    int bingo(int[] arr) {
-      foreach(color; 1..3) {
-        foreach(i; 0..3) {
-          if (3.iota.all!(x => arr[i * 3 + x] == color)) return color;
-          if (3.iota.all!(x => arr[x * 3 + i] == color)) return color;
-        }
-        if (arr[0] == arr[4] && arr[4] == arr[8] && arr[8] == color) return color;
-        if (arr[2] == arr[4] && arr[4] == arr[6] && arr[6] == color) return color;
-      }
-      return 0;
-    }
-    int bingoPattern(int pattern) { return bingo(toMatrix(pattern)); }
-
-    int winner(int[] arr) {
-      if (bingo(arr) != 0) return bingo(arr);
-
-      long tScore = 9.iota.map!(i => arr[i] == 1 ? A[i] : 0).sum;
-      return tScore > half ? 1 : 2;
-    }
-
-    bool[int] states;
-    foreach(bn; 0..3^^9) {
-      int[] cb;
-      auto bnt = bn;
-      foreach(_; 0..9) {
-        cb ~= (bnt % 3);
-        bnt /= 3;
-      }
-      if (cb.count(1) != 5 || cb.count(2) != 4) continue;
-      
-      states[bn] = winner(cb) == 1;
-    }
-
-    int turn = 8;
-    while(turn >= 0 && states.length > 1) {
-      auto color = turn % 2 + 1;
-      auto pre = states.dup;
-      states.clear;
-      foreach(k, v; pre) {
-        int[] bits;
-        foreach(bi; 0..9) {
-          if ((k / 3^^bi) % 3 == color) bits ~= bi;
-        }
-
-        foreach(bi; bits) {
-          auto toState = k - color*3^^bi;
-
-          auto bg = bingoPattern(toState);
-          if (bg != 0) {
-            states[toState] = bg == 1;
-            continue;
-          }
-          
-          if (color == 1) {
-            states.require(toState, false);
-            states[toState] |= v;
-          } else {
-            states.require(toState, true);
-            states[toState] &= v;
-          }
-        }
-      }
-      turn--;
-    }
-
-    return states.values[0] ? "Takahashi" : "Aoki";
+    return ans(N);
   }
 
   outputForAtCoder(&solve);
