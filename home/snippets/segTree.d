@@ -29,6 +29,10 @@ struct SegTree(alias pred = "a + b", T = long) {
       data[i] = predFun(data[i * 2], data[i * 2 + 1]);
     }
   }
+
+  void add(int index, T value) {
+    update(index, get(index) + value);
+  }
  
   T get(int index) {
     return data[index + size];

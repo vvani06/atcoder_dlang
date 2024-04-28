@@ -10,8 +10,8 @@ void problem() {
 
     foreach(c, v; zip(A.compress, A)) {
       auto ci = c.to!int;
-      cTree.update(ci, cTree.get(ci) + 1);
-      vTree.update(ci, vTree.get(ci) + v);
+      cTree.add(ci, 1);
+      vTree.add(ci, v);
     }
 
     long ans;
@@ -19,8 +19,8 @@ void problem() {
       auto ci = c.to!int;
       ans += cTree.sum(0, ci) * v;
       ans -= vTree.sum(0, ci);
-      cTree.update(ci, cTree.get(ci) - 1);
-      vTree.update(ci, vTree.get(ci) - v);
+      cTree.add(ci, -1);
+      vTree.add(ci, -v);
     }
     return ans;
   }
@@ -104,6 +104,10 @@ struct SegTree(alias pred = "a + b", T = long) {
       i /= 2;
       data[i] = predFun(data[i * 2], data[i * 2 + 1]);
     }
+  }
+
+  void add(int index, T value) {
+    update(index, get(index) + value);
   }
  
   T get(int index) {
