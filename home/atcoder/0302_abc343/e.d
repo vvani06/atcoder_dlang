@@ -1,44 +1,60 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto V = 0 ~ scan!int(3);
+  auto V = scan!long(3);
+
+  static struct Cube {
+    long sx, sy, sz;
+    long ex, ey, ez;
+
+    long segment() {
+      return (ex - sx) * (ey - sy) * (ez - sz);
+    }
+
+    static Cube overlaped(Cube[] cubes) {
+      auto sx = cubes.map!"a.sx".maxElement;
+      auto sy = cubes.map!"a.sy".maxElement;
+      auto sz = cubes.map!"a.sz".maxElement;
+      return Cube(
+        sx,
+        sy,
+        sz,
+        max(sx, cubes.map!"a.ex".minElement),
+        max(sy, cubes.map!"a.ey".minElement),
+        max(sz, cubes.map!"a.ez".minElement),
+      );
+    }
+  }
 
   auto solve() {
-    int[15][15][15] m;
-    void incr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]++;
-      } 
-    }
-    void decr(int a, int b, int c) {
-      foreach(x; a..a + 7) foreach(y; b..b + 7) foreach(z; c..c + 7) {
-        m[x][y][z]--;
-      } 
+    Cube cube777(long x, long y, long z) {
+      return Cube(x, y, z, x+7, y+7, z+7);
     }
 
-    int[] count() {
-      int[] ret = new int[4];
-      foreach(x; 0..15) foreach(y; 0..15) foreach(z; 0..15) {
-        ret[m[x][y][z]]++;
-      }
-
-      ret[0] = 0;
-      return ret;
+    long[] calcSegments(Cube c1, Cube c2, Cube c3) {
+      long seg3 = Cube.overlaped([c1, c2, c3]).segment;
+      long seg2 = [[c1, c2], [c1, c3], [c2, c3]].map!(c => Cube.overlaped(c).segment).sum - seg3*3;
+      long seg1 = [c1, c2, c3].map!"a.segment".sum - seg2*2 - seg3*3;
+      return [seg1, seg2, seg3];
     }
 
-    incr(1, 1, 1);
-    foreach(a2; 0..9) foreach(b2; 0..9) foreach(c2; 0..9) {
-      incr(a2, b2, c2);
-      foreach(a3; 0..9) foreach(b3; 0..9) foreach(c3; 0..9) {
-        incr(a3, b3, c3);
-        if (count() == V) {
+    Cube c1 = cube777(0, 0, 0);
+    foreach(x1; -1..8) foreach(y1; -1..8) foreach(z1; -1..8) {
+      Cube c2 = cube777(x1, y1, z1);
+      foreach(x2; -1..8) foreach(y2; -1..8) foreach(z2; -1..8) {
+        Cube c3 = cube777(x2, y2, z2);
+
+        long seg3 = Cube.overlaped([c1, c2, c3]).segment;
+        long seg2 = [[c1, c2], [c1, c3], [c2, c3]].map!(c => Cube.overlaped(c).segment).sum - seg3*3;
+        long seg1 = [c1, c2, c3].map!"a.segment".sum - seg2*2 - seg3*3;
+
+        auto segs = [seg1, seg2, seg3];
+        if (V == segs) {
           writeln("Yes");
-          writefln("%(%s %)", [1, 1, 1, a2, b2, c2, a3, b3, c3]);
+          writefln("%(%s %)", [c1.sx, c1.sy, c1.sz, c2.sx, c2.sy, c2.sz, c3.sx, c3.sy, c3.sz]);
           return;
         }
-        decr(a3, b3, c3);
       }
-      decr(a2, b2, c2);
     }
 
     writeln("No");

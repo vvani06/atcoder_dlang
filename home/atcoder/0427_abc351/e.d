@@ -10,24 +10,36 @@ void problem() {
     int parity() {
       return (x + y) % 2;
     }
-
-    long dist(Coord other) {
-      if (parity() != other.parity()) return 0;
-
-      long dx = abs(x - other.x);
-      long dy = abs(y - other.y);
-      return max(dx, dy);
+    
+    Coord rotate() {
+      return Coord(x - y, x + y);
     }
   }
 
   auto solve() {
     auto coords = XY.map!(xy => Coord(xy[0], xy[1])).array;
+    auto rotated = [
+      coords.filter!(a => a.parity() == 0).map!"a.rotate".array,
+      coords.filter!(a => a.parity() == 1).map!"a.rotate".array,
+    ];
 
     long ans;
-    foreach(i; 0..N - 1) foreach(j; i + 1..N) {
-      ans += coords[i].dist(coords[j]);
+    foreach(r; rotated) foreach(sorted; [r.map!"a.x".array.sort, r.map!"a.y".array.sort]) {
+      auto offsets = sorted.map!(a => a - sorted[0]).array;
+      auto acc = offsets.cumulativeFold!"a + b".array;
+
+      // sorted.deb;
+      // acc.deb;
+      // offsets.deb;
+      // acc.deb;
+
+      long l = acc.length;
+      foreach(i, a; acc.enumerate(0)) {
+        ans += acc[$ - 1] - acc[i];
+        ans -= (l - i - 1) * offsets[i];
+      }
     }
-    return ans;
+    return ans / 2;
   }
 
   outputForAtCoder(&solve);
@@ -78,15 +90,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-int[][] basePacks(int base, int size) {
-  auto ret = new int[][](base^^size, size);
-  foreach(i; 0..base^^size) {
-    int x = i;
-    foreach(b; 0..size) {
-      ret[i][b] = x % base;
-      x /= base;
-    }
-  }
-  return ret;
-}
