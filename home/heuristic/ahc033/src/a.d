@@ -136,12 +136,12 @@ void problem() {
             coordByItem.remove(crane.item);
             crane.currentOrder = Order();
           } else {
-            if (from.r != to.r) {
-              crane.coord.r += from.r < to.r ? 1 : -1;
-              moves[i] ~= from.r < to.r ? 'D' : 'U';
-            } else {
+            if (from.c != to.c) {
               crane.coord.c += from.c < to.c ? 1 : -1;
               moves[i] ~= from.c < to.c ? 'R' : 'L';
+            } else {
+              crane.coord.r += from.r < to.r ? 1 : -1;
+              moves[i] ~= from.r < to.r ? 'D' : 'U';
             }
           }
           continue;
