@@ -7,16 +7,10 @@ void problem() {
 
   auto solve() {
     auto sorted = A.sort;
-    auto acc = 0L ~ sorted.array.cumulativeFold!"a + b".array;
-
-    long ans;
-    foreach(i, a; sorted.enumerate(0)) {
-      ans += a * N;
-      ans += acc[$ - 1];
+    long ans = A.sum * 2 * N;
+    foreach(a; A) {
       ans -= (a * 2) % MOD;
-
-      auto right = sorted.upperBound(MOD - a - 1);
-      ans -= MOD * right.length;
+      ans -= MOD * sorted.upperBound(MOD - a - 1).length;
     }
 
     return ans / 2;

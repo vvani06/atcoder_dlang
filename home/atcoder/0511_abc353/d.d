@@ -6,40 +6,13 @@ void problem() {
   enum long MOD = 998_244_353;
 
   auto solve() {
-    auto digitCounts = new ulong[](12);
-    auto numCounts = new ulong[][](12, 10);
-    foreach(a; A) {
-      int digit;
-      while(a > 0) {
-        numCounts[digit][a % 10]++;
-        a /= 10;
-        digit++;
-      }
-      digitCounts[digit]++;
-    }
+    long digitSum = A.map!(a => 10L^^a.digitSize).sum;
 
-    // numCounts[0..10].each!deb;
-    
     MInt9 ans;
-    foreach(a; A) {
-      int digit;
-      auto selfNums = new ulong[](0);
-      for(auto x = a; x > 0; x /= 10) {
-        numCounts[digit][x % 10]--;
-        selfNums ~= x % 10;
-        digit++;
-      }
-      digitCounts[digit]--;
-
-      foreach(ulong geta; 0..12) foreach(ulong d, n; selfNums) {
-        ans += MInt9(10L^^geta) * MInt9(10L^^d * n) * MInt9(digitCounts[geta]);
-      }
-
-      foreach(ulong d; 0..12) {
-        foreach(ulong n; 0..10) {
-          ans += MInt9(10L^^d * n * numCounts[d][n]);
-        }
-      }
+    foreach(i, a; A) {
+      ans += MInt9(i * a);
+      digitSum -= 10L^^a.digitSize;
+      ans += MInt9(a) * MInt9(digitSum);
     }
 
     return ans;
@@ -59,6 +32,7 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
+size_t digitSize(T)(T t) { return t.to!string.length; }
 struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);
