@@ -9,15 +9,21 @@ mkdir -p logs
 rm score
 rm out/*
 
-for i in {0000..0099}; do
-  ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt
+for i in {0000..0049}; do
+  ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt &
 done
 
 wait
 
-for i in {0000..0099}; do
+for i in {0000..0049}; do
   ./vis in/${i}.txt out/${i}.txt >> score
 done
+
+grep -q turn score
+if [ $? -eq 0 ]; then
+  echo "Test results contain errors!"
+  exit
+fi
 
 SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'`
 echo $SCORE

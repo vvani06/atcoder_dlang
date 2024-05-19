@@ -16,10 +16,14 @@ void problem() {
     int r, c;
   }
 
-  enum OrderType { Wait, Pick, Drop, Bomb }
+  enum OrderType { Wait, Pick, Drop, Bomb, Move }
   struct Order {
     OrderType type = OrderType.Wait;
     Coord coord;
+
+    bool priorColumnMove() {
+      return type == OrderType.Pick;
+    }
   }
 
   struct Crane {
@@ -64,8 +68,14 @@ void problem() {
     int[][] outputs;
     string[] moves;
     int[] delivered;
+
+    RedBlackTree!int heads;
+    RedBlackTree!int tails;
     
     this(int[][] stocks) {
+      heads = iota(0, N^^2, N).redBlackTree;
+      tails = iota(N - 1, N^^2, N).redBlackTree;
+
       cranes = N.iota.map!(i => Crane(i)).array;
       this.stocks = stocks.map!(a => DList!int(a)).array;
       outputs = new int[][](N, 0);
@@ -87,7 +97,7 @@ void problem() {
     int rowStockCost(int r) {
       if (stocks[r].empty) return int.max;
 
-      stocks[r].array.deb;
+      // stocks[r].array.deb;
       return stocks[r].array.map!(n => (n % N) - delivered[n / N]).sum;
     }
 
@@ -128,14 +138,8 @@ void problem() {
 
         auto from = crane.coord;
         auto to = order.coord;
-        if (order.type == OrderType.Pick) {
-          if (from == to) {
-            moves[i] ~= 'P';
-            crane.item = grid[from.r][from.c];
-            grid[from.r][from.c] = -1;
-            coordByItem.remove(crane.item);
-            crane.currentOrder = Order();
-          } else {
+        if (from != to) {
+          if (order.priorColumnMove()) {
             if (from.c != to.c) {
               crane.coord.c += from.c < to.c ? 1 : -1;
               moves[i] ~= from.c < to.c ? 'R' : 'L';
@@ -143,17 +147,6 @@ void problem() {
               crane.coord.r += from.r < to.r ? 1 : -1;
               moves[i] ~= from.r < to.r ? 'D' : 'U';
             }
-          }
-          continue;
-        }
-
-        if (order.type == OrderType.Drop) {
-          if (from == to) {
-            moves[i] ~= 'Q';
-            grid[from.r][from.c] = crane.item;
-            coordByItem[crane.item] = from;
-            crane.item = -1;
-            crane.currentOrder = Order();
           } else {
             if (from.r != to.r) {
               crane.coord.r += from.r < to.r ? 1 : -1;
@@ -165,15 +158,40 @@ void problem() {
           }
           continue;
         }
+
+        if (order.type == OrderType.Pick) {
+          moves[i] ~= 'P';
+          crane.item = grid[from.r][from.c];
+          grid[from.r][from.c] = -1;
+          coordByItem.remove(crane.item);
+          crane.currentOrder = Order();
+          continue;
+        }
+
+        if (order.type == OrderType.Drop) {
+          moves[i] ~= 'Q';
+          grid[from.r][from.c] = crane.item;
+          coordByItem[crane.item] = from;
+          crane.item = -1;
+          crane.currentOrder = Order();
+          continue;
+        }
+
+        moves[i] ~= '.';
       }
       
       // 搬出口の処理
       foreach(r; 0..N) {
         if (grid[r][N - 1] == -1) continue;
 
-        outputs[r] ~= grid[r][N - 1];
-        coordByItem.remove(grid[r][N - 1]);
+        auto item = grid[r][N - 1];
+        outputs[r] ~= item;
+        coordByItem.remove(item);
         grid[r][N - 1] = -1;
+        delivered[r]++;
+
+        heads.removeKey(item);
+        if (!(item in tails)) heads.insert(item + 1);
       }
 
       // 搬入口からの補充
@@ -195,27 +213,39 @@ void problem() {
   // foreach(i; 1..5) state.order(i, Order(OrderType.Bomb));
 
   foreach(i; 0..N) {
-    foreach(t; 0..N - 3) {
-      state.putOrder(i, Order(OrderType.Pick, Coord(i, 0)));
-      state.putOrder(i, Order(OrderType.Drop, Coord(i, N - 2 - t)));
-    }
-    if (i > 0) state.putOrder(i, Order(OrderType.Bomb));
-  }
+    int delivered;
+    for(int t = 0; t < N - 2; t++) {
+      if (delivered >= 5) break;
 
-  auto heads = iota(0, N^^2, N).redBlackTree;
-  auto tails = iota(N - 1, N^^2, N).redBlackTree;
+      state.putOrder(i, Order(OrderType.Pick, Coord(i, 0)));
+      if (t == 0 && A[i][delivered] == i * N + delivered) {
+        state.putOrder(i, Order(OrderType.Drop, Coord(i, N - 1)));
+        t--;
+        delivered++;
+      } else {
+        state.putOrder(i, Order(OrderType.Drop, Coord(i, N - 2 - t)));
+      }
+    }
+
+    if (i > 0) {
+      state.putOrder(i, Order(OrderType.Bomb));
+    }
+  }
+  state.putOrder(1, Order(OrderType.Pick, Coord(1, N - 2)));
+  state.putOrder(1, Order(OrderType.Move, Coord(1, N - 1)));
+
   foreach(_; 0..1000) {
-    if (state.noOrder) break;
+    state.delivered.deb;
+    if (state.noOrder || state.delivered.sum == N^^2) break;
 
     state.simulate();
 
     if (state.cranes[0].waiting) {
-      foreach(head; heads) {
+      foreach(head; state.heads) {
         if (!(head in state.coordByItem)) continue;
 
         state.putOrder(0, Order(OrderType.Pick, state.coordByItem[head]));
         state.putOrder(0, Order(OrderType.Drop, Coord(head / N, N - 1)));
-        if (!(head in tails)) heads.insert(head + 1);
       }
     }
 
@@ -232,7 +262,6 @@ void problem() {
   }
 
   foreach(move; state.moves) move.writeln;
-  "FIN".deb;
 }
 
 // ----------------------------------------------
