@@ -59,28 +59,41 @@ void problem() {
   }
 
   struct State {
-    int turn;
+    int[][] baseStocks;
     DList!(int)[] stocks;
-    int[][] grid;
-    Coord[int] coordByItem;
-
+    int[] stockedRowByItem;
     Crane[] cranes;
-    int[][] outputs;
-    string[] moves;
-    int[] delivered;
+
+    int[] pulledByRow;
+    int[] pushedByRow;
+    bool[] pushedByItem;
 
     RedBlackTree!int heads;
     RedBlackTree!int tails;
+
+    int turn;
+    int[][] grid;
+    Coord[int] coordByItem;
+    int[][] outputs;
+    string[] moves;
     
     this(int[][] stocks) {
-      heads = iota(0, N^^2, N).redBlackTree;
-      tails = iota(N - 1, N^^2, N).redBlackTree;
-
-      cranes = N.iota.map!(i => Crane(i)).array;
-      this.stocks = stocks.map!(a => DList!int(a)).array;
+      baseStocks = stocks.map!"a.dup".array;
+      pushedByItem = new bool[](N ^^ 2);
+      pushedByRow = new int[](N);
       outputs = new int[][](N, 0);
       moves = new string[](N, 0);
-      delivered = new int[](N);
+
+      heads = iota(0, N^^2, N).redBlackTree;
+      tails = iota(N - 1, N^^2, N).redBlackTree;
+      cranes = N.iota.map!(i => Crane(i)).array;
+
+      this.stocks = stocks.map!(a => DList!int(a)).array;
+
+      stockedRowByItem = new int[](N^^2);
+      foreach(r; 0..N) foreach(c; 0..N) {
+        stockedRowByItem[stocks[r][c]] = r;
+      }
 
       grid = N.iota.map!(_ => (-1).repeat(N).array).array;
       foreach(r; 0..N) {
@@ -88,6 +101,20 @@ void problem() {
         coordByItem[grid[r][0]] = Coord(r, 0);
         this.stocks[r].removeFront;
       }
+    }
+
+    int costForItem(int itemId) {
+      int[] calcSubCosts(int n) {
+        int[] ret = n % N == 0 ? 0.repeat(N).array : calcSubCosts(n - 1);
+
+        int r = stockedRowByItem[n];
+        int offset = pushedByRow[r];
+        int depth = baseStocks[r][offset..$].countUntil(n).to!int;
+        ret[r].chmax(depth + 1);
+        return ret;
+      }
+      
+      return calcSubCosts(itemId).sum;
     }
 
     void putOrder(int craneId, Order order) {
@@ -98,7 +125,7 @@ void problem() {
       if (stocks[r].empty) return int.max;
 
       // stocks[r].array.deb;
-      return stocks[r].array.map!(n => (n % N) - delivered[n / N]).sum;
+      return stocks[r].array.map!(n => (n % N) - pushedByRow[n / N]).sum;
     }
 
     bool isCoordEmpty(int r, int c) { return isCoordEmpty(Coord(r, c)); }
@@ -188,9 +215,10 @@ void problem() {
         outputs[r] ~= item;
         coordByItem.remove(item);
         grid[r][N - 1] = -1;
-        delivered[r]++;
+        pushedByRow[r]++;
 
         heads.removeKey(item);
+        pushedByItem[item] = true;
         if (!(item in tails)) heads.insert(item + 1);
       }
 
@@ -235,8 +263,10 @@ void problem() {
   state.putOrder(1, Order(OrderType.Move, Coord(1, N - 1)));
 
   foreach(_; 0..1000) {
-    state.delivered.deb;
-    if (state.noOrder || state.delivered.sum == N^^2) break;
+    state.costForItem(0).deb;
+    state.costForItem(20).deb;
+    // state.pushedByRow.deb;
+    if (state.noOrder || state.pushedByRow.sum == N^^2) break;
 
     state.simulate();
 
