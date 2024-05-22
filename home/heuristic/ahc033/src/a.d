@@ -16,6 +16,76 @@ void problem() {
     int r, c;
   }
 
+  struct Path {
+    char move;
+    Coord to;
+  }
+
+  // 積荷を持ってないクレーン用のグラフ
+  auto freeCraneGraph = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    [".U..", ".U..", "...D", "...D", "...D"],
+    [".U..", ".U..", "...D", "...D", "...D"],
+    [".U..", ".U..", "...D", "...D", "...D"],
+    [".U..", "LU..", "L...", "L...", "L..."],
+  ];
+  // 積荷フリー状態なクレーン用のグラフ
+  auto workCraneGraph = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    ["..R.", ".UR.", "LU..", "..R.", "L..D"],
+    ["..R.", ".UR.", "L...", "..R.", "L..D"],
+    ["..R.", ".UR.", "L...", "..RD", "L..D"],
+    ["..R.", ".U..", "LU..", "L...", "L..."],
+  ];
+  char[char] MOVE_REV = ['L': 'R', 'R': 'L', 'U': 'D', 'D': 'U'];
+
+  Path[][Coord][2] memoPathes;
+  Path[] pathes(Coord from, bool free) {
+    if (from in memoPathes[free]) {
+      return memoPathes[free][from];
+    }
+
+    Path[] ret;
+    auto graph = free ? freeCraneGraph : workCraneGraph;
+    foreach(d, c; graph[from.r][from.c]) {
+      if (c == '.') continue;
+
+      if (d == 0) ret ~= Path(c, Coord(from.r, from.c - 1));
+      else if (d == 1) ret ~= Path(c, Coord(from.r - 1, from.c));
+      else if (d == 2) ret ~= Path(c, Coord(from.r, from.c + 1));
+      else if (d == 3) ret ~= Path(c, Coord(from.r + 1, from.c));
+    }
+    return memoPathes[free][from] = ret;
+  }
+
+  Path[] route(Coord from, bool free, Coord to) {
+    Path[][] froms = new Path[][](N, N);
+    froms[from.r][from.c].move = 1;
+
+    for(auto queue = DList!Coord(from); !queue.empty;) {
+      auto cur = queue.front;
+      queue.removeFront;
+
+      foreach(path; pathes(cur, free)) {
+        auto next = path.to;
+        if (froms[next.r][next.c].move != char.init) continue;
+
+        froms[next.r][next.c] = Path(path.move, cur);
+        if (next == to) break;
+        queue.insertBack(next);
+      }
+    }
+
+    Path[] ret;
+    while(to != from) {
+      auto path = froms[to.r][to.c];
+      if (path.move == char.init) throw new Exception("Illegal Move");
+      ret ~= Path(path.move, to);
+      to = path.to;
+    }
+    return ret.reverse.array;
+  }
+
   enum OrderType { Wait, Pick, Drop, Bomb, Move }
   struct Order {
     OrderType type = OrderType.Wait;
@@ -67,9 +137,7 @@ void problem() {
     int[] pulledByRow;
     int[] pushedByRow;
     bool[] pushedByItem;
-
     RedBlackTree!int heads;
-    RedBlackTree!int tails;
 
     int turn;
     int[][] grid;
@@ -79,13 +147,13 @@ void problem() {
     
     this(int[][] stocks) {
       baseStocks = stocks.map!"a.dup".array;
-      pushedByItem = new bool[](N ^^ 2);
+      pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
+      pushedByItem = new bool[](N ^^ 2);
       outputs = new int[][](N, 0);
       moves = new string[](N, 0);
 
       heads = iota(0, N^^2, N).redBlackTree;
-      tails = iota(N - 1, N^^2, N).redBlackTree;
       cranes = N.iota.map!(i => Crane(i)).array;
 
       this.stocks = stocks.map!(a => DList!int(a)).array;
@@ -219,7 +287,7 @@ void problem() {
 
         heads.removeKey(item);
         pushedByItem[item] = true;
-        if (!(item in tails)) heads.insert(item + 1);
+        if (item % N != N - 1) heads.insert(item + 1);
       }
 
       // 搬入口からの補充
@@ -290,6 +358,9 @@ void problem() {
       }
     }
   }
+
+  pathes(Coord(1, 1), true).deb;
+  pathes(Coord(1, 1), false).deb;
 
   foreach(move; state.moves) move.writeln;
 }
