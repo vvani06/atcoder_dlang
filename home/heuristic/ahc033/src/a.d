@@ -166,7 +166,7 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks) {
+    this(int[][] stocks, int useCrane) {
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
@@ -192,6 +192,11 @@ void problem() {
         grid[r][0] = item;
         coordByItem[item] = Coord(r, 0);
         itemStates[item] = ItemState.Placed;
+      }
+
+      foreach(int c; useCrane..N) {
+        cranes[c].destroyed = true;
+        moves[c] ~= Path('B');
       }
     }
 
@@ -293,9 +298,9 @@ void problem() {
     }
   }
 
-  State state = State(A);
+  State state = State(A, 3);
 
-  foreach(turn; 0..500) {
+  foreach(turn; 0..600) {
     turn.deb;
 
     foreach(toPick; state.nextItems[0..min(3, $)]) {
