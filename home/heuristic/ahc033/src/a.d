@@ -18,6 +18,13 @@ void problem() {
     static Coord Invalid = Coord(-1, -1);
   }
 
+  static Coord SpaceA = Coord(1, 2);
+  static Coord SpaceB = Coord(1, 3);
+  static Coord SpaceC = Coord(2, 2);
+  static Coord SpaceD = Coord(2, 3);
+  static Coord SpaceE = Coord(3, 2);
+  static Coord SpaceF = Coord(3, 3);
+
   struct Path {
     char move;
     Coord to;
@@ -26,11 +33,18 @@ void problem() {
   // 積荷を持ってないクレーン用のグラフ
   auto freeCraneGraph = [
     ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".U..", ".U..", "...D", "...D", "...D"],
-    [".U..", ".U..", "...D", "...D", "...D"],
-    [".U..", ".U..", "...D", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
     [".U..", "LU..", "L...", "L...", "L..."],
   ];
+  // auto freeCraneGraph = [
+  //   ["..RD", "L.RD", "L.RD", "L.RD", "L..D"],
+  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
+  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
+  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
+  //   [".UR.", "LUR.", "LUR.", "LUR.", "LU.."],
+  // ];
   // 積荷を持っているクレーンのグラフ
   auto workCraneGraph = [
     ["..R.", "L.R.", "..RD", "..RD", "...D"],
@@ -129,7 +143,7 @@ void problem() {
 
         foreach(path; pathes(cur, free)) {
           auto next = path.to;
-          if (!free && next.c < N - 1 && grid[next.r][next.c] != -1 && next != to) continue;
+          if (id > 0 && !free && next.c < N - 1 && grid[next.r][next.c] != -1 && next != to) continue;
           if (froms[next.r][next.c].move != char.init) continue;
 
           froms[next.r][next.c] = Path(path.move, cur);
@@ -168,6 +182,7 @@ void problem() {
     int[] stockedRowByItem;
     ItemState[] itemStates;
     RedBlackTree!int heads;
+    Coord[] stockSpaces;
 
     int[] pulledByRow;
     int[] pushedByRow;
@@ -181,7 +196,8 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces) {
+      this.stockSpaces = stockSpaces;
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
@@ -254,11 +270,8 @@ void problem() {
     }
 
     Coord findEmptyCoord() {
-      foreach(c; [
-        Coord(1, 3), Coord(1, 2), Coord(2, 2), 
-        Coord(3, 2), Coord(3, 3), Coord(2, 3), 
-        Coord(4, 0), Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0),
-      ]) {
+      // ここの順番は入れ替えるとケースによって10%程度改善しそう
+      foreach(c; stockSpaces ~ [Coord(4, 0), Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0),]) {
         if (grid[c.r][c.c] == -1) return c;
       }
 
@@ -389,7 +402,7 @@ void problem() {
           if (crane.waiting() || crane.destroyed) continue;
 
           if (!crane.free && crane.item in heads && crane.coord == Coord(crane.item / N, N - 1)) {
-            auto nextOrder = crane.nextOrders.front;
+            auto nextOrder = crane.nextOrders.empty ? Order() : crane.nextOrders.front;
             if (nextOrder.type == OrderType.Drop && nextOrder.coord.c != N - 1) {
               auto nxc = nextOrder.coord;
               grid[nxc.r][nxc.c] = -1;
@@ -461,13 +474,23 @@ void problem() {
   int bestTurn = int.max;
   State bestState;
 
+  auto SPACE_PATTERNS = [
+    [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
+    [SpaceB, SpaceA, SpaceC, SpaceD, SpaceE, SpaceF],
+    [SpaceA, SpaceB, SpaceC, SpaceD, SpaceE, SpaceF],
+    [SpaceD, SpaceE, SpaceF, SpaceA, SpaceB, SpaceC],
+    [SpaceF, SpaceE, SpaceD, SpaceC, SpaceB, SpaceA],
+  ];
+
   foreach(craneNums; [1, 2, 3, 4, 5]) {
     foreach(parallel; 1..craneNums + 1) {
-      State state = State(A, craneNums);
-      state.simulate(parallel);
+      foreach(spaces; SPACE_PATTERNS) {
+        State state = State(A, craneNums, spaces);
+        state.simulate(parallel);
 
-      if (state.pushedByRow.sum == N^^2 && bestTurn.chmin(state.turn)) {
-        bestState = state;
+        if (state.pushedByRow.sum == N^^2 && bestTurn.chmin(state.turn)) {
+          bestState = state;
+        }
       }
     }
   }
