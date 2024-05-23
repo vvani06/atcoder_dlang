@@ -14,6 +14,8 @@ void problem() {
 
   struct Coord {
     int r, c;
+
+    static Coord Invalid = Coord(-1, -1);
   }
 
   struct Path {
@@ -58,7 +60,7 @@ void problem() {
     return memoPathes[free][from] = ret;
   }
 
-  enum OrderType { Wait, Pick, Drop, Bomb, Move }
+  enum OrderType { Wait, Pick, Drop, Bomb, Move, Keep }
   struct Order {
     OrderType type = OrderType.Wait;
     Coord coord;
@@ -105,6 +107,15 @@ void problem() {
 
     bool notWorking() {
       return order.type == OrderType.Wait || order.type == OrderType.Move;
+    }
+    
+    bool keeping() {
+      return order.type == OrderType.Keep;
+    }
+
+    void clearOrder() {
+      nextOrders.clear();
+      currentOrder = Order();
     }
     
     Path[] route(Coord to, ref int[][] grid) {
@@ -251,10 +262,10 @@ void problem() {
         if (grid[c.r][c.c] == -1) return c;
       }
 
-      throw new Exception("No Space Available");
+      return Coord.Invalid;
     }
 
-    void simulate() {
+    void afterProcess() {
       // 搬出口の処理
       foreach(r; 0..N) {
         if (grid[r][N - 1] == -1) continue;
@@ -290,7 +301,7 @@ void problem() {
       int minDistance = int.max;
       foreach(i; 0..N) {
         auto crane = cranes[i];
-        if (!crane.waiting || crane.destroyed) continue;
+        if (!crane.waiting || !crane.free || crane.destroyed) continue;
 
         auto d = crane.route(to, grid).length.to!int;
         if (minDistance.chmin(d)) {
@@ -321,18 +332,43 @@ void problem() {
 
           if (toPick in state.heads) {
             crane.putOrder(Order(OrderType.Drop, Coord(toPick / N, N - 1)));
+            crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
           } else {
             auto toMove = state.findEmptyCoord();
-            state.grid[toMove.r][toMove.c] = -2;
-            crane.putOrder(Order(OrderType.Drop, toMove));
+            if (toMove == Coord.Invalid) {
+              // throw new Exception("No Space");
+              crane.putOrder(Order(OrderType.Keep, Coord(0, 2)));
+              crane.putOrder(Order(OrderType.Keep, Coord(4, 2)));
+            } else {
+              state.grid[toMove.r][toMove.c] = -2;
+              crane.putOrder(Order(OrderType.Drop, toMove));
+              crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+            }
           }
-          crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
         }
       }
     }
 
     foreach(crane; state.cranes) {
       if (crane.waiting() && crane.coord == Coord(4, 2)) {
+        if (!crane.free) {
+          auto item = crane.item;
+          if (item in state.heads) {
+            crane.clearOrder();
+            crane.putOrder(Order(OrderType.Drop, Coord(item / N, N - 1)));
+            crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+            continue;
+          } else {
+            auto toMove = state.findEmptyCoord();
+            if (toMove != Coord.Invalid) {
+              state.grid[toMove.r][toMove.c] = -2;
+              crane.putOrder(Order(OrderType.Drop, toMove));
+              crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+              continue;
+            }
+          }
+        }
+
         crane.putOrder(Order(OrderType.Move, Coord(0, 2)));
         crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
         crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
@@ -352,6 +388,22 @@ void problem() {
     foreach(i, crane; state.cranes) {
       if (crane.waiting() || crane.destroyed) continue;
 
+      if (!crane.free && crane.item in state.heads && crane.coord == Coord(crane.item / N, N - 1)) {
+        auto nextOrder = crane.nextOrders.front;
+        if (nextOrder.type == OrderType.Drop && nextOrder.coord.c != N - 1) {
+          auto nxc = nextOrder.coord;
+          state.grid[nxc.r][nxc.c] = -1;
+        }
+        state.grid[crane.coord.r][crane.coord.c] = crane.item;
+        state.itemStates[crane.item] = ItemState.Delivered;
+        state.coordByItem[crane.item] = crane.coord;
+        crane.item = -1;
+        craneMoves[i] = Path('Q', crane.coord);
+        crane.clearOrder();
+        crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+        continue;
+      }
+
       auto order = crane.order();
       if (crane.coord == order.coord) {
         if (order.type == OrderType.Pick) {
@@ -359,7 +411,7 @@ void problem() {
           state.grid[crane.coord.r][crane.coord.c] = -1;
           crane.item = item;
           state.itemStates[item] = ItemState.Picked;
-          state.coordByItem[item] = Coord(-1, -1);
+          state.coordByItem[item] = Coord.Invalid;
           craneMoves[i] = Path('P', crane.coord);
         } else if (order.type == OrderType.Drop) {
           state.grid[crane.coord.r][crane.coord.c] = crane.item;
@@ -395,11 +447,12 @@ void problem() {
         if (crane.order.type == OrderType.Pick && !crane.free) crane.currentOrder = Order();
         else if (crane.order.type == OrderType.Drop && crane.free) crane.currentOrder = Order();
         else if (crane.order.type == OrderType.Move) crane.currentOrder = Order();
+        else if (crane.order.type == OrderType.Keep) crane.currentOrder = Order();
       }
     }
 
     state.cranes.each!deb;
-    state.simulate();
+    state.afterProcess();
     if (state.pushedByRow.sum == N^^2) break;
   }
 
