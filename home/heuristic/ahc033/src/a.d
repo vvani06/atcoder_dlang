@@ -102,6 +102,10 @@ void problem() {
     bool waiting() {
       return order.type == OrderType.Wait;
     }
+
+    bool notWorking() {
+      return order.type == OrderType.Wait || order.type == OrderType.Move;
+    }
     
     Path[] route(Coord to, ref int[][] grid) {
       auto from = coord;
@@ -298,14 +302,14 @@ void problem() {
     }
   }
 
-  State state = State(A, 3);
+  State state = State(A, 5);
 
   foreach(turn; 0..600) {
     turn.deb;
 
     foreach(toPick; state.nextItems[0..min(3, $)]) {
-      // deb(state.nextItems, toPick, state.itemStates[toPick]);
-      if (state.itemStates[toPick] != ItemState.Placed && state.itemStates[toPick] != ItemState.Moved) toPick = state.headOfItem(state.nextItems[0]);
+      deb(state.nextItems, toPick, state.itemStates[toPick]);
+      if (state.itemStates[toPick] != ItemState.Placed && state.itemStates[toPick] != ItemState.Moved) toPick = state.headOfItem(toPick);
       deb(state.nextItems, toPick);
       if (toPick != -1 && (state.itemStates[toPick] == ItemState.Placed || state.itemStates[toPick] == ItemState.Moved)) {
         auto coordToPick = state.coordByItem[toPick];
@@ -365,7 +369,7 @@ void problem() {
           craneMoves[i] = Path('Q', crane.coord);
         }
       } else {
-        crane.deb;
+        // crane.deb;
         // state.grid.each!deb;
         auto nextPath = crane.route(crane.order.coord, state.grid)[0];
         auto from = crane.coord;
