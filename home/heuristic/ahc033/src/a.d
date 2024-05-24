@@ -326,7 +326,7 @@ void problem() {
     }
 
     void simulate(int parallel) {
-      foreach(_; 0..600) {
+      foreach(_; 0..300) {
         turn++;
         deb("");
         deb("------------------------------------ TURN: ", turn, " --------------------------------------");
@@ -480,6 +480,7 @@ void problem() {
     [SpaceA, SpaceB, SpaceC, SpaceD, SpaceE, SpaceF],
     [SpaceD, SpaceE, SpaceF, SpaceA, SpaceB, SpaceC],
     [SpaceF, SpaceE, SpaceD, SpaceC, SpaceB, SpaceA],
+    [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
   ];
 
   foreach(craneNums; [1, 2, 3, 4, 5]) {
