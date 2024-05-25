@@ -148,7 +148,7 @@ void problem() {
     DList!(int)[] stocks;
     int[] stockedRowByItem;
     ItemState[] itemStates;
-    RedBlackTree!int heads;
+    RedBlackTree!int heads, waitingDelivereds;
     Coord[] stockSpaces;
 
     int[] pulledByRow;
@@ -171,6 +171,7 @@ void problem() {
       pushedByItem = new bool[](N ^^ 2);
       itemStates = (ItemState.Unplaced).repeat(N ^^ 2).array;
       heads = iota(0, N^^2, N).redBlackTree;
+      waitingDelivereds = iota(0, N^^2, N).redBlackTree;
 
       outputs = new int[][](N, 0);
       cranes = N.iota.map!(i => new Crane(i, graphs)).array;
@@ -258,8 +259,12 @@ void problem() {
         pushedByRow[r]++;
 
         heads.removeKey(item);
+        waitingDelivereds.removeKey(item);
         pushedByItem[item] = true;
-        if (item % N != N - 1) heads.insert(item + 1);
+        if (item % N != N - 1) {
+          heads.insert(item + 1);
+          waitingDelivereds.insert(item + 1);
+        }
       }
 
       // 搬入口からの補充
@@ -331,6 +336,7 @@ void problem() {
         }
 
         foreach(crane; cranes) {
+          // 暇で一周してきたクレーンにオーダーをだす
           if (crane.waiting() && crane.coord == Coord(4, 2)) {
             if (!crane.free) {
               auto item = crane.item;
@@ -350,6 +356,7 @@ void problem() {
               }
             }
 
+            // オーダーがないならもう一周まわってもらう
             crane.putOrder(Order(OrderType.Move, Coord(0, 2)));
             crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
             crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
@@ -371,20 +378,36 @@ void problem() {
           auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
 
-          if (!crane.free && crane.item in heads && crane.coord == Coord(crane.item / N, N - 1)) {
-            auto nextOrder = crane.nextOrders.empty ? Order() : crane.nextOrders.front;
-            if (nextOrder.type == OrderType.Drop && nextOrder.coord.c != N - 1) {
-              auto nxc = nextOrder.coord;
-              grid[nxc.r][nxc.c] = -1;
+          // 納品可能なクレーンの優先的な処理
+          if (!crane.free && crane.item in waitingDelivereds) {
+            auto toDrop = Coord(crane.item / N, N - 1);
+            auto toDropDist = crane.route(toDrop, grid).length;
+
+            // 納品実施
+            if (toDropDist == 0) {
+              auto nextOrder = crane.nextOrders.empty ? Order() : crane.nextOrders.front;
+              if (nextOrder.type == OrderType.Drop && nextOrder.coord.c != N - 1) {
+                auto nxc = nextOrder.coord;
+                grid[nxc.r][nxc.c] = -1;
+              }
+              grid[crane.coord.r][crane.coord.c] = crane.item;
+              itemStates[crane.item] = ItemState.Delivered;
+              coordByItem[crane.item] = crane.coord;
+              crane.item = -1;
+              craneMoves[i] = Path('Q', crane.coord);
+              crane.clearOrder();
+              crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+              continue;
             }
-            grid[crane.coord.r][crane.coord.c] = crane.item;
-            itemStates[crane.item] = ItemState.Delivered;
-            coordByItem[crane.item] = crane.coord;
-            crane.item = -1;
-            craneMoves[i] = Path('Q', crane.coord);
-            crane.clearOrder();
-            crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
-            continue;
+
+            // 納品間近であれば、次のアイテムを Pickable にする
+            if (crane.item in heads && toDropDist <= 4) {
+              auto item = crane.item;
+              heads.removeKey(item);
+              if (item % N != N - 1) {
+                heads.insert(item + 1);
+              }
+            }
           }
 
           auto order = crane.order();
@@ -490,8 +513,8 @@ void problem() {
 
   int simulated;
   foreach(spaces; SPACE_PATTERNS) {
-    foreach(craneNums; [1, 2, 3, 4, 5]) {
-      foreach(parallel; 1..craneNums + 1) {
+    foreach(craneNums; [5]) {
+      foreach(parallel; 2..craneNums + 1) {
         foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
           State state = State(A, craneNums, spaces.array, graphs);
           state.simulate(parallel);
@@ -510,8 +533,8 @@ void problem() {
       break;
     }
 
-    foreach(craneNums; [1, 2, 3, 4, 5]) {
-      foreach(parallel; 1..craneNums + 1) {
+    foreach(craneNums; [3, 4, 5]) {
+      foreach(parallel; 2..craneNums + 1) {
         foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
           State state = State(A, craneNums, spaces.array, graphs);
           state.simulate(parallel);
