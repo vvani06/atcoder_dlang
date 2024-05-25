@@ -2,18 +2,27 @@
 
 cd `dirname $0`
 
-ldmd2 -O -release ../src/a.d -of ./a "--DRT-gcopt=disable:1" 
-touch score
-mkdir -p out
-mkdir -p logs
-rm score
-rm out/*
+# ldmd2 -O -release ../src/a.d -of ./a "--DRT-gcopt=disable:1" 
+# touch score
+# mkdir -p out
+# mkdir -p logs
+# rm score
+# rm out/*
 
-for i in {0000..0049}; do
-  ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt &
+TOTAL_CASES=50
+PARALLEL_SIZE=5
+CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
+
+for cycle in `eval echo {0..$CYCLE}`; do
+  min=$(($cycle * $PARALLEL_SIZE))
+  max=$(($cycle * $PARALLEL_SIZE + $PARALLEL_SIZE - 1))
+  for i in {0000..0999}; do
+    if [ $min -le $i ] && [ $max -ge $i ]; then
+      ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt &
+    fi
+  done
+  wait
 done
-
-wait
 
 for i in {0000..0049}; do
   ./vis in/${i}.txt out/${i}.txt >> score
