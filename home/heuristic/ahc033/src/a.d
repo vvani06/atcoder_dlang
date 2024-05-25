@@ -334,10 +334,34 @@ void problem() {
     }
 
     void simulate(int parallel) {
-      foreach(_; 0..300) {
+      foreach(_; 0..250) {
         turn++;
         deb("");
         deb("------------------------------------ TURN: ", turn, " --------------------------------------");
+
+        // 納品間近であれば、次のアイテムを Target にする
+        // 間近であるかどうかは納品までの距離と次アイテムを拾う最短クレーンの距離で判断する
+        foreach(crane; cranes) {
+          if (!(crane.item in heads) || crane.item % N == N - 1) continue;
+
+          auto toDrop = Coord(crane.item / N, N - 1);
+          auto toDropDist = crane.route(toDrop, grid).length;
+
+          auto toPick = crane.item + 1;
+          if (itemStates[toPick] != ItemState.Placed && itemStates[toPick] != ItemState.Moved) toPick = headOfItem(toPick);
+          if (toPick == -1) continue;
+
+          auto nextCoord = coordByItem[toPick];
+          if (nextCoord == Coord.Invalid) nextCoord = Coord(stockedRowByItem[toPick], 0);
+          auto nearest = waitingNearestCrane(nextCoord);
+          if (!nearest) continue;
+
+          if (nearest.route(nextCoord, grid).length + greediness >= toDropDist) {
+            auto item = crane.item;
+            heads.removeKey(crane.item);
+            heads.insert(crane.item + 1);
+          }
+        }
 
         foreach(toPick; nextItems[0..min(parallel, $)]) {
           deb(nextItems, toPick, itemStates[toPick]);
@@ -409,16 +433,6 @@ void problem() {
               crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
               continue;
             }
-
-            // 納品間近であれば、次のアイテムを Target にする
-            if (crane.item in heads && toDropDist <= greediness) {
-              auto item = crane.item;
-              heads.removeKey(item);
-              if (item % N != N - 1) {
-                auto nextItem = item + 1;
-                heads.insert(nextItem);
-              }
-            }
           }
 
           auto order = crane.order();
@@ -475,7 +489,12 @@ void problem() {
     }
 
     int score() {
-      return turn + (N^^2 - pushedByRow.sum)*1000;
+      int ret = turn;
+      ret += (N^^2 - pushedByRow.sum) * 10^^6;
+      foreach(r; 0..N) foreach(i, a; outputs[r]) {
+        ret += 10^^2 * outputs[r][0..i].count!(x => x > a);
+      }
+      return ret;
     }
   }
 
@@ -510,7 +529,6 @@ void problem() {
   enum Coord SpaceD = Coord(2, 3);
   enum Coord SpaceE = Coord(3, 2);
   enum Coord SpaceF = Coord(3, 3);
-  
   enum SPACE_PATTERNS = [
     [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
     [SpaceB, SpaceA, SpaceC, SpaceD, SpaceE, SpaceF],
@@ -519,29 +537,28 @@ void problem() {
     [SpaceF, SpaceE, SpaceD, SpaceC, SpaceB, SpaceA],
     [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
   ];
+  enum ALL_PATTERNS_CTFE = SPACE_PATTERNS[0].permutations.map!"a.array".array;
 
   int bestTurn = int.max;
   int simulated;
   State bestState;
 
-  enum ALL_PATTERNS_CTFE = SPACE_PATTERNS[0].permutations.map!"a.array".array;
   auto RANDOM_PATTERNS = ALL_PATTERNS_CTFE.randomShuffle(RND).array;
   foreach(spaces; SPACE_PATTERNS ~ RANDOM_PATTERNS) {
     if (elapsed(2500)) {
       break;
     }
 
-    foreach(craneNums; [5]) {
-      foreach(parallel; 2..craneNums + 1) {
-        foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
-          State state = State(A, craneNums, spaces, graphs, 4);
-          state.simulate(parallel);
-          simulated++;
+    foreach(greediness; [3]) 
+    foreach(craneNums; [5]) 
+    foreach(parallel; 2..craneNums + 1)
+    foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
+      State state = State(A, craneNums, spaces, graphs, greediness);
+      state.simulate(parallel);
+      simulated++;
 
-          if (bestTurn.chmin(state.score())) {
-            bestState = state;
-          }
-        }
+      if (bestTurn.chmin(state.score())) {
+        bestState = state;
       }
     }
   }
