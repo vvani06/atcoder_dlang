@@ -18,60 +18,9 @@ void problem() {
     static Coord Invalid = Coord(-1, -1);
   }
 
-  static Coord SpaceA = Coord(1, 2);
-  static Coord SpaceB = Coord(1, 3);
-  static Coord SpaceC = Coord(2, 2);
-  static Coord SpaceD = Coord(2, 3);
-  static Coord SpaceE = Coord(3, 2);
-  static Coord SpaceF = Coord(3, 3);
-
   struct Path {
     char move;
     Coord to;
-  }
-
-  // 積荷を持ってないクレーン用のグラフ
-  auto freeCraneGraph = [
-    ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", "LU..", "L...", "L...", "L..."],
-  ];
-  // auto freeCraneGraph = [
-  //   ["..RD", "L.RD", "L.RD", "L.RD", "L..D"],
-  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
-  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
-  //   [".URD", "LURD", "LURD", "LURD", "LU.D"],
-  //   [".UR.", "LUR.", "LUR.", "LUR.", "LU.."],
-  // ];
-  // 積荷を持っているクレーンのグラフ
-  auto workCraneGraph = [
-    ["..R.", "L.R.", "..RD", "..RD", "...D"],
-    ["..R.", "LUR.", "LUR.", "..R.", "L..D"],
-    ["..R.", "LUR.", "L.R.", "..R.", "L..D"],
-    ["..R.", "LUR.", "L.R.", "..RD", "L..D"],
-    ["..R.", "LU..", "LU..", "L...", "L..."],
-  ];
-  char[char] MOVE_REV = ['L': 'R', 'R': 'L', 'U': 'D', 'D': 'U'];
-
-  Path[][Coord][2] memoPathes;
-  Path[] pathes(Coord from, bool free) {
-    if (from in memoPathes[free]) {
-      return memoPathes[free][from];
-    }
-
-    Path[] ret;
-    auto graph = free ? freeCraneGraph : workCraneGraph;
-    foreach(d, c; graph[from.r][from.c]) {
-      if (c == '.') continue;
-
-      if (d == 0) ret ~= Path(c, Coord(from.r, from.c - 1));
-      else if (d == 1) ret ~= Path(c, Coord(from.r - 1, from.c));
-      else if (d == 2) ret ~= Path(c, Coord(from.r, from.c + 1));
-      else if (d == 3) ret ~= Path(c, Coord(from.r + 1, from.c));
-    }
-    return memoPathes[free][from] = ret;
   }
 
   enum OrderType { Wait, Pick, Drop, Bomb, Move, Keep }
@@ -86,17 +35,20 @@ void problem() {
 
   class Crane {
     int id;
+    string[][][] graphs;
+
     int item;
     Coord coord;
     Order currentOrder;
     DList!Order nextOrders;
     bool destroyed;
 
-    this(int id) {
+    this(int id, string[][][] graphs) {
       this.id = id;
       item = -1;
       coord = Coord(id, 0);
       currentOrder = Order();
+      this.graphs = graphs;
     }
 
     bool free() {
@@ -123,13 +75,28 @@ void problem() {
       return order.type == OrderType.Wait || order.type == OrderType.Move;
     }
     
-    bool keeping() {
-      return order.type == OrderType.Keep;
-    }
-
     void clearOrder() {
       nextOrders.clear();
       currentOrder = Order();
+    }
+
+    Path[][Coord][2] memoPathes;
+    Path[] pathes(Coord from, bool free) {
+      if (from in memoPathes[free]) {
+        return memoPathes[free][from];
+      }
+
+      Path[] ret;
+      auto graph = graphs[free ? 0 : 1];
+      foreach(d, c; graph[from.r][from.c]) {
+        if (c == '.') continue;
+
+        if (d == 0) ret ~= Path(c, Coord(from.r, from.c - 1));
+        else if (d == 1) ret ~= Path(c, Coord(from.r - 1, from.c));
+        else if (d == 2) ret ~= Path(c, Coord(from.r, from.c + 1));
+        else if (d == 3) ret ~= Path(c, Coord(from.r + 1, from.c));
+      }
+      return memoPathes[free][from] = ret;
     }
     
     Path[] route(Coord to, ref int[][] grid) {
@@ -196,7 +163,7 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, string[][][] graphs) {
       this.stockSpaces = stockSpaces;
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
@@ -206,7 +173,7 @@ void problem() {
       heads = iota(0, N^^2, N).redBlackTree;
 
       outputs = new int[][](N, 0);
-      cranes = N.iota.map!(i => new Crane(i)).array;
+      cranes = N.iota.map!(i => new Crane(i, graphs)).array;
       moves = N.iota.map!(i => [Path(0, Coord(i, 0))]).array;
 
       this.stocks = stocks.map!(a => DList!int(a)).array;
@@ -471,6 +438,37 @@ void problem() {
     }
   }
 
+  static Coord SpaceA = Coord(1, 2);
+  static Coord SpaceB = Coord(1, 3);
+  static Coord SpaceC = Coord(2, 2);
+  static Coord SpaceD = Coord(2, 3);
+  static Coord SpaceE = Coord(3, 2);
+  static Coord SpaceF = Coord(3, 3);
+
+  // 積荷を持ってないクレーン用のグラフ
+  auto freeCraneGraph = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".U..", "LU..", "L...", "L...", "L..."],
+  ];
+  auto freeCraneGraph2 = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", "LU..", "L...", "L...", "L..."],
+  ];
+  // 積荷を持っているクレーンのグラフ
+  auto workCraneGraph = [
+    ["..R.", "L.R.", "..RD", "..RD", "...D"],
+    [".UR.", "LUR.", "LUR.", "..R.", "L..D"],
+    [".UR.", "LUR.", "L.R.", "..R.", "L..D"],
+    [".UR.", "LUR.", "L.R.", "..RD", "L..D"],
+    [".UR.", "LU..", "LU..", "L...", "L..."],
+  ];
+
   int bestTurn = int.max;
   State bestState;
 
@@ -486,11 +484,13 @@ void problem() {
   foreach(craneNums; [1, 2, 3, 4, 5]) {
     foreach(parallel; 1..craneNums + 1) {
       foreach(spaces; SPACE_PATTERNS) {
-        State state = State(A, craneNums, spaces);
-        state.simulate(parallel);
+        foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
+          State state = State(A, craneNums, spaces, graphs);
+          state.simulate(parallel);
 
-        if (state.pushedByRow.sum == N^^2 && bestTurn.chmin(state.turn)) {
-          bestState = state;
+          if (state.pushedByRow.sum == N^^2 && bestTurn.chmin(state.turn)) {
+            bestState = state;
+          }
         }
       }
     }
