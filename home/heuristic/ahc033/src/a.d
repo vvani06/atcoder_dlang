@@ -18,6 +18,10 @@ void problem() {
     static Coord Invalid = Coord(-1, -1);
   }
 
+  byte index(Coord coord) {
+    return cast(byte)(coord.r * N + coord.c);
+  }
+
   struct Path {
     char move;
     Coord to;
@@ -68,8 +72,8 @@ void problem() {
   // 積荷を持っているクレーンのグラフ
   auto WORK_GRAPH = [
     ["..R.", "L.R.", "..RD", "..RD", "...D"],
-    [".UR.", "LUR.", "LUR.", "..R.", "L..D"],
-    [".UR.", "LUR.", "L.R.", "..R.", "L..D"],
+    [".UR.", "LUR.", "LURD", "..RD", "L..D"],
+    [".UR.", "LUR.", "L.RD", "..RD", "L..D"],
     [".UR.", "LUR.", "L.R.", "L.RD", "L..D"],
     [".UR.", "LU..", "LU..", "L...", "L..."],
   ];
@@ -180,11 +184,18 @@ void problem() {
       return GRAPH_PATH[graphIds[free]][from.r * 5 + from.c];
     }
 
-    ref Path[] memoizedRoute(Coord to, int bnState) {
-      auto graphId = graphIds[free];
+    ref Path[] memoizedRoute(Coord to, int bnState, int forceState = -1) {
       auto from = coord;
+      auto f = forceState == -1 ? free : forceState;
+      auto graphId = graphIds[f];
+      auto s = f || id == 0 ? 0 : bnState;
+      return ROUTES[graphId][s][from.r * N + from.c][to.r * N + to.c];
+    }
 
-      auto s = free || id == 0 ? 0 : bnState;
+    ref Path[] memoizedDropFromTo(Coord from, Coord to, int bnState, int forceState = -1) {
+      auto f = forceState == -1 ? free : forceState;
+      auto graphId = graphIds[f];
+      auto s = f || id == 0 ? 0 : bnState;
       return ROUTES[graphId][s][from.r * N + from.c][to.r * N + to.c];
     }
     
@@ -467,7 +478,9 @@ void problem() {
           auto nearest = waitingNearestCrane(nextCoord);
           if (!nearest) continue;
 
-          if (nearest.memoizedRoute(nextCoord, bnState).length + greediness >= toDropDist) {
+          auto pickDist = nearest.memoizedRoute(nextCoord, bnState).length;
+          auto dropDist = nearest.memoizedDropFromTo(nextCoord, Coord(cast(byte)(toPick % N), cast(byte)(N - 1)), bnState, 0).length;
+          if (pickDist + dropDist >= toDropDist) {
             auto item = crane.item;
             heads.removeKey(crane.item);
             heads.insert(crane.item + 1);
@@ -509,13 +522,17 @@ void problem() {
           }
         }
 
-        int[Coord] cur, next;
-        foreach(i, crane; cranes.enumerate(0)) {
+        byte[25] cx, nx;
+        cx[] = -1;
+        nx[] = -2;
+        foreach(i, crane; cranes.enumerate(cast(byte)0)) {
           if (crane.destroyed) continue;
 
-          cur[crane.coord] = i;
-          next[crane.coord] = i;
+          cx[index(crane.coord)] = i;
+          nx[index(crane.coord)] = i;
         }
+
+        // void simulateMove(Crane crane)
         
         Path[] craneMoves = cranes.map!(c => Path('.', c.coord)).array;
         foreach(i; N.iota) {
@@ -557,15 +574,15 @@ void problem() {
             auto nextPath = crane.memoizedRoute(crane.order.coord, bnState)[0];
             auto from = crane.coord;
             auto to = nextPath.to;
-            if (to in next) continue;
-            if (cur.get(to, -1) == next.get(from, -2)) continue;
+            if (nx[index(to)] >= 0) continue;
+            if (cx[index(to)] == nx[index(from)]) continue;
             
             enum LBPickerCoords = [Coord(4, 0)];
-            if (from == Coord(4, 2) && LBPickerCoords.any!(c => c in cur)) continue;
+            if (from == Coord(4, 2) && LBPickerCoords.any!(c => cx[index(c)] >= 0)) continue;
 
             craneMoves[i] = nextPath;
-            next.remove(from);
-            next[to] = i.to!int;
+            nx[index(from)] = -2;
+            nx[index(to)] = i.to!byte;
           }
         }
 
