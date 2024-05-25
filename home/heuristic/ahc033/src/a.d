@@ -129,6 +129,10 @@ void problem() {
       return ret.reverse.array;
     }
 
+    int itemPriority() {
+      return item == -1 ? -1 : N - item % N;
+    }
+
     override string toString() {
       return "[#%s / % 3s] (% 2s, % 2s) <%s> <%s>".format(id, item, coord.r, coord.c, currentOrder, nextOrders.array);
     }
@@ -359,7 +363,6 @@ void problem() {
             // オーダーがないならもう一周まわってもらう
             crane.putOrder(Order(OrderType.Move, Coord(0, 2)));
             crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
-            crane.putOrder(Order(OrderType.Move, Coord(4, 4)));
             crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
           }
         }
@@ -374,7 +377,7 @@ void problem() {
         
         Path[] craneMoves = cranes.map!(c => Path('.', c.coord)).array;
         foreach(i; N.iota) {
-        // foreach(i; N.iota.array.sort!((a, b) => cranes[a].item > cranes[b].item)) {
+        // foreach(i; N.iota.array.sort!((a, b) => cranes[a].itemPriority > cranes[b].itemPriority)) {
           auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
 
@@ -533,7 +536,7 @@ void problem() {
       break;
     }
 
-    foreach(craneNums; [3, 4, 5]) {
+    foreach(craneNums; [5]) {
       foreach(parallel; 2..craneNums + 1) {
         foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
           State state = State(A, craneNums, spaces.array, graphs);
