@@ -301,6 +301,35 @@ void problem() {
       return ret;
     }
 
+    bool orderPickItem(int item) {
+      if (item == -1 || (itemStates[item] != ItemState.Placed && itemStates[item] != ItemState.Moved)) return false;
+
+      auto coordToPick = coordByItem[item];
+      auto crane = waitingNearestCrane(coordToPick);
+      if (!crane) return false;
+
+      crane.clearOrder();
+      crane.putOrder(Order(OrderType.Pick, coordToPick));
+      itemStates[item] = ItemState.Waiting;
+
+      if (item in heads) {
+        crane.putOrder(Order(OrderType.Drop, Coord(item / N, N - 1)));
+        crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+      } else {
+        auto toMove = findEmptyCoord();
+        if (toMove == Coord.Invalid) {
+          // throw new Exception("No Space");
+          crane.putOrder(Order(OrderType.Keep, Coord(0, 2)));
+          crane.putOrder(Order(OrderType.Keep, Coord(4, 2)));
+        } else {
+          grid[toMove.r][toMove.c] = -2;
+          crane.putOrder(Order(OrderType.Drop, toMove));
+          crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+        }
+      }
+      return true;
+    }
+
     void simulate(int parallel) {
       foreach(_; 0..300) {
         turn++;
@@ -311,32 +340,7 @@ void problem() {
           deb(nextItems, toPick, itemStates[toPick]);
           if (itemStates[toPick] != ItemState.Placed && itemStates[toPick] != ItemState.Moved) toPick = headOfItem(toPick);
           deb(nextItems, toPick);
-          if (toPick != -1 && (itemStates[toPick] == ItemState.Placed || itemStates[toPick] == ItemState.Moved)) {
-            auto coordToPick = coordByItem[toPick];
-            auto crane = waitingNearestCrane(coordToPick);
-
-            if (crane) {
-              crane.clearOrder();
-              crane.putOrder(Order(OrderType.Pick, coordToPick));
-              itemStates[toPick] = ItemState.Waiting;
-
-              if (toPick in heads) {
-                crane.putOrder(Order(OrderType.Drop, Coord(toPick / N, N - 1)));
-                crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
-              } else {
-                auto toMove = findEmptyCoord();
-                if (toMove == Coord.Invalid) {
-                  // throw new Exception("No Space");
-                  crane.putOrder(Order(OrderType.Keep, Coord(0, 2)));
-                  crane.putOrder(Order(OrderType.Keep, Coord(4, 2)));
-                } else {
-                  grid[toMove.r][toMove.c] = -2;
-                  crane.putOrder(Order(OrderType.Drop, toMove));
-                  crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
-                }
-              }
-            }
-          }
+          orderPickItem(toPick);
         }
 
         foreach(crane; cranes) {
@@ -344,7 +348,7 @@ void problem() {
           if (crane.waiting() && crane.coord == Coord(4, 2)) {
             if (!crane.free) {
               auto item = crane.item;
-              if (item in heads) {
+              if (item in waitingDelivereds) {
                 crane.clearOrder();
                 crane.putOrder(Order(OrderType.Drop, Coord(item / N, N - 1)));
                 crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
@@ -471,6 +475,7 @@ void problem() {
     }
   }
 
+  // 積荷退避用のスペース
   static Coord SpaceA = Coord(1, 2);
   static Coord SpaceB = Coord(1, 3);
   static Coord SpaceC = Coord(2, 2);
