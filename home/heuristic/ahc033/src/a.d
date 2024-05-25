@@ -13,7 +13,7 @@ void problem() {
   int[][] A = scan!int(N * N).chunks(N).array;
 
   struct Coord {
-    int r, c;
+    byte r, c;
 
     static Coord Invalid = Coord(-1, -1);
   }
@@ -33,19 +33,36 @@ void problem() {
     }
   }
 
+  // 積荷退避用のスペース
+  enum Coord SpaceA = Coord(1, 2);
+  enum Coord SpaceB = Coord(1, 3);
+  enum Coord SpaceC = Coord(2, 2);
+  enum Coord SpaceD = Coord(2, 3);
+  enum Coord SpaceE = Coord(3, 2);
+  enum Coord SpaceF = Coord(3, 3);
+  enum SPACE_PATTERNS = [
+    [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
+    [SpaceB, SpaceA, SpaceC, SpaceD, SpaceE, SpaceF],
+    [SpaceA, SpaceB, SpaceC, SpaceD, SpaceE, SpaceF],
+    [SpaceD, SpaceE, SpaceF, SpaceA, SpaceB, SpaceC],
+    [SpaceF, SpaceE, SpaceD, SpaceC, SpaceB, SpaceA],
+    [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
+  ];
+  enum SPACES = [
+    SpaceA, SpaceB,
+    SpaceC, SpaceD,
+    SpaceE, SpaceF,
+    Coord(0, 0), Coord(1, 0), Coord(2, 0), Coord(3, 0), Coord(4, 0),
+  ];
+  auto ALL_PATTERNS = SPACE_PATTERNS[0].permutations.map!"a.array".array;
+  auto SPACE_INDEX = SPACES.enumerate(0).map!reverse.assocArray;
+
   // 積荷を持ってないクレーン用のグラフ
   auto FREE_GRAPH = [
     ["..R.", "..R.", "..RD", "..RD", "...D"],
     [".UR.", ".UR.", "..RD", "...D", "...D"],
     [".UR.", ".UR.", "..RD", "...D", "...D"],
     [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".U..", "LU..", "L...", "L...", "L..."],
-  ];
-  auto FREE_GRAPH2 = [
-    ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
     [".U..", "LU..", "L...", "L...", "L..."],
   ];
   // 積荷を持っているクレーンのグラフ
@@ -60,27 +77,57 @@ void problem() {
   auto GRAPH_PATTERNS = [
     FREE_GRAPH,
     WORK_GRAPH,
-    FREE_GRAPH2,
   ];
 
   Path[][25] CALC_ALL_PATHES(string[][] graph) {
     Path[][25] ret;
-    foreach(fr; 0..5) foreach(fc; 0..5) {
+    foreach(byte fr; 0..5) foreach(byte fc; 0..5) {
       Path[] perGrid;
       foreach(d, c; graph[fr][fc]) {
         if (c == '.') continue;
 
-        if (d == 0) perGrid ~= Path(c, Coord(fr, fc - 1));
-        else if (d == 1) perGrid ~= Path(c, Coord(fr - 1, fc));
-        else if (d == 2) perGrid ~= Path(c, Coord(fr, fc + 1));
-        else if (d == 3) perGrid ~= Path(c, Coord(fr + 1, fc));
+        if (d == 0) perGrid ~= Path(c, Coord(fr, cast(byte)(fc - 1)));
+        else if (d == 1) perGrid ~= Path(c, Coord(cast(byte)(fr - 1), fc));
+        else if (d == 2) perGrid ~= Path(c, Coord(fr, cast(byte)(fc + 1)));
+        else if (d == 3) perGrid ~= Path(c, Coord(cast(byte)(fr + 1), fc));
       }
       ret[fr * 5 + fc] ~= perGrid;
     }
     return ret;
   }
-
   auto GRAPH_PATH = GRAPH_PATTERNS.map!(g => CALC_ALL_PATHES(g)).array;
+
+  auto ROUTES = new Path[][25][25][2^^SPACES.length][GRAPH_PATTERNS.length];
+  foreach(graphId, graph; GRAPH_PATTERNS) {
+    foreach(bits; 0..2^^SPACES.length) {
+      Path[][25] searchAllRoute(Coord from) {
+        bool[25] routed;
+        routed[from.r * N + from.c] = true;
+        Path[][25] froms;
+
+        for(auto queue = DList!Coord(from); !queue.empty;) {
+          auto cur = queue.front;
+          queue.removeFront;
+
+          foreach(path; GRAPH_PATH[graphId][cur.r * 5 + cur.c]) {
+            auto next = path.to;
+            if (next in SPACE_INDEX && ((bits & 2^^SPACE_INDEX[next]) != 0)) continue;
+            if (routed[next.r * N + next.c]) continue;
+            
+            routed[next.r * N + next.c] = true;
+            froms[next.r * N + next.c] = froms[cur.r * N + cur.c].dup ~ path;
+            queue.insertBack(next);
+          }
+        }
+        
+        return froms;
+      }
+
+      foreach(byte fr; 0..5) foreach(byte fc; 0..5) {
+        ROUTES[graphId][bits][fr * N + fc] = searchAllRoute(Coord(fr, fc));
+      }
+    }
+  }
 
   class Crane {
     int id;
@@ -95,7 +142,7 @@ void problem() {
     this(int id, int[] graphIds) {
       this.id = id;
       item = -1;
-      coord = Coord(id, 0);
+      coord = Coord(cast(byte)id, 0);
       currentOrder = Order();
       this.graphIds = graphIds;
     }
@@ -129,39 +176,47 @@ void problem() {
       currentOrder = Order();
     }
 
-    Path[] pathes(Coord from, bool free) {
+    ref Path[] pathes(Coord from, bool free) {
       return GRAPH_PATH[graphIds[free]][from.r * 5 + from.c];
     }
-    
-    Path[] route(Coord to, ref int[][] grid) {
+
+    ref Path[] memoizedRoute(Coord to, int bnState) {
+      auto graphId = graphIds[free];
       auto from = coord;
-      Path[][] froms = new Path[][](N, N);
-      froms[from.r][from.c].move = 1;
 
-      for(auto queue = DList!Coord(from); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront;
-
-        foreach(path; pathes(cur, free)) {
-          auto next = path.to;
-          if (id > 0 && !free && next.c < N - 1 && grid[next.r][next.c] != -1 && next != to) continue;
-          if (froms[next.r][next.c].move != char.init) continue;
-
-          froms[next.r][next.c] = Path(path.move, cur);
-          if (next == to) break;
-          queue.insertBack(next);
-        }
-      }
-
-      Path[] ret;
-      while(to != from) {
-        auto path = froms[to.r][to.c];
-        if (path.move == char.init) throw new Exception("Illegal Move");
-        ret ~= Path(path.move, to);
-        to = path.to;
-      }
-      return ret.reverse.array;
+      auto s = free || id == 0 ? 0 : bnState;
+      return ROUTES[graphId][s][from.r * N + from.c][to.r * N + to.c];
     }
+    
+    // Path[] route(Coord to, ref int[][] grid) {
+    //   auto from = coord;
+    //   Path[][] froms = new Path[][](N, N);
+    //   froms[from.r][from.c].move = 1;
+
+    //   for(auto queue = DList!Coord(from); !queue.empty;) {
+    //     auto cur = queue.front;
+    //     queue.removeFront;
+
+    //     foreach(path; pathes(cur, free)) {
+    //       auto next = path.to;
+    //       if (id > 0 && !free && next.c < N - 1 && grid[next.r][next.c] != -1 && next != to) continue;
+    //       if (froms[next.r][next.c].move != char.init) continue;
+
+    //       froms[next.r][next.c] = Path(path.move, cur);
+    //       if (next == to) break;
+    //       queue.insertBack(next);
+    //     }
+    //   }
+
+    //   Path[] ret;
+    //   while(to != from) {
+    //     auto path = froms[to.r][to.c];
+    //     if (path.move == char.init) throw new Exception("Illegal Move");
+    //     ret ~= Path(path.move, to);
+    //     to = path.to;
+    //   }
+    //   return ret.reverse.array;
+    // }
 
     int itemPriority() {
       return item == -1 ? -1 : N - item % N;
@@ -195,6 +250,7 @@ void problem() {
     bool[] pushedByItem;
 
     int[][] grid;
+    int bnState;
     Coord[] coordByItem;
 
     int turn;
@@ -215,7 +271,7 @@ void problem() {
 
       outputs = new int[][](N, 0);
       cranes = N.iota.map!(i => new Crane(i, graphIds)).array;
-      moves = N.iota.map!(i => [Path(0, Coord(i, 0))]).array;
+      moves = N.iota.map!(i => [Path(0, Coord(cast(byte)i, 0))]).array;
       coordByItem = Coord.Invalid.repeat(N^^2).array;
 
       this.stocks = stocks.map!(a => DList!int(a)).array;
@@ -230,14 +286,34 @@ void problem() {
         this.stocks[r].removeFront;
 
         grid[r][0] = item;
-        coordByItem[item] = Coord(r, 0);
+        coordByItem[item] = Coord(cast(byte)r, 0);
         itemStates[item] = ItemState.Placed;
+        bnState ^= 2^^SPACE_INDEX[Coord(cast(byte)r, 0)];
       }
 
       foreach(int c; useCrane..N) {
         cranes[c].destroyed = true;
         moves[c] ~= Path('B');
       }
+    }
+
+    void pickItem(Crane crane) {
+      auto item = grid[crane.coord.r][crane.coord.c];
+      grid[crane.coord.r][crane.coord.c] = -1;
+      crane.item = item;
+      itemStates[item] = ItemState.Picked;
+      coordByItem[item] = Coord.Invalid;
+      // craneMoves[i] = Path('P', crane.coord);
+      bnState ^= 2^^SPACE_INDEX[crane.coord];
+    }
+
+    void dropItem(Crane crane) {
+      grid[crane.coord.r][crane.coord.c] = crane.item;
+      itemStates[crane.item] = crane.coord.c == N - 1 ? ItemState.Delivered : ItemState.Moved;
+      coordByItem[crane.item] = crane.coord;
+      crane.item = -1;
+      // craneMoves[i] = Path('Q', crane.coord);
+      if (crane.coord.c < N - 1) bnState ^= 2^^SPACE_INDEX[crane.coord];
     }
 
     int costForItem(int itemId) {
@@ -270,7 +346,7 @@ void problem() {
       return heads.array.map!(i => [costForItem(i), i]).array.sort.map!"a[1]".array;
     } 
     
-    bool isCoordEmpty(int r, int c) { return isCoordEmpty(Coord(r, c)); }
+    bool isCoordEmpty(byte r, byte c) { return isCoordEmpty(Coord(r, c)); }
     bool isCoordEmpty(Coord coord) {
       if (grid[coord.r][coord.c] != -1) return false;
       // if (cranes.any!(t => t.coord == coord)) return false;
@@ -309,12 +385,13 @@ void problem() {
       }
 
       // 搬入口からの補充
-      foreach(r; 0..N) {
-        if (this.stocks[r].empty || !isCoordEmpty(r, 0)) continue;
+      foreach(byte r; 0..cast(byte)N) {
+        if (this.stocks[r].empty || !isCoordEmpty(cast(byte)r, 0)) continue;
 
         auto item = this.stocks[r].front;
         grid[r][0] = item;
         coordByItem[item] = Coord(r, 0);
+        bnState ^= 2^^SPACE_INDEX[Coord(r, 0)];
         itemStates[item] = ItemState.Placed;
         pulledByRow[r]++;
         this.stocks[r].removeFront;
@@ -329,7 +406,7 @@ void problem() {
         if (!crane.free || crane.destroyed) continue;
         if (!(crane.order.type == OrderType.Wait || crane.order.type == OrderType.Move)) continue;
 
-        auto d = crane.route(to, grid).length.to!int;
+        auto d = crane.memoizedRoute(to, bnState).length.to!int;
         if (minDistance.chmin(d)) {
           ret = cranes[i];
         }
@@ -350,7 +427,7 @@ void problem() {
       itemStates[item] = ItemState.Waiting;
 
       if (item in heads) {
-        crane.putOrder(Order(OrderType.Drop, Coord(item / N, N - 1)));
+        crane.putOrder(Order(OrderType.Drop, Coord(cast(byte)(item / N), cast(byte)(N - 1))));
         crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
       } else {
         auto toMove = findEmptyCoord();
@@ -368,7 +445,7 @@ void problem() {
     }
 
     void simulate(int parallel) {
-      foreach(_; 0..250) {
+      foreach(_; 0..200) {
         turn++;
         deb("");
         deb("------------------------------------ TURN: ", turn, " --------------------------------------");
@@ -378,19 +455,19 @@ void problem() {
         foreach(crane; cranes) {
           if (!(crane.item in heads) || crane.item % N == N - 1) continue;
 
-          auto toDrop = Coord(crane.item / N, N - 1);
-          auto toDropDist = crane.route(toDrop, grid).length;
+          auto toDrop = Coord(cast(byte)(crane.item / N), cast(byte)(N - 1));
+          auto toDropDist = crane.memoizedRoute(toDrop, bnState).length;
 
           auto toPick = crane.item + 1;
           if (itemStates[toPick] != ItemState.Placed && itemStates[toPick] != ItemState.Moved) toPick = headOfItem(toPick);
           if (toPick == -1) continue;
 
           auto nextCoord = coordByItem[toPick];
-          if (nextCoord == Coord.Invalid) nextCoord = Coord(stockedRowByItem[toPick], 0);
+          if (nextCoord == Coord.Invalid) nextCoord = Coord(cast(byte)(stockedRowByItem[toPick]), 0);
           auto nearest = waitingNearestCrane(nextCoord);
           if (!nearest) continue;
 
-          if (nearest.route(nextCoord, grid).length + greediness >= toDropDist) {
+          if (nearest.memoizedRoute(nextCoord, bnState).length + greediness >= toDropDist) {
             auto item = crane.item;
             heads.removeKey(crane.item);
             heads.insert(crane.item + 1);
@@ -411,7 +488,7 @@ void problem() {
               auto item = crane.item;
               if (item in waitingDelivereds) {
                 crane.clearOrder();
-                crane.putOrder(Order(OrderType.Drop, Coord(item / N, N - 1)));
+                crane.putOrder(Order(OrderType.Drop, Coord(cast(byte)(item / N), cast(byte)(N - 1))));
                 crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
                 continue;
               } else {
@@ -448,8 +525,8 @@ void problem() {
 
           // 納品可能なクレーンの優先的な処理
           if (!crane.free && crane.item in waitingDelivereds) {
-            auto toDrop = Coord(crane.item / N, N - 1);
-            auto toDropDist = crane.route(toDrop, grid).length;
+            auto toDrop = Coord(cast(byte)(crane.item / N), cast(byte)(N - 1));
+            auto toDropDist = crane.memoizedRoute(toDrop, bnState).length;
 
             // 納品実施
             if (toDropDist == 0) {
@@ -458,10 +535,7 @@ void problem() {
                 auto nxc = nextOrder.coord;
                 grid[nxc.r][nxc.c] = -1;
               }
-              grid[crane.coord.r][crane.coord.c] = crane.item;
-              itemStates[crane.item] = ItemState.Delivered;
-              coordByItem[crane.item] = crane.coord;
-              crane.item = -1;
+              dropItem(crane);
               craneMoves[i] = Path('Q', crane.coord);
               crane.clearOrder();
               crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
@@ -472,23 +546,15 @@ void problem() {
           auto order = crane.order();
           if (crane.coord == order.coord) {
             if (order.type == OrderType.Pick) {
-              auto item = grid[crane.coord.r][crane.coord.c];
-              grid[crane.coord.r][crane.coord.c] = -1;
-              crane.item = item;
-              itemStates[item] = ItemState.Picked;
-              coordByItem[item] = Coord.Invalid;
+              pickItem(crane);
               craneMoves[i] = Path('P', crane.coord);
             } else if (order.type == OrderType.Drop) {
-              grid[crane.coord.r][crane.coord.c] = crane.item;
-              itemStates[crane.item] = crane.coord.c == N - 1 ? ItemState.Delivered : ItemState.Moved;
-              coordByItem[crane.item] = crane.coord;
-              crane.item = -1;
+              dropItem(crane);
               craneMoves[i] = Path('Q', crane.coord);
             }
           } else {
-            // crane.deb;
-            // grid.each!deb;
-            auto nextPath = crane.route(crane.order.coord, grid)[0];
+            // stdout.writefln("%s %s %s", crane, crane.order.coord, bnState);
+            auto nextPath = crane.memoizedRoute(crane.order.coord, bnState)[0];
             auto from = crane.coord;
             auto to = nextPath.to;
             if (to in next) continue;
@@ -516,7 +582,7 @@ void problem() {
           }
         }
 
-        cranes.each!deb;
+        // cranes.each!deb;
         afterProcess();
         if (pushedByRow.sum == N^^2) break;
       }
@@ -532,37 +598,21 @@ void problem() {
     }
   }
 
-  // 積荷退避用のスペース
-  enum Coord SpaceA = Coord(1, 2);
-  enum Coord SpaceB = Coord(1, 3);
-  enum Coord SpaceC = Coord(2, 2);
-  enum Coord SpaceD = Coord(2, 3);
-  enum Coord SpaceE = Coord(3, 2);
-  enum Coord SpaceF = Coord(3, 3);
-  enum SPACE_PATTERNS = [
-    [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
-    [SpaceB, SpaceA, SpaceC, SpaceD, SpaceE, SpaceF],
-    [SpaceA, SpaceB, SpaceC, SpaceD, SpaceE, SpaceF],
-    [SpaceD, SpaceE, SpaceF, SpaceA, SpaceB, SpaceC],
-    [SpaceF, SpaceE, SpaceD, SpaceC, SpaceB, SpaceA],
-    [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
-  ];
-  enum ALL_PATTERNS_CTFE = SPACE_PATTERNS[0].permutations.map!"a.array".array;
-
   int bestTurn = int.max;
   int simulated;
   State bestState;
 
-  auto RANDOM_PATTERNS = ALL_PATTERNS_CTFE.randomShuffle(RND).array;
-  foreach(spaces; SPACE_PATTERNS ~ RANDOM_PATTERNS) {
-    if (elapsed(2500)) {
-      break;
-    }
+  auto RANDOM_PATTERNS = ALL_PATTERNS.randomShuffle(RND).array;
+  MAIN: foreach(spaces; SPACE_PATTERNS ~ RANDOM_PATTERNS) {
 
-    foreach(greediness; [3]) 
+    foreach(greediness; [4]) 
     foreach(craneNums; [5]) 
-    foreach(parallel; 2..craneNums + 1)
-    foreach(graphs; [[1, 0], [1, 2]]) {
+    foreach(parallel; 3..craneNums + 1)
+    foreach(graphs; [[1, 0]]) {
+      if (elapsed(2800)) {
+        break;
+      }
+
       State state = State(A, craneNums, spaces, graphs, greediness);
       state.simulate(parallel);
       simulated++;
