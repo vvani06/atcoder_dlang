@@ -479,14 +479,6 @@ void problem() {
     }
   }
 
-  // 積荷退避用のスペース
-  static Coord SpaceA = Coord(1, 2);
-  static Coord SpaceB = Coord(1, 3);
-  static Coord SpaceC = Coord(2, 2);
-  static Coord SpaceD = Coord(2, 3);
-  static Coord SpaceE = Coord(3, 2);
-  static Coord SpaceF = Coord(3, 3);
-
   // 積荷を持ってないクレーン用のグラフ
   auto freeCraneGraph = [
     ["..R.", "..R.", "..RD", "..RD", "...D"],
@@ -511,8 +503,15 @@ void problem() {
     [".UR.", "LU..", "LU..", "L...", "L..."],
   ];
 
-
-  auto SPACE_PATTERNS = [
+  // 積荷退避用のスペース
+  enum Coord SpaceA = Coord(1, 2);
+  enum Coord SpaceB = Coord(1, 3);
+  enum Coord SpaceC = Coord(2, 2);
+  enum Coord SpaceD = Coord(2, 3);
+  enum Coord SpaceE = Coord(3, 2);
+  enum Coord SpaceF = Coord(3, 3);
+  
+  enum SPACE_PATTERNS = [
     [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
     [SpaceB, SpaceA, SpaceC, SpaceD, SpaceE, SpaceF],
     [SpaceA, SpaceB, SpaceC, SpaceD, SpaceE, SpaceF],
@@ -525,7 +524,9 @@ void problem() {
   int simulated;
   State bestState;
 
-  foreach(spaces; SPACE_PATTERNS ~ SPACE_PATTERNS[0].permutations.map!"a.array".array.randomShuffle(RND).array) {
+  enum ALL_PATTERNS_CTFE = SPACE_PATTERNS[0].permutations.map!"a.array".array;
+  auto RANDOM_PATTERNS = ALL_PATTERNS_CTFE.randomShuffle(RND).array;
+  foreach(spaces; SPACE_PATTERNS ~ RANDOM_PATTERNS) {
     if (elapsed(2500)) {
       break;
     }
