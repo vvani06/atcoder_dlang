@@ -237,8 +237,7 @@ void problem() {
     }
 
     Coord findEmptyCoord() {
-      // ここの順番は入れ替えるとケースによって10%程度改善しそう
-      foreach(c; stockSpaces ~ [Coord(4, 0), Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0),]) {
+      foreach(c; stockSpaces ~ [Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0), Coord(4, 0),]) {
         if (grid[c.r][c.c] == -1) return c;
       }
 
@@ -281,7 +280,8 @@ void problem() {
       int minDistance = int.max;
       foreach(i; 0..N) {
         auto crane = cranes[i];
-        if (!crane.waiting || !crane.free || crane.destroyed) continue;
+        if (!crane.free || crane.destroyed) continue;
+        if (!(crane.order.type == OrderType.Wait || crane.order.type == OrderType.Move)) continue;
 
         auto d = crane.route(to, grid).length.to!int;
         if (minDistance.chmin(d)) {
@@ -307,6 +307,7 @@ void problem() {
             auto crane = waitingNearestCrane(coordToPick);
 
             if (crane) {
+              crane.clearOrder();
               crane.putOrder(Order(OrderType.Pick, coordToPick));
               itemStates[toPick] = ItemState.Waiting;
 
@@ -365,7 +366,9 @@ void problem() {
         }
         
         Path[] craneMoves = cranes.map!(c => Path('.', c.coord)).array;
-        foreach(i, crane; cranes) {
+        foreach(i; N.iota) {
+        // foreach(i; N.iota.array.sort!((a, b) => cranes[a].item > cranes[b].item)) {
+          auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
 
           if (!crane.free && crane.item in heads && crane.coord == Coord(crane.item / N, N - 1)) {
@@ -409,7 +412,7 @@ void problem() {
             if (to in next) continue;
             if (cur.get(to, -1) == next.get(from, -2)) continue;
             
-            enum LBPickerCoords = [Coord(3, 0), Coord(4, 0)];
+            enum LBPickerCoords = [Coord(4, 0)];
             if (from == Coord(4, 2) && LBPickerCoords.any!(c => c in cur)) continue;
 
             craneMoves[i] = nextPath;
@@ -435,6 +438,10 @@ void problem() {
         afterProcess();
         if (pushedByRow.sum == N^^2) break;
       }
+    }
+
+    int score() {
+      return turn + (N^^2 - pushedByRow.sum)*1000;
     }
   }
 
@@ -481,20 +488,45 @@ void problem() {
     [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
   ];
 
-  foreach(craneNums; [1, 2, 3, 4, 5]) {
-    foreach(parallel; 1..craneNums + 1) {
-      foreach(spaces; SPACE_PATTERNS) {
+  int simulated;
+  foreach(spaces; SPACE_PATTERNS) {
+    foreach(craneNums; [1, 2, 3, 4, 5]) {
+      foreach(parallel; 1..craneNums + 1) {
         foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
-          State state = State(A, craneNums, spaces, graphs);
+          State state = State(A, craneNums, spaces.array, graphs);
           state.simulate(parallel);
+          simulated++;
 
-          if (state.pushedByRow.sum == N^^2 && bestTurn.chmin(state.turn)) {
+          if (bestTurn.chmin(state.score())) {
             bestState = state;
           }
         }
       }
     }
   }
+
+  foreach(spaces; SPACE_PATTERNS[0].permutations.array.randomShuffle(RND)) {
+    if (elapsed(2500)) {
+      break;
+    }
+
+    foreach(craneNums; [1, 2, 3, 4, 5]) {
+      foreach(parallel; 1..craneNums + 1) {
+        foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
+          State state = State(A, craneNums, spaces.array, graphs);
+          state.simulate(parallel);
+          simulated++;
+
+          if (bestTurn.chmin(state.score())) {
+            bestState = state;
+          }
+        }
+      }
+    }
+  }
+
+  stderr.writefln("%s ms / simulation", ((MonoTime.currTime() - StartTime).total!"msecs".to!real / simulated));
+  stderr.writefln("Score = %s", bestState.score);
 
   foreach(move; bestState.moves) {
     string s;
@@ -510,7 +542,8 @@ import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
-void deb(T ...)(T t){ debug { write("#"); writeln(t); }}
+// void deb(T ...)(T t){ debug { write("#"); writeln(t); }}
+void deb(T ...)(T t){ debug {  }}
 T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
