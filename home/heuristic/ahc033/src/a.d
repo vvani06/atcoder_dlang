@@ -33,9 +33,58 @@ void problem() {
     }
   }
 
+  // 積荷を持ってないクレーン用のグラフ
+  auto FREE_GRAPH = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".U..", "LU..", "L...", "L...", "L..."],
+  ];
+  auto FREE_GRAPH2 = [
+    ["..R.", "..R.", "..RD", "..RD", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", ".UR.", "..RD", "...D", "...D"],
+    [".U..", "LU..", "L...", "L...", "L..."],
+  ];
+  // 積荷を持っているクレーンのグラフ
+  auto WORK_GRAPH = [
+    ["..R.", "L.R.", "..RD", "..RD", "...D"],
+    [".UR.", "LUR.", "LUR.", "..R.", "L..D"],
+    [".UR.", "LUR.", "L.R.", "..R.", "L..D"],
+    [".UR.", "LUR.", "L.R.", "L.RD", "L..D"],
+    [".UR.", "LU..", "LU..", "L...", "L..."],
+  ];
+
+  auto GRAPH_PATTERNS = [
+    FREE_GRAPH,
+    WORK_GRAPH,
+    FREE_GRAPH2,
+  ];
+
+  Path[][25] CALC_ALL_PATHES(string[][] graph) {
+    Path[][25] ret;
+    foreach(fr; 0..5) foreach(fc; 0..5) {
+      Path[] perGrid;
+      foreach(d, c; graph[fr][fc]) {
+        if (c == '.') continue;
+
+        if (d == 0) perGrid ~= Path(c, Coord(fr, fc - 1));
+        else if (d == 1) perGrid ~= Path(c, Coord(fr - 1, fc));
+        else if (d == 2) perGrid ~= Path(c, Coord(fr, fc + 1));
+        else if (d == 3) perGrid ~= Path(c, Coord(fr + 1, fc));
+      }
+      ret[fr * 5 + fc] ~= perGrid;
+    }
+    return ret;
+  }
+
+  auto GRAPH_PATH = GRAPH_PATTERNS.map!(g => CALC_ALL_PATHES(g)).array;
+
   class Crane {
     int id;
-    string[][][] graphs;
+    int[] graphIds;
 
     int item;
     Coord coord;
@@ -43,12 +92,12 @@ void problem() {
     DList!Order nextOrders;
     bool destroyed;
 
-    this(int id, string[][][] graphs) {
+    this(int id, int[] graphIds) {
       this.id = id;
       item = -1;
       coord = Coord(id, 0);
       currentOrder = Order();
-      this.graphs = graphs;
+      this.graphIds = graphIds;
     }
 
     bool free() {
@@ -80,23 +129,8 @@ void problem() {
       currentOrder = Order();
     }
 
-    Path[][Coord][2] memoPathes;
     Path[] pathes(Coord from, bool free) {
-      if (from in memoPathes[free]) {
-        return memoPathes[free][from];
-      }
-
-      Path[] ret;
-      auto graph = graphs[free ? 0 : 1];
-      foreach(d, c; graph[from.r][from.c]) {
-        if (c == '.') continue;
-
-        if (d == 0) ret ~= Path(c, Coord(from.r, from.c - 1));
-        else if (d == 1) ret ~= Path(c, Coord(from.r - 1, from.c));
-        else if (d == 2) ret ~= Path(c, Coord(from.r, from.c + 1));
-        else if (d == 3) ret ~= Path(c, Coord(from.r + 1, from.c));
-      }
-      return memoPathes[free][from] = ret;
+      return GRAPH_PATH[graphIds[free]][from.r * 5 + from.c];
     }
     
     Path[] route(Coord to, ref int[][] grid) {
@@ -168,7 +202,7 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces, string[][][] graphs, int greediness) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int greediness) {
       this.stockSpaces = stockSpaces;
       this.greediness = greediness;
       baseStocks = stocks.map!"a.dup".array;
@@ -180,7 +214,7 @@ void problem() {
       waitingDelivereds = iota(0, N^^2, N).redBlackTree;
 
       outputs = new int[][](N, 0);
-      cranes = N.iota.map!(i => new Crane(i, graphs)).array;
+      cranes = N.iota.map!(i => new Crane(i, graphIds)).array;
       moves = N.iota.map!(i => [Path(0, Coord(i, 0))]).array;
       coordByItem = Coord.Invalid.repeat(N^^2).array;
 
@@ -245,7 +279,7 @@ void problem() {
     }
 
     Coord findEmptyCoord() {
-      foreach(c; stockSpaces ~ [Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0), Coord(4, 0),]) {
+      foreach(c; stockSpaces ~ [Coord(0, 0), Coord(1, 0), Coord(2, 0), Coord(3, 0), Coord(4, 0),]) {
         if (grid[c.r][c.c] == -1) return c;
       }
 
@@ -498,30 +532,6 @@ void problem() {
     }
   }
 
-  // 積荷を持ってないクレーン用のグラフ
-  auto freeCraneGraph = [
-    ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".U..", "LU..", "L...", "L...", "L..."],
-  ];
-  auto freeCraneGraph2 = [
-    ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", ".UR.", "..RD", "...D", "...D"],
-    [".U..", "LU..", "L...", "L...", "L..."],
-  ];
-  // 積荷を持っているクレーンのグラフ
-  auto workCraneGraph = [
-    ["..R.", "L.R.", "..RD", "..RD", "...D"],
-    [".UR.", "LUR.", "LUR.", "..R.", "L..D"],
-    [".UR.", "LUR.", "L.R.", "..R.", "L..D"],
-    [".UR.", "LUR.", "L.R.", "..RD", "L..D"],
-    [".UR.", "LU..", "LU..", "L...", "L..."],
-  ];
-
   // 積荷退避用のスペース
   enum Coord SpaceA = Coord(1, 2);
   enum Coord SpaceB = Coord(1, 3);
@@ -552,7 +562,7 @@ void problem() {
     foreach(greediness; [3]) 
     foreach(craneNums; [5]) 
     foreach(parallel; 2..craneNums + 1)
-    foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
+    foreach(graphs; [[1, 0], [1, 2]]) {
       State state = State(A, craneNums, spaces, graphs, greediness);
       state.simulate(parallel);
       simulated++;
