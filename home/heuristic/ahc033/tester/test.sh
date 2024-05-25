@@ -2,12 +2,12 @@
 
 cd `dirname $0`
 
-# ldmd2 -O -release ../src/a.d -of ./a "--DRT-gcopt=disable:1" 
-# touch score
-# mkdir -p out
-# mkdir -p logs
-# rm score
-# rm out/*
+ldmd2 -O -release ../src/a.d -of ./a "--DRT-gcopt=disable:1" 
+touch score
+mkdir -p out
+mkdir -p logs
+rm score
+rm out/*
 
 TOTAL_CASES=50
 PARALLEL_SIZE=5
