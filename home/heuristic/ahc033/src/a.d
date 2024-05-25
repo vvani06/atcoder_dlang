@@ -154,21 +154,23 @@ void problem() {
     ItemState[] itemStates;
     RedBlackTree!int heads, waitingDelivereds;
     Coord[] stockSpaces;
+    int greediness;
 
     int[] pulledByRow;
     int[] pushedByRow;
     bool[] pushedByItem;
 
     int[][] grid;
-    Coord[int] coordByItem;
+    Coord[] coordByItem;
 
     int turn;
     Crane[] cranes;
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces, string[][][] graphs) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, string[][][] graphs, int greediness) {
       this.stockSpaces = stockSpaces;
+      this.greediness = greediness;
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
@@ -180,6 +182,7 @@ void problem() {
       outputs = new int[][](N, 0);
       cranes = N.iota.map!(i => new Crane(i, graphs)).array;
       moves = N.iota.map!(i => [Path(0, Coord(i, 0))]).array;
+      coordByItem = Coord.Invalid.repeat(N^^2).array;
 
       this.stocks = stocks.map!(a => DList!int(a)).array;
       stockedRowByItem = new int[](N^^2);
@@ -258,7 +261,7 @@ void problem() {
         deb("delivered: ", item);
         itemStates[item] = ItemState.Delivered;
         outputs[r] ~= item;
-        coordByItem.remove(item);
+        coordByItem[item] = Coord.Invalid;
         grid[r][N - 1] = -1;
         pushedByRow[r]++;
 
@@ -302,7 +305,7 @@ void problem() {
     }
 
     bool orderPickItem(int item) {
-      if (item == -1 || (itemStates[item] != ItemState.Placed && itemStates[item] != ItemState.Moved)) return false;
+      if (item == -1 || !(itemStates[item] == ItemState.Placed || itemStates[item] == ItemState.Moved)) return false;
 
       auto coordToPick = coordByItem[item];
       auto crane = waitingNearestCrane(coordToPick);
@@ -407,12 +410,13 @@ void problem() {
               continue;
             }
 
-            // 納品間近であれば、次のアイテムを Pickable にする
-            if (crane.item in heads && toDropDist <= 4) {
+            // 納品間近であれば、次のアイテムを Target にする
+            if (crane.item in heads && toDropDist <= greediness) {
               auto item = crane.item;
               heads.removeKey(item);
               if (item % N != N - 1) {
-                heads.insert(item + 1);
+                auto nextItem = item + 1;
+                heads.insert(nextItem);
               }
             }
           }
@@ -507,8 +511,6 @@ void problem() {
     [".UR.", "LU..", "LU..", "L...", "L..."],
   ];
 
-  int bestTurn = int.max;
-  State bestState;
 
   auto SPACE_PATTERNS = [
     [SpaceB, SpaceA, SpaceC, SpaceE, SpaceF, SpaceD],
@@ -519,24 +521,11 @@ void problem() {
     [SpaceA, SpaceE, SpaceD, SpaceC, SpaceB, SpaceF],
   ];
 
+  int bestTurn = int.max;
   int simulated;
-  foreach(spaces; SPACE_PATTERNS) {
-    foreach(craneNums; [5]) {
-      foreach(parallel; 2..craneNums + 1) {
-        foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
-          State state = State(A, craneNums, spaces.array, graphs);
-          state.simulate(parallel);
-          simulated++;
+  State bestState;
 
-          if (bestTurn.chmin(state.score())) {
-            bestState = state;
-          }
-        }
-      }
-    }
-  }
-
-  foreach(spaces; SPACE_PATTERNS[0].permutations.array.randomShuffle(RND)) {
+  foreach(spaces; SPACE_PATTERNS ~ SPACE_PATTERNS[0].permutations.map!"a.array".array.randomShuffle(RND).array) {
     if (elapsed(2500)) {
       break;
     }
@@ -544,7 +533,7 @@ void problem() {
     foreach(craneNums; [5]) {
       foreach(parallel; 2..craneNums + 1) {
         foreach(graphs; [[freeCraneGraph, workCraneGraph], [freeCraneGraph2, workCraneGraph]]) {
-          State state = State(A, craneNums, spaces.array, graphs);
+          State state = State(A, craneNums, spaces, graphs, 4);
           state.simulate(parallel);
           simulated++;
 
