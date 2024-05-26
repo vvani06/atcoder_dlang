@@ -12,14 +12,12 @@ void problem() {
   int N = scan!int;
   int[][] A = scan!int(N * N).chunks(N).array;
 
-  struct Coord {
+  static struct Coord {
     byte r, c;
 
-    static Coord Invalid = Coord(-1, -1);
-  }
+    int index() { return r * 5 + c; }
 
-  byte index(Coord coord) {
-    return cast(byte)(coord.r * N + coord.c);
+    static Coord Invalid = Coord(-1, -1);
   }
 
   struct Path {
@@ -74,7 +72,7 @@ void problem() {
     ["..R.", "L.R.", "..RD", "..RD", "...D"],
     [".UR.", "LUR.", "LURD", "..RD", "L..D"],
     [".UR.", "LUR.", "LURD", "..RD", "L..D"],
-    [".UR.", "LUR.", "L.RD", "L.RD", "L..D"],
+    [".UR.", "LUR.", "LURD", "L.RD", "L..D"],
     [".UR.", "LU..", "LU..", "L...", "L..."],
   ];
 
@@ -113,13 +111,13 @@ void problem() {
           auto cur = queue.front;
           queue.removeFront;
 
-          foreach(path; GRAPH_PATH[graphId][cur.r * 5 + cur.c]) {
+          foreach(path; GRAPH_PATH[graphId][cur.index]) {
             auto next = path.to;
             if (next in SPACE_INDEX && ((bits & 2^^SPACE_INDEX[next]) != 0)) continue;
-            if (routed[next.r * N + next.c]) continue;
+            if (routed[next.index]) continue;
             
-            routed[next.r * N + next.c] = true;
-            froms[next.r * N + next.c] = froms[cur.r * N + cur.c].dup ~ path;
+            routed[next.index] = true;
+            froms[next.index] = froms[cur.index].dup ~ path;
             queue.insertBack(next);
           }
         }
@@ -181,7 +179,7 @@ void problem() {
     }
 
     ref Path[] pathes(Coord from, bool free) {
-      return GRAPH_PATH[graphIds[free]][from.r * 5 + from.c];
+      return GRAPH_PATH[graphIds[free]][from.index];
     }
 
     ref Path[] memoizedRoute(Coord to, int bnState, int forceState = -1) {
@@ -189,14 +187,14 @@ void problem() {
       auto f = forceState == -1 ? free : forceState;
       auto graphId = graphIds[f];
       auto s = f || id == 0 ? 0 : bnState;
-      return ROUTES[graphId][s][from.r * N + from.c][to.r * N + to.c];
+      return ROUTES[graphId][s][from.index][to.index];
     }
 
     ref Path[] memoizedDropFromTo(Coord from, Coord to, int bnState, int forceState = -1) {
       auto f = forceState == -1 ? free : forceState;
       auto graphId = graphIds[f];
       auto s = f || id == 0 ? 0 : bnState;
-      return ROUTES[graphId][s][from.r * N + from.c][to.r * N + to.c];
+      return ROUTES[graphId][s][from.index][to.index];
     }
 
     int itemPriority() {
@@ -218,6 +216,7 @@ void problem() {
   }
 
   struct State {
+    int parallel;
     int[][] baseStocks;
     DList!(int)[] stocks;
     int[] stockedRowByItem;
@@ -238,7 +237,8 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel) {
+      this.parallel = parallel;
       this.stockSpaces = stockSpaces;
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
@@ -261,7 +261,7 @@ void problem() {
 
       grid = N.iota.map!(_ => (-1).repeat(N).array).array;
       foreach(r; 0..N) {
-        auto item = this.stocks[r].front;
+        int item = this.stocks[r].front;
         this.stocks[r].removeFront;
 
         grid[r][0] = item;
@@ -341,7 +341,7 @@ void problem() {
       return Coord.Invalid;
     }
 
-    void afterProcess() {
+    bool afterProcess() {
       // 搬出口の処理
       foreach(r; 0..N) {
         if (grid[r][N - 1] == -1) continue;
@@ -361,6 +361,8 @@ void problem() {
           heads.insert(item + 1);
           waitingDelivereds.insert(item + 1);
         }
+
+        // if (outputs[r].canFind!(x => x > item)) return true;
       }
 
       // 搬入口からの補充
@@ -375,6 +377,8 @@ void problem() {
         pulledByRow[r]++;
         this.stocks[r].removeFront;
       }
+
+      return false;
     }
 
     Crane waitingNearestCrane(Coord to) {
@@ -423,7 +427,7 @@ void problem() {
       return true;
     }
 
-    void simulate(int parallel) {
+    void simulate() {
       foreach(_; 0..200) {
         turn++;
         deb("");
@@ -504,8 +508,8 @@ void problem() {
         foreach(i, crane; cranes.enumerate(cast(byte)0)) {
           if (crane.destroyed) continue;
 
-          cx[index(crane.coord)] = i;
-          nx[index(crane.coord)] = i;
+          cx[crane.coord.index] = i;
+          nx[crane.coord.index] = i;
         }
 
         Path[] craneMoves = cranes.map!(c => Path('.', c.coord)).array;
@@ -547,7 +551,7 @@ void problem() {
         }
 
         // 目的地への移動
-        foreach(__; 0..4) foreach(i; 0..N) {
+        foreach(__; 0..4) foreach(i; N.iota.array.sort!((a, b) => cranes[a].itemPriority > cranes[b].itemPriority)) {
           auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
           if (craneMoves[i].move != '.') continue;
@@ -555,8 +559,8 @@ void problem() {
           auto nextPath = crane.memoizedRoute(crane.order.coord, bnState)[0];
           auto from = crane.coord;
           auto to = nextPath.to;
-          if (nx[index(to)] >= 0) continue;
-          if (cx[index(to)] == nx[index(from)]) continue;
+          if (nx[to.index] >= 0) continue;
+          if (cx[to.index] == nx[from.index]) continue;
           
           if (from == Coord(4, 2)) {
             if (cx[20] >= 0 && cx[20] != nx[15]) continue;
@@ -564,8 +568,13 @@ void problem() {
           } 
 
           craneMoves[i] = nextPath;
-          nx[index(from)] = -2;
-          nx[index(to)] = i.to!byte;
+          nx[from.index] = -2;
+          nx[to.index] = i.to!byte;
+        }
+
+        // スタックしてしまうケースは諦めて枝刈り
+        if (craneMoves.all!"a.move == '.'") {
+          break;
         }
 
         foreach(i, m; craneMoves) {
@@ -582,7 +591,7 @@ void problem() {
         }
 
         // cranes.each!deb;
-        afterProcess();
+        if (afterProcess()) break;
         if (pushedByRow.sum == N^^2) break;
       }
     }
@@ -601,18 +610,31 @@ void problem() {
   int simulated;
   State bestState;
 
-  auto RANDOM_PATTERNS = ALL_PATTERNS.randomShuffle(RND).array;
-  MAIN: foreach(spaces; SPACE_PATTERNS ~ RANDOM_PATTERNS) {
+  Coord[][] COMBINATED_ALL_SPACE_PATTERNS; {
+    foreach_reverse(b; 0..2^^6) {
+      if (popcnt(b) <= 3) break;
 
-    foreach(craneNums; [5]) 
-    foreach(parallel; 3..craneNums + 1)
-    foreach(graphs; [[1, 0]]) {
-      if (elapsed(2900)) {
-        break;
+      Coord[] comb;
+      foreach(i; 0..6) {
+        if (b % 2 == 1) comb ~= SPACES[i];
+        b /= 2;
       }
 
-      State state = State(A, craneNums, spaces, graphs);
-      state.simulate(parallel);
+      COMBINATED_ALL_SPACE_PATTERNS ~= comb.permutations.map!"a.array".array;
+    }
+  }
+
+  auto RANDOM_PATTERNS = ALL_PATTERNS.randomShuffle(RND).array;
+  MAIN: foreach(spaces; COMBINATED_ALL_SPACE_PATTERNS) {
+    foreach(craneNums; [5]) 
+    foreach(parallel; 2..craneNums + 1)
+    foreach(graphs; [[1, 0]]) {
+      if (elapsed(2900)) {
+        break MAIN;
+      }
+
+      State state = State(A, craneNums, spaces, graphs, parallel);
+      state.simulate();
       simulated++;
 
       if (bestTurn.chmin(state.score())) {
@@ -621,10 +643,12 @@ void problem() {
     }
   }
 
-  stderr.writefln("Score = % 4d | %.03fms / sim | %s times simulated",
+  stderr.writefln("Score = % 4d | %d parallel | [%(%s %)] | %.03fms / sim | %s times simulated",
     bestState.score(),
+    bestState.parallel,
+    bestState.stockSpaces.map!(c => SPACE_INDEX[c]),
     ((MonoTime.currTime() - StartTime).total!"msecs".to!real / simulated),
-    simulated
+    simulated,
   );
 
   foreach(move; bestState.moves) {
@@ -637,7 +661,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
-import core.memory : GC;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
