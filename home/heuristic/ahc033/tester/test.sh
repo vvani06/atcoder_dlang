@@ -24,8 +24,10 @@ for cycle in `eval echo {0..$CYCLE}`; do
   wait
 done
 
-for i in {0000..0049}; do
-  ./vis in/${i}.txt out/${i}.txt >> score
+for i in {0000..0999}; do
+  if [ -f out/${i}.txt ]; then
+    ./vis in/${i}.txt out/${i}.txt >> score
+  fi
 done
 
 grep -q turn score
