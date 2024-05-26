@@ -61,11 +61,11 @@ void problem() {
 
   // 積荷を持ってないクレーン用のグラフ
   auto FREE_GRAPH = [
-    ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".UR.", "LUR.", "L.RD", "L.RD", "L..D"],
-    [".UR.", "LUR.", "L.RD", "L.RD", "L..D"],
-    [".UR.", "LUR.", "L.RD", "L.RD", "L..D"],
-    [".U..", "LU..", "L...", "L...", "L..."],
+    ["..R.", "L.R.", "..RD", "..RD", "...D"],
+    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
+    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
+    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
+    [".U..", "LU..", "LU..", "LU..", "L..."],
   ];
 
   // 積荷を持っているクレーンのグラフ
@@ -74,7 +74,7 @@ void problem() {
     [".UR.", "LUR.", "LURD", ".URD", "L..D"],
     [".UR.", "LUR.", "LURD", ".URD", "L..D"],
     [".UR.", "LUR.", "LURD", "LURD", "L..D"],
-    [".UR.", "LU..", "LU..", "L...", "L..."],
+    [".UR.", "LU..", "LU..", "LU..", "L..."],
   ];
 
   auto GRAPH_PATTERNS = [
@@ -281,6 +281,8 @@ void problem() {
     ItemState[] itemStates;
     RedBlackTree!int heads, waitingDelivereds;
     Coord[] stockSpaces;
+    int itemRest;
+    bool strongGreedy;
 
     int[] pulledByRow;
     int[] pushedByRow;
@@ -295,9 +297,10 @@ void problem() {
     int[][] outputs;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel, bool strongGreedy) {
       this.parallel = parallel;
       this.stockSpaces = stockSpaces;
+      this.strongGreedy = strongGreedy;
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
@@ -305,6 +308,7 @@ void problem() {
       itemStates = (ItemState.Unplaced).repeat(N ^^ 2).array;
       heads = iota(0, N^^2, N).redBlackTree;
       waitingDelivereds = iota(0, N^^2, N).redBlackTree;
+      itemRest = N^^2;
 
       outputs = new int[][](N, 0);
       cranes = N.iota.map!(i => new Crane(i, graphIds)).array;
@@ -342,6 +346,7 @@ void problem() {
       coordByItem[item] = Coord.Invalid;
       // craneMoves[i] = Path('P', crane.coord);
       bnState ^= 2^^SPACE_INDEX[crane.coord];
+      itemRest--;
     }
 
     void dropItem(Crane crane) {
@@ -351,6 +356,7 @@ void problem() {
       crane.item = -1;
       // craneMoves[i] = Path('Q', crane.coord);
       if (crane.coord.c < N - 1) bnState ^= 2^^SPACE_INDEX[crane.coord];
+      itemRest++;
     }
 
     int costForItem(int itemId) {
@@ -411,6 +417,7 @@ void problem() {
         coordByItem[item] = Coord.Invalid;
         grid[r][N - 1] = -1;
         pushedByRow[r]++;
+        itemRest--;
 
         heads.removeKey(item);
         waitingDelivereds.removeKey(item);
@@ -485,7 +492,7 @@ void problem() {
     }
 
     void simulate() {
-      foreach(_; 0..200) {
+      foreach(_; 0..150) {
         turn++;
         deb("");
         deb("------------------------------------ TURN: ", turn, " --------------------------------------");
@@ -570,6 +577,13 @@ void problem() {
         }
 
         Path[] craneMoves = cranes.map!(c => Path('.', c.coord)).array;
+        if (itemRest == 0) foreach(i, crane; cranes) {
+          if (crane.free() && crane.notWorking() && !crane.destroyed) {
+            craneMoves[i].move = 'B';
+            crane.destroyed = true;
+          }
+        }
+        
         foreach(i; N.iota) {
           auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
@@ -608,7 +622,7 @@ void problem() {
         }
 
         // 目的地への移動
-        foreach(__; 0..4) foreach(i; N.iota.array.sort!((a, b) => cranes[a].itemPriority > cranes[b].itemPriority)) {
+        foreach(__; 0..3) foreach(i; N.iota.array.sort!((a, b) => cranes[a].itemPriority > cranes[b].itemPriority)) {
           auto crane = cranes[i];
           if (crane.waiting() || crane.destroyed) continue;
           if (craneMoves[i].move != '.') continue;
@@ -671,7 +685,7 @@ void problem() {
 
   Coord[][] COMBINATED_ALL_SPACE_PATTERNS; {
     foreach_reverse(b; 0..2^^6) {
-      if (popcnt(b) <= 3) break;
+      if (popcnt(b) <= 4) break;
 
       Coord[] comb;
       foreach(i; 0..6) {
@@ -685,14 +699,13 @@ void problem() {
 
   auto RANDOM_PATTERNS = ALL_PATTERNS.randomShuffle(RND).array;
   MAIN: foreach(spaces; COMBINATED_ALL_SPACE_PATTERNS) {
-    foreach(craneNums; [5]) 
-    foreach(parallel; 2..craneNums + 1)
-    foreach(graphs; [[1, 0]]) {
+    foreach(parallel; 2..6)
+    foreach(strongGreedy; [false, true]) {
       if (elapsed(2900)) {
         break MAIN;
       }
 
-      State state = State(A, craneNums, spaces, graphs, parallel);
+      State state = State(A, 5, spaces, [1, 0], parallel, strongGreedy);
       state.simulate();
       simulated++;
 
