@@ -64,17 +64,17 @@ void problem() {
   // 積荷を持ってないクレーン用のグラフ
   auto FREE_GRAPH = [
     ["..R.", "..R.", "..RD", "..RD", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
-    [".UR.", ".UR.", "..RD", "...D", "...D"],
+    [".UR.", "LUR.", "L.RD", "...D", "...D"],
+    [".UR.", "LUR.", "L.RD", "...D", "...D"],
+    [".UR.", "LUR.", "L.RD", "...D", "...D"],
     [".U..", "LU..", "L...", "L...", "L..."],
   ];
   // 積荷を持っているクレーンのグラフ
   auto WORK_GRAPH = [
     ["..R.", "L.R.", "..RD", "..RD", "...D"],
     [".UR.", "LUR.", "LURD", "..RD", "L..D"],
-    [".UR.", "LUR.", "L.RD", "..RD", "L..D"],
-    [".UR.", "LUR.", "L.R.", "L.RD", "L..D"],
+    [".UR.", "LUR.", "LURD", "..RD", "L..D"],
+    [".UR.", "LUR.", "L.RD", "L.RD", "L..D"],
     [".UR.", "LU..", "LU..", "L...", "L..."],
   ];
 
@@ -607,7 +607,7 @@ void problem() {
     foreach(craneNums; [5]) 
     foreach(parallel; 3..craneNums + 1)
     foreach(graphs; [[1, 0]]) {
-      if (elapsed(2800)) {
+      if (elapsed(2900)) {
         break;
       }
 
@@ -621,8 +621,11 @@ void problem() {
     }
   }
 
-  stderr.writefln("%s ms / simulation", ((MonoTime.currTime() - StartTime).total!"msecs".to!real / simulated));
-  stderr.writefln("Score = %s", bestState.score);
+  stderr.writefln("Score = % 4d | %.03fms / sim | %s times simulated",
+    bestState.score(),
+    ((MonoTime.currTime() - StartTime).total!"msecs".to!real / simulated),
+    simulated
+  );
 
   foreach(move; bestState.moves) {
     string s;
