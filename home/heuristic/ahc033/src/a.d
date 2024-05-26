@@ -70,10 +70,10 @@ void problem() {
 
   // 積荷を持っているクレーンのグラフ
   auto WORK_GRAPH = [
-    ["..R.", "L.R.", "..RD", "..RD", "...D"],
-    [".UR.", "LUR.", "LURD", ".URD", "L..D"],
-    [".UR.", "LUR.", "LURD", ".URD", "L..D"],
-    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
+    ["..RD", "L.RD", "..RD", "..RD", "...D"],
+    [".URD", "LURD", "LURD", "LURD", "L..D"],
+    [".URD", "LURD", "LURD", "LURD", "L..D"],
+    [".URD", "LUR.", "LURD", "LURD", "L..D"],
     [".UR.", "LU..", "LU..", "LU..", "L..."],
   ];
 
@@ -291,6 +291,7 @@ void problem() {
     int[][] grid;
     int bnState;
     Coord[] coordByItem;
+    Coord[] spaces;
 
     int turn;
     Crane[] cranes;
@@ -310,6 +311,7 @@ void problem() {
       heads = iota(0, N^^2, N).redBlackTree;
       waitingDelivereds = iota(0, N^^2, N).redBlackTree;
       itemRest = N^^2;
+      spaces = [Coord(4, 0), Coord(3, 0), Coord(2, 0), Coord(1, 0), Coord(0, 0),] ~ stockSpaces;
 
       outputs = new int[][](N, 0);
       cranes = N.iota.map!(i => new Crane(i, graphIds)).array;
@@ -399,7 +401,7 @@ void problem() {
     }
 
     Coord findEmptyCoord() {
-      foreach(c; stockSpaces ~ [Coord(0, 0), Coord(1, 0), Coord(2, 0), Coord(3, 0), Coord(4, 0),]) {
+      foreach(ref c; spaces) {
         if (grid[c.r][c.c] == -1) return c;
       }
 
@@ -412,7 +414,7 @@ void problem() {
         if (grid[r][N - 1] == -1) continue;
 
         auto item = grid[r][N - 1];
-        deb("delivered: ", item);
+        // deb("delivered: ", item);
         itemStates[item] = ItemState.Delivered;
         outputs[r] ~= item;
         coordByItem[item] = Coord.Invalid;
@@ -494,10 +496,10 @@ void problem() {
     }
 
     void simulate() {
-      foreach(_; 0..130) {
+      foreach(_; 0..150) {
         turn++;
-        deb("");
-        deb("------------------------------------ TURN: ", turn, " --------------------------------------");
+        // deb("");
+        // deb("------------------------------------ TURN: ", turn, " --------------------------------------");
 
         // 納品間近であれば、次のアイテムを Target にする
         // 間近であるかどうかは納品までの距離と次アイテムを拾う最短クレーンの距離で判断する
@@ -526,9 +528,9 @@ void problem() {
         }
 
         foreach(toPick; nextItems[0..min(parallel, $)]) {
-          deb(nextItems, toPick, itemStates[toPick]);
+          // deb(nextItems, toPick, itemStates[toPick]);
           if (itemStates[toPick] != ItemState.Placed && itemStates[toPick] != ItemState.Moved) toPick = headOfItem(toPick);
-          deb(nextItems, toPick);
+          // deb(nextItems, toPick);
           orderPickItem(toPick);
         }
 
@@ -583,6 +585,7 @@ void problem() {
           if (crane.free() && crane.notWorking() && !crane.destroyed) {
             craneMoves[i].move = 'B';
             crane.destroyed = true;
+            nx[crane.coord.index] = -2;
           }
         }
         
