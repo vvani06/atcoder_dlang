@@ -19,6 +19,7 @@ for cycle in `eval echo {0..$CYCLE}`; do
   for i in {0000..0999}; do
     if [ $min -le $i ] && [ $max -ge $i ]; then
       ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt &
+      sleep 0.1
     fi
   done
   wait
