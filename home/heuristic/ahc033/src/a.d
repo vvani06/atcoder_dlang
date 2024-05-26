@@ -295,6 +295,7 @@ void problem() {
     int turn;
     Crane[] cranes;
     int[][] outputs;
+    int badOutput;
     Path[][] moves;
     
     this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel, bool strongGreedy) {
@@ -427,7 +428,8 @@ void problem() {
           waitingDelivereds.insert(item + 1);
         }
 
-        if (outputs[r].canFind!(x => x > item)) return true;
+        if (outputs[r].canFind!(x => x > item)) badOutput++;
+        if (badOutput >= 2) return true;
       }
 
       // 搬入口からの補充
@@ -474,7 +476,7 @@ void problem() {
       itemStates[item] = ItemState.Waiting;
 
       if (item in heads) {
-        crane.putOrder(Order(OrderType.Drop, Coord(cast(byte)(item / N), cast(byte)(N - 1))));
+        crane.putOrder(Order(OrderType.Move, Coord(cast(byte)(item / N), cast(byte)(N - 1))));
         crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
       } else {
         auto toMove = findEmptyCoord();
@@ -492,7 +494,7 @@ void problem() {
     }
 
     void simulate() {
-      foreach(_; 0..150) {
+      foreach(_; 0..130) {
         turn++;
         deb("");
         deb("------------------------------------ TURN: ", turn, " --------------------------------------");
@@ -627,7 +629,11 @@ void problem() {
           if (crane.waiting() || crane.destroyed) continue;
           if (craneMoves[i].move != '.') continue;
 
+          auto baseCost = crane.routeSize(crane.order.coord, bnState);
           foreach(nextPath; crane.memoizedRoute(crane.order.coord, bnState)) {
+            auto cost = crane.routeSizeFromTo(nextPath.to, crane.order.coord, bnState);
+            if (strongGreedy && cost > baseCost) continue;
+
             auto from = crane.coord;
             auto to = nextPath.to;
             if (nx[to.index] >= 0) continue;
@@ -685,7 +691,7 @@ void problem() {
 
   Coord[][] COMBINATED_ALL_SPACE_PATTERNS; {
     foreach_reverse(b; 0..2^^6) {
-      if (popcnt(b) <= 4) break;
+      if (popcnt(b) <= 5) break;
 
       Coord[] comb;
       foreach(i; 0..6) {
