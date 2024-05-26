@@ -389,7 +389,7 @@ void problem() {
 
     int[] nextItems() {
       // heads.array.map!(i => [costForItem(i), i]).array.deb;
-      return heads.array.map!(i => [costForItem(i), i]).array.sort.map!"a[1]".array;
+      return heads.array.map!(i => [costForItem(i), i % N, i]).array.sort.map!"a[2]".array;
     } 
     
     bool isCoordEmpty(byte r, byte c) { return isCoordEmpty(Coord(r, c)); }
