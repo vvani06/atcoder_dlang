@@ -537,6 +537,14 @@ void problem() {
         foreach(crane; cranes) {
           // 退避させようとしていたけど納品できるようになった
           if (crane.order.type == OrderType.Drop && crane.order.coord.c != N - 1 && (crane.item in waitingDelivereds)) {
+            auto nxc = crane.order.coord;
+            grid[nxc.r][nxc.c] = -1;
+            crane.clearOrder();
+            crane.putOrder(Order(OrderType.Drop, Coord(cast(byte)(crane.item / N), cast(byte)(N - 1))));
+            crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
+            continue;
+          }
+          if (crane.order.type == OrderType.Move && crane.order.coord.c != N - 1 && (crane.item in waitingDelivereds)) {
             crane.clearOrder();
             crane.putOrder(Order(OrderType.Drop, Coord(cast(byte)(crane.item / N), cast(byte)(N - 1))));
             crane.putOrder(Order(OrderType.Move, Coord(4, 2)));
@@ -694,7 +702,7 @@ void problem() {
 
   Coord[][] COMBINATED_ALL_SPACE_PATTERNS; {
     foreach_reverse(b; 0..2^^6) {
-      if (popcnt(b) <= 5) break;
+      // if (popcnt(b) <= 4) break;
 
       Coord[] comb;
       foreach(i; 0..6) {
