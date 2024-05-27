@@ -61,10 +61,10 @@ void problem() {
 
   // 積荷を持ってないクレーン用のグラフ
   auto FREE_GRAPH = [
-    ["..R.", "L.R.", "..RD", "..RD", "...D"],
-    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
-    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
-    [".UR.", "LUR.", "LURD", "LURD", "L..D"],
+    ["..RD", "L.R.", "..RD", "..RD", "...D"],
+    [".URD", "LUR.", "LURD", "LURD", "L..D"],
+    [".URD", "LUR.", "LURD", "LURD", "L..D"],
+    [".URD", "LUR.", "LURD", "LURD", "L..D"],
     [".U..", "LU..", "LU..", "LU..", "L..."],
   ];
 
@@ -283,6 +283,7 @@ void problem() {
     Coord[] stockSpaces;
     int itemRest;
     bool strongGreedy;
+    int greediness;
 
     int[] pulledByRow;
     int[] pushedByRow;
@@ -299,10 +300,12 @@ void problem() {
     int badOutput;
     Path[][] moves;
     
-    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel, bool strongGreedy) {
+    this(int[][] stocks, int useCrane, Coord[] stockSpaces, int[] graphIds, int parallel, bool strongGreedy, int greediness) {
       this.parallel = parallel;
       this.stockSpaces = stockSpaces;
       this.strongGreedy = strongGreedy;
+      this.greediness = greediness;
+
       baseStocks = stocks.map!"a.dup".array;
       pulledByRow = 1.repeat(N).array;
       pushedByRow = new int[](N);
@@ -520,7 +523,7 @@ void problem() {
 
           auto pickDist = nearest.routeSize(nextCoord, bnState);
           auto dropDist = nearest.routeSizeFromTo(nextCoord, Coord(cast(byte)(toPick % N), cast(byte)(N - 1)), bnState, 0);
-          if (pickDist + dropDist >= toDropDist) {
+          if (pickDist + dropDist - greediness >= toDropDist) {
             auto item = crane.item;
             heads.removeKey(crane.item);
             heads.insert(crane.item + 1);
@@ -702,7 +705,7 @@ void problem() {
 
   Coord[][] COMBINATED_ALL_SPACE_PATTERNS; {
     foreach_reverse(b; 0..2^^6) {
-      // if (popcnt(b) <= 4) break;
+      if (popcnt(b) <= 4) break;
 
       Coord[] comb;
       foreach(i; 0..6) {
@@ -716,13 +719,14 @@ void problem() {
 
   auto RANDOM_PATTERNS = ALL_PATTERNS.randomShuffle(RND).array;
   MAIN: foreach(spaces; COMBINATED_ALL_SPACE_PATTERNS) {
-    foreach(parallel; 2..6)
+    foreach(parallel; 3..6)
+    foreach(greediness; [-2, 0, 2])
     foreach(strongGreedy; [false, true]) {
       if (elapsed(2900)) {
         break MAIN;
       }
 
-      State state = State(A, 5, spaces, [1, 0], parallel, strongGreedy);
+      State state = State(A, 5, spaces, [1, 0], parallel, strongGreedy, greediness);
       state.simulate();
       simulated++;
 
