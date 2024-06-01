@@ -61,11 +61,11 @@ void problem() {
 
   // 積荷を持ってないクレーン用のグラフ
   auto FREE_GRAPH = [
-    ["..RD", "L.R.", "..RD", "..RD", "...D"],
-    [".URD", "LUR.", "LURD", "LURD", "L..D"],
-    [".URD", "LUR.", "LURD", "LURD", "L..D"],
-    [".URD", "LUR.", "LURD", "LURD", "L..D"],
-    [".U..", "LU..", "LU..", "LU..", "L..."],
+    ["..RD", "L.RD", "L.RD", "L.RD", "L..D"],
+    [".URD", "LURD", "LURD", "LURD", "LU.D"],
+    [".URD", "LURD", "LURD", "LURD", "LU.D"],
+    [".URD", "LURD", "LURD", "LURD", "LU.D"],
+    [".UR.", "LUR.", "LUR.", "LUR.", "LU.."],
   ];
 
   // 積荷を持っているクレーンのグラフ
@@ -366,17 +366,16 @@ void problem() {
     }
 
     int costForItem(int itemId) {
-      int[] calcSubCosts(int n) {
-        int[] ret = n % N == 0 ? 0.repeat(N).array : calcSubCosts(n - 1);
-
-        int r = stockedRowByItem[n];
-        int offset = pulledByRow[r];
-        int depth = baseStocks[r][offset..$].countUntil(n).to!int;
-        ret[r].chmax(depth + 1);
-        return ret;
-      }
+      int r = stockedRowByItem[itemId];
+      int offset = pulledByRow[r];
       
-      return calcSubCosts(itemId).sum;
+      int ret = (itemId % N) + 1;
+      foreach(n; baseStocks[r][offset..$]) {
+        if (n == itemId) return ret;
+
+        ret *= (n % N) + 1;
+      }
+      return (itemId % N) + 1;
     }
 
     int headOfItem(int itemId) {
