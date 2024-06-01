@@ -4,49 +4,26 @@ void problem() {
   auto N = scan!int;
   auto AB = scan!int(2 * N).chunks(2).array;
 
-  struct State {
-    int used;
-    int[] waysCache;
-    bool cached;
-
-    int turn() {
-      return (used.popcnt() / 2) % 2;
-    }
-
-    int[] ways() {
-      if (cached) return waysCache;
-
-      int[] ret;
-      foreach(i; 0..N - 1) {
-        if ((used & 2^^i) != 0) continue;
-        foreach(j; i + 1..N) {
-          if ((used & 2^^j) != 0) continue;
-          if (AB[i][0] == AB[j][0] || AB[i][1] == AB[j][1]) waysCache ~= used | 2^^i | 2^^j;
-        }
-      }
-      cached = true;
-      return waysCache;
-    }
-
-    bool noWay() {
-      return ways.empty;
-    }
-  }
-
   auto solve() {
-    State[int] states;
-    states[0] = State(0);
-    
+    auto graph = new int[][int];
+    auto queued = new bool[](2^^N);
+
+    auto cardMatch(int[] ij) { return AB[ij[0]][0] == AB[ij[1]][0] || AB[ij[0]][1] == AB[ij[1]][1]; }
+    auto matches = (N - 1).iota.map!(i => iota(i + 1, N).map!(j => [i, j]).filter!cardMatch).joiner.array;
+
     for(auto queue = DList!int(0); !queue.empty;) {
       auto cur = queue.front;
       queue.removeFront;
 
-      auto from = &states[cur];
-      foreach(w; from.ways) {
-        if (w in states) continue;
-
-        states[w] = State(w);
-        queue.insertBack(w);
+      foreach(m; matches) {
+        if ((cur & 2^^m[0]) != 0 || (cur & 2^^m[1]) != 0) continue;
+          
+        auto next = cur | 2^^m[0] | 2^^m[1];
+        graph[cur] ~= next;
+        if (!queued[next]) {
+          queue.insertBack(next);
+          queued[next] = true;
+        }
       }
     }
     
@@ -54,27 +31,19 @@ void problem() {
     bool dfs(int s) {
       if (s in memo) return memo[s];
 
-      auto state = &states[s];
-      if (state.noWay()) return state.turn() != 0;
+      auto takahashiTurn = (s.popcnt / 2) % 2 == 0;
+      auto nexts = graph.get(s, []);
+      if (nexts.empty) return !takahashiTurn;
 
-      bool ret;
-      if (state.turn != 0) {
-        ret = true;
-        foreach(w; state.ways) {
-          ret &= dfs(w);
-        }
+      if (takahashiTurn) {
+        return memo[s] = nexts.any!(n => dfs(n));
       } else {
-        ret = false;
-        foreach(w; state.ways) {
-          ret |= dfs(w);
-        }
+        return memo[s] = nexts.all!(n => dfs(n));
       }
-
-      return memo[s] = ret;
     }
 
     bool ans = dfs(0);
-
+    // foreach(k; memo.keys.sort) deb([k], graph[k], memo[k]);
     return ans ? "Takahashi" : "Aoki";
   }
 
