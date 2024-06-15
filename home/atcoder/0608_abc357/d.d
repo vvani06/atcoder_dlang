@@ -4,27 +4,29 @@ void problem() {
   auto N = scan!long;
 
   auto solve() {
-    auto NS = N.to!string.map!(c => c - '0').array;
-    int L = NS.length.to!int;
+    int size = N.to!string.length.to!int;
+    MInt9[] rets = [MInt9(N)];
+    MInt9[] getas = [MInt9(10L) ^^ size];
 
-    long[MInt9][] cycle = new long[MInt9][](L);
+    // 2^^0 ~ 2^^61 回繰り返しした時の答えを繰り返し二乗法で先に求めておく
+    // ついでに その時の桁数も取っておく
+    foreach(s; 0L..60L) {
+      rets ~= rets[s] * getas[s] + rets[s];
+      getas ~= getas[s] * getas[s];
+    }
 
     MInt9 ans;
-    long times = N;
-    long batchSize = min(N, 10^^5 * L);
-    foreach(i; 0..batchSize) {
-      int m = i % L;
+    long rest = N;
+    // Nを2進数と見立てたとき、ビットが立ってる部分を事前計算した値を使って加算する
+    foreach_reverse(b; 0..rets.length) {
+      auto batchSize = 2L ^^ b;
 
-      ans *= MInt9(10);
-      ans += MInt9(NS[m]);
-      times--;
+      if (rest >= batchSize) {
+        ans *= getas[b];
+        ans += rets[b];
+        rest -= batchSize;
+      }
     }
-
-    [times, batchSize].deb;
-    while(batchSize <= times) {
-      times -= batchSize;
-    }
-    times.deb;
 
     return ans;
   }

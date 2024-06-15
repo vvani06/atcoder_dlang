@@ -3,6 +3,8 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto A = scan!int(N);
+  // auto A = N.iota.map!(n => uniform(1, N + 1)).array;
+  // A.deb;
 
   auto solve() {
     auto graph = new int[][](N, 0);
@@ -12,21 +14,24 @@ void problem() {
       revGraph[a - 1] ~= i;
     }
 
-    // {
-    //   void naive(int cur, ref bool[int] visited) {
-    //     visited[cur] = true;
+    debug {{
+      void naive(int cur, ref bool[int] visited) {
+        visited[cur] = true;
 
-    //     auto next = revGraph[cur][0];
-    //     if (next in visited) return;
+        auto next = graph[cur][0];
+        if (next in visited) return;
 
-    //     naive(next, visited);
-    //   }
-    //   foreach(i; 0..N) {
-    //     auto visited = new bool[int];
-    //     naive(i, visited);
-    //     deb(visited.length, visited.keys.map!"a + 1");
-    //   }
-    // }
+        naive(next, visited);
+      }
+      long ans;
+      foreach(i; 0..N) {
+        auto visited = new bool[int];
+        naive(i, visited);
+        // deb(visited.length, visited.keys.map!"a + 1");
+        ans += visited.length;
+      }
+      deb("naive: ", ans);
+    }}
     
     auto visited = new bool[](N);
     auto reached = new int[](N);
@@ -45,14 +50,10 @@ void problem() {
     foreach(i; 0..N) {
       if (!visited[i]) dfs(i, i);
     }
-    reached.deb;
-
-    revGraph.deb;
 
     auto uf = UnionFind(N);
     visited[] = false;
     void rdfs(int cur, ref bool[int] route) {
-
       if (visited[cur]) return;
       visited[cur] = true;
       route[cur] = true;
@@ -66,6 +67,7 @@ void problem() {
           rdfs(next, route);
         }
       }
+      route.remove(cur);
     }
 
     foreach(i; N.iota.array.sort!((a, b) => reached[a] > reached[b])) {
@@ -77,6 +79,8 @@ void problem() {
     foreach(i; 0..N) {
       sizes[uf.root(i)] += 1;
     }
+    sizes.deb;
+
     long[] memo = new long[](N);
     long ansDfs(int cur) {
       if (memo[cur] > 0) return memo[cur];
@@ -93,6 +97,7 @@ void problem() {
     foreach(i; 0..N) {
       ans ~= ansDfs(i);
     }
+    ans.deb;
     return ans.sum;
   }
 
