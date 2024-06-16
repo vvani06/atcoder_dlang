@@ -17,7 +17,7 @@ You can update to the latest compiler by executing the following command.
 rustup update
 ```
 
-For those who are not familiar with the Rust language environment, we have prepared a [pre-compiled binary for Windows](https://img.atcoder.jp/ahc033/ELSlXTEw_windows.zip).
+For those who are not familiar with the Rust language environment, we have prepared a [pre-compiled binary for Windows](https://img.atcoder.jp/ahc034/vImT4eac_windows.zip).
 The following examples assume that you will be working in the directory where this README is located.
 
 ## Input Generation
@@ -52,7 +52,7 @@ When using the precompiled binary for Windows,
 The above command writes a visualization result to `vis.html`.
 It also outputs the score to standard output.
 
-You can also use a [web visualizer](https://img.atcoder.jp/ahc033/ELSlXTEw.html?lang=en) which is more rich in features.
+You can also use a [web visualizer](https://img.atcoder.jp/ahc034/vImT4eac.html?lang=en) which is more rich in features.
 
 # 使い方
 
@@ -65,7 +65,7 @@ https://www.rust-lang.org/ja を参考に各自インストールして下さい
 rustup update
 ```
 
-Rust言語の環境構築が面倒な方向けに、[Windows用のコンパイル済みバイナリ](https://img.atcoder.jp/ahc033/ELSlXTEw_windows.zip)も用意してあります。
+Rust言語の環境構築が面倒な方向けに、[Windows用のコンパイル済みバイナリ](https://img.atcoder.jp/ahc034/vImT4eac_windows.zip)も用意してあります。
 以下の実行例では、このREADMEが置かれているディレクトリに移動して作業することを想定しています。
 
 ## 入力生成
@@ -98,4 +98,4 @@ Windows用のコンパイル済バイナリを使用する場合は以下のよ�
 出力のビジュアライズ結果は `vis.html` というファイルに書き出されます。
 標準出力にはスコアを出力します。
 
-より機能が豊富な[ウェブ版のビジュアライザ](https://img.atcoder.jp/ahc033/ELSlXTEw.html?lang=ja)も利用可能です。
+より機能が豊富な[ウェブ版のビジュアライザ](https://img.atcoder.jp/ahc034/vImT4eac.html?lang=ja)も利用可能です。

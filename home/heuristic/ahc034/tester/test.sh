@@ -9,7 +9,7 @@ mkdir -p logs
 rm score
 rm out/*
 
-TOTAL_CASES=50
+TOTAL_CASES=150
 PARALLEL_SIZE=5
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 

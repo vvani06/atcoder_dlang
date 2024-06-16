@@ -1,10 +1,11 @@
 #![allow(non_snake_case, unused_macros)]
 
 use itertools::Itertools;
+use noise::{NoiseFn, Perlin};
 use proconio::input;
 use rand::prelude::*;
 use std::ops::RangeBounds;
-use svg::node::element::{Group, Line, Rectangle, Style, Symbol, Text, Title, Use};
+use svg::node::element::{Group, Line, Rectangle, Style, Symbol, Title, Use};
 
 pub trait SetMinMax {
     fn setmin(&mut self, v: Self) -> bool;
@@ -38,15 +39,15 @@ macro_rules! mat {
 
 #[derive(Clone, Debug)]
 pub struct Input {
-    n: usize,
-    A: Vec<Vec<i32>>,
+    N: usize,
+    h: Vec<Vec<i64>>,
 }
 
 impl std::fmt::Display for Input {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.n)?;
-        for i in 0..self.n {
-            writeln!(f, "{}", self.A[i].iter().join(" "))?;
+        writeln!(f, "{}", self.N)?;
+        for i in 0..self.N {
+            writeln!(f, "{}", self.h[i].iter().join(" "))?;
         }
         Ok(())
     }
@@ -56,10 +57,10 @@ pub fn parse_input(f: &str) -> Input {
     let f = proconio::source::once::OnceSource::from(f);
     input! {
         from f,
-        n: usize,
-        A: [[i32; n]; n],
+        N: usize,
+        h: [[i64; N]; N],
     }
-    Input { n, A }
+    Input { N, h }
 }
 
 pub fn read<T: Copy + PartialOrd + std::fmt::Display + std::str::FromStr, R: RangeBounds<T>>(
@@ -81,196 +82,173 @@ pub fn read<T: Copy + PartialOrd + std::fmt::Display + std::str::FromStr, R: Ran
     }
 }
 
-pub struct Output {
-    pub out: Vec<Vec<char>>,
+const DIJ: [(usize, usize); 4] = [(0, 1), (1, 0), (0, !0), (!0, 0)];
+const DIR: [char; 4] = ['R', 'D', 'L', 'U'];
+
+#[derive(Clone, Debug, Copy)]
+pub enum Action {
+    Move(usize),
+    Load(i64),
 }
 
-pub fn parse_output(input: &Input, f: &str) -> Result<Output, String> {
-    let out = f.trim().lines().map(|s| s.trim().chars().collect_vec()).collect_vec();
-    if out.len() != input.A.len() {
-        return Err("Invalid output format".to_owned());
+pub struct Output {
+    pub out: Vec<Action>,
+}
+
+pub fn parse_output(_input: &Input, f: &str) -> Result<Output, String> {
+    let mut out = vec![];
+    for line in f.trim().lines() {
+        let line = line.trim();
+        if line.len() > 0 {
+            if line.starts_with('+') {
+                out.push(Action::Load(read(Some(&line[1..]), 1..=1000000)?));
+            } else if line.starts_with('-') {
+                out.push(Action::Load(-read(Some(&line[1..]), 1..=1000000)?));
+            } else if line.len() == 1 {
+                let dir = line.chars().next().unwrap();
+                if let Some(dir) = DIR.iter().position(|&d| d == dir) {
+                    out.push(Action::Move(dir));
+                } else {
+                    return Err(format!("Invalid action: {}", line));
+                }
+            } else {
+                return Err(format!("Invalid action: {}", line));
+            }
+        }
     }
-    if out.iter().any(|s| s.len() == 0 || s.len() > 10000) {
-        return Err("Illegal output length".to_owned());
+    if out.len() > 100000 {
+        return Err("Too many actions".to_owned());
     }
     Ok(Output { out })
 }
 
 pub fn gen(seed: u64) -> Input {
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(seed);
-    let n = 5;
-    let mut order = (0..n * n).collect_vec();
-    order.shuffle(&mut rng);
-    let mut A = mat![0; n; n];
-    for i in 0..n {
-        for j in 0..n {
-            A[i][j] = order[i * n + j] as i32;
+    let N = 20;
+    loop {
+        let mut h = mat![0; N; N];
+        let perlin = Perlin::new(rng.gen());
+        let D = 10.0;
+        let mut sum = 0;
+        let mut ok = false;
+        for i in 0..N {
+            for j in 0..N {
+                let x = i as f64 / D;
+                let y = j as f64 / D;
+                h[i][j] = ((perlin.get([x, y])) * 50.0).round() as i64;
+                sum += h[i][j];
+                if h[i][j] != 0 {
+                    ok = true;
+                }
+            }
         }
+        if !ok {
+            continue;
+        }
+        let mut order = (0..N * N).collect_vec();
+        order.shuffle(&mut rng);
+        while sum > 0 {
+            for &p in &order {
+                h[p / N][p % N] -= 1;
+                sum -= 1;
+                if sum == 0 {
+                    break;
+                }
+            }
+        }
+        while sum < 0 {
+            for &p in &order {
+                h[p / N][p % N] += 1;
+                sum += 1;
+                if sum == 0 {
+                    break;
+                }
+            }
+        }
+        return Input { N, h };
     }
-    Input { n, A }
 }
 
 pub fn compute_score(input: &Input, out: &Output) -> (i64, String) {
-    let (mut score, err, _) = compute_score_details(input, out, out.out.iter().map(|s| s.len()).max().unwrap());
+    let (mut score, err, _) = compute_score_details(input, &out.out);
     if err.len() > 0 {
         score = 0;
     }
     (score, err)
 }
 
-const DIJ: [(usize, usize); 4] = [(!0, 0), (1, 0), (0, !0), (0, 1)];
-const DIR: [char; 4] = ['U', 'D', 'L', 'R'];
-
-pub struct State {
-    n: usize,
-    board: Vec<Vec<i32>>,
-    A: Vec<Vec<i32>>,
-    B: Vec<Vec<i32>>,
-    pos: Vec<(usize, usize, i32)>,
-    done: i32,
-    turn: i64,
+fn compute_diff(h: &Vec<Vec<i64>>) -> i64 {
+    let mut diff = 0;
+    for i in 0..h.len() {
+        for j in 0..h[i].len() {
+            if h[i][j] != 0 {
+                diff += 10000 + h[i][j].abs() * 100;
+            }
+        }
+    }
+    diff
 }
 
-impl State {
-    fn new(input: &Input) -> Self {
-        let mut board = mat![-1; input.n; input.n];
-        let mut A = input.A.iter().map(|a| a.iter().copied().rev().collect_vec()).collect_vec();
-        for i in 0..input.n {
-            board[i][0] = A[i].pop().unwrap();
-        }
-        State {
-            n: input.n,
-            board,
-            A,
-            B: vec![vec![]; input.n],
-            pos: (0..input.n).map(|i| (i, 0, -1)).collect_vec(),
-            done: 0,
-            turn: 0,
+pub fn compute_score_details(
+    input: &Input,
+    out: &[Action],
+) -> (
+    i64,
+    String,
+    (Vec<Vec<i64>>, usize, usize, i64, i64, i64, usize),
+) {
+    let mut h = input.h.clone();
+    let mut i = 0;
+    let mut j = 0;
+    let mut v = 0;
+    let mut cost = 0;
+    let mut last_dir = 0;
+    for turn in 0..out.len() {
+        match out[turn] {
+            Action::Move(dir) => {
+                i += DIJ[dir].0;
+                j += DIJ[dir].1;
+                last_dir = dir;
+                if i >= input.N || j >= input.N {
+                    return (
+                        0,
+                        format!("Out of the board. (turn: {})", turn),
+                        (h.clone(), i, j, v, cost, compute_diff(&h), last_dir),
+                    );
+                }
+                cost += v.abs() + 100;
+            }
+            Action::Load(d) => {
+                if d < 0 {
+                    if v + d < 0 {
+                        return (
+                            0,
+                            format!(
+                                "The unloading amount exceeds the carrying amount. (turn: {})",
+                                turn
+                            ),
+                            (h.clone(), i, j, v, cost, compute_diff(&h), last_dir),
+                        );
+                    }
+                    v += d;
+                    h[i][j] -= d;
+                } else {
+                    v += d;
+                    h[i][j] -= d;
+                }
+                cost += d.abs();
+            }
         }
     }
-    fn apply(&mut self, mv: &[char]) -> Result<(), String> {
-        self.turn += 1;
-        let mut to = vec![(!0, !0, -1); self.n];
-        for i in 0..self.n {
-            let (mut x, mut y, mut z) = self.pos[i];
-            match mv[i] {
-                '.' => (),
-                'P' => {
-                    if x == !0 {
-                        return Err(format!("Crane {i} has already bombed."));
-                    } else if z != -1 {
-                        return Err(format!("Crane {i} holds a container."));
-                    } else if self.board[x][y] == -1 {
-                        return Err(format!("No container at ({x}, {y})."));
-                    } else {
-                        z = self.board[x][y];
-                        self.board[x][y] = -1;
-                    }
-                }
-                'Q' => {
-                    if x == !0 {
-                        return Err(format!("Crane {i} has already bombed."));
-                    } else if z == -1 {
-                        return Err(format!("Crane {i} does not hold a container."));
-                    } else if self.board[x][y] != -1 {
-                        return Err(format!("Container already exists at ({x}, {y})."));
-                    } else {
-                        self.board[x][y] = z;
-                        z = -1;
-                    }
-                }
-                'U' | 'D' | 'L' | 'R' => {
-                    if x == !0 {
-                        return Err(format!("Crane {i} has already bombed."));
-                    }
-                    let dir = (0..4).find(|&d| DIR[d] == mv[i]).unwrap();
-                    let (dx, dy) = DIJ[dir];
-                    x += dx;
-                    y += dy;
-                    if x >= self.n || y >= self.n {
-                        return Err(format!("Crane {i} moved out of the board."));
-                    } else if i > 0 && z != -1 && self.board[x][y] != -1 {
-                        return Err(format!("Cranes {i} cannot move to a square that contains a container."));
-                    }
-                }
-                'B' => {
-                    if x == !0 {
-                        return Err(format!("Crane {i} has already bombed."));
-                    }
-                    if z != -1 {
-                        return Err(format!("Crane {i} holds a container."));
-                    }
-                    x = !0;
-                    y = !0;
-                }
-                c => {
-                    return Err(format!("Invalid move: {}", c));
-                }
-            }
-            to[i] = (x, y, z);
-        }
-        for i in 0..self.n {
-            if to[i].0 == !0 {
-                continue;
-            }
-            for j in 0..i {
-                if to[j].0 == !0 {
-                    continue;
-                }
-                if (to[i].0, to[i].1) == (to[j].0, to[j].1) {
-                    return Err(format!("Crane {j} and {i} collided."));
-                } else if (to[i].0, to[i].1) == (self.pos[j].0, self.pos[j].1)
-                    && (to[j].0, to[j].1) == (self.pos[i].0, self.pos[i].1)
-                {
-                    return Err(format!("Crane {i} and {j} collided."));
-                }
-            }
-        }
-        self.pos = to;
-        for i in 0..self.n {
-            if self.board[i][0] == -1 && self.A[i].len() > 0 && self.pos.iter().all(|p| p.2 == -1 || (p.0, p.1) != (i, 0)) {
-                self.board[i][0] = self.A[i].pop().unwrap();
-            }
-            if self.board[i][self.n - 1] != -1 {
-                self.done += 1;
-                if (self.n * i) as i32 <= self.board[i][self.n - 1] && self.board[i][self.n - 1] < (self.n * (i + 1)) as i32 {
-                    self.B[i].push(self.board[i][self.n - 1]);
-                }
-                self.board[i][self.n - 1] = -1;
-            }
-        }
-        Ok(())
-    }
-    fn score(&self) -> i64 {
-        let A = self.turn;
-        let mut B = 0;
-        let mut C = self.done as i64;
-        let D = (self.n * self.n) as i64 - self.done as i64;
-        for i in 0..self.n {
-            C -= self.B[i].len() as i64;
-            for a in 0..self.B[i].len() {
-                for b in a + 1..self.B[i].len() {
-                    if self.B[i][a] > self.B[i][b] {
-                        B += 1;
-                    }
-                }
-            }
-        }
-        let score = A + B * 100 + C * 10000 + D * 1000000;
-        score
-    }
-}
-
-pub fn compute_score_details(input: &Input, out: &Output, t: usize) -> (i64, String, State) {
-    let mut state = State::new(input);
-    for k in 0..t {
-        let mv = (0..input.n).map(|i| out.out[i].get(k).copied().unwrap_or('.')).collect_vec();
-        if let Err(err) = state.apply(&mv) {
-            return (0, format!("{err} (turn {k})"), state);
+    let diff = compute_diff(&h);
+    let mut base = 0;
+    for i in 0..input.N {
+        for j in 0..input.N {
+            base += input.h[i][j].abs();
         }
     }
-    let score = state.score();
-    (score, String::new(), state)
+    let score = (1e9 * base as f64 / (cost + diff) as f64).round() as i64;
+    (score, String::new(), (h, i, j, v, cost, diff, last_dir))
 }
 
 /// 0 <= val <= 1
@@ -292,7 +270,12 @@ pub fn color(mut val: f64) -> String {
             30. * (1.0 - x) + 70. * x,
         )
     };
-    format!("#{:02x}{:02x}{:02x}", r.round() as i32, g.round() as i32, b.round() as i32)
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        r.round() as i32,
+        g.round() as i32,
+        b.round() as i32
+    )
 }
 
 pub fn rect(x: usize, y: usize, w: usize, h: usize, fill: &str) -> Rectangle {
@@ -309,22 +292,67 @@ pub fn group(title: String) -> Group {
 }
 
 pub fn vis_default(input: &Input, out: &Output) -> (i64, String, String) {
-    let (mut score, err, svg) = vis(input, &out, out.out.iter().map(|s| s.len()).max().unwrap());
+    let VisResult {
+        mut score,
+        err,
+        svg,
+        ..
+    } = vis(input, &out.out);
     if err.len() > 0 {
         score = 0;
     }
     (score, err, svg)
 }
 
-// https://www.svgrepo.com/svg/175680/crane
-pub const CRANE: &'static str = r#"<path d="m396.1,11h-238.9c-7.5-0.5-22.1,6.8-20.5,22.3l19.9,211.2c1,10.5 9.9,18.5 20.5,18.5h79v46.9c0,11.3 9.2,20.4 20.5,20.4 36,0 65.3,29.1 65.3,64.9s-29.3,64.9-65.3,64.9c-36,0-65.3-29.1-65.3-64.9 0-11.3-9.2-20.4-20.5-20.4-11.3,0-20.5,9.1-20.5,20.4 0,58.3 47.7,105.7 106.4,105.7 58.7,0 106.4-47.4 106.4-105.7 0-51.3-37-94.2-85.9-103.8v-28.4h79c10.6,0 19.5-8 20.5-18.5l19.9-211.2c0.8-6.8-3.2-21.6-20.5-22.3zm-38.6,211.2h-161.7l-16-170.4h193.8l-16.1,170.4z"/>"#;
+pub struct VisResult {
+    pub score: i64,
+    pub cost: i64,
+    pub diff: i64,
+    pub v: i64,
+    pub err: String,
+    pub svg: String,
+}
 
-pub fn vis(input: &Input, out: &Output, t: usize) -> (i64, String, String) {
-    let S = 40;
-    let D = 600 / (input.n + 2);
-    let W = D * (input.n + 2) + D / input.n;
-    let H = D * input.n + S;
-    let (score, err, state) = compute_score_details(input, out, t);
+// https://www.svgrepo.com/svg/183941/dump-truck-truck
+const DUMP: &str = r#"<g>
+<path style="fill:#6B4425;" d="M224.975,126.109l13.365-33.421h52.974l-44.138-52.966l-61.793-8.828l-26.483,26.483l-26.483,17.655
+    l-52.966-8.828L52.97,136.826h156.178C216.113,136.826,222.389,132.58,224.975,126.109"/>
+<path style="fill:#378CD5;" d="M506.605,219.17l-76.712-84.383c-3.928-4.317-9.498-6.788-15.342-6.788h-81.311
+    c-8.527,0-15.448,6.921-15.448,15.448v196.414H26.482v75.767c0,6.912,5.597,12.509,12.509,12.509h13.974
+    c0-29.246,23.711-52.966,52.966-52.966s52.966,23.72,52.966,52.966h158.897h44.138c0-29.246,23.711-52.966,52.966-52.966
+    c29.255,0,52.966,23.72,52.966,52.966h31.629c6.912,0,12.509-5.597,12.509-12.509V233.127
+    C511.999,227.963,510.075,222.993,506.605,219.17"/>
+<path style="fill:#FEC24B;" d="M256,339.864H26.483L0,225.105l35.31-88.276h173.833c6.974,0,13.241-4.246,15.828-10.717
+    l13.374-33.421h52.965L256,339.864z"/>
+<path style="fill:#E0E0E0;" d="M368.275,269.243h143.722v-36.122c0-5.155-1.924-10.134-5.394-13.948l-50.776-55.861h-87.552
+    c-3.505,0-6.347,2.842-6.347,6.347v93.237C361.928,266.401,364.771,269.243,368.275,269.243"/>
+<g>
+    <path style="fill:#494949;" d="M467.862,428.14c0,29.255-23.711,52.966-52.966,52.966s-52.966-23.711-52.966-52.966
+        c0-29.255,23.711-52.966,52.966-52.966S467.862,398.885,467.862,428.14"/>
+    <path style="fill:#494949;" d="M158.897,428.14c0,29.255-23.711,52.966-52.966,52.966s-52.966-23.711-52.966-52.966
+        c0-29.255,23.711-52.966,52.966-52.966S158.897,398.885,158.897,428.14"/>
+</g>
+<path style="fill:#83BEEB;" d="M459.034,339.864H512v-17.655h-52.966V339.864z"/>
+<g>
+    <path style="fill:#A2A2A2;" d="M123.586,428.14c0,9.754-7.901,17.655-17.655,17.655s-17.655-7.901-17.655-17.655
+        c0-9.754,7.901-17.655,17.655-17.655S123.586,418.385,123.586,428.14"/>
+    <path style="fill:#A2A2A2;" d="M432.552,428.14c0,9.754-7.901,17.655-17.655,17.655s-17.655-7.901-17.655-17.655
+        c0-9.754,7.901-17.655,17.655-17.655S432.552,418.385,432.552,428.14"/>
+</g>
+<path style="fill:#FEC24B;" d="M353.103,110.347h-70.621c-4.882,0-8.828-3.946-8.828-8.828c0-4.882,3.946-8.828,8.828-8.828h70.621
+    c4.882,0,8.828,3.946,8.828,8.828C361.931,106.401,357.985,110.347,353.103,110.347"/>
+<g>
+    <path style="fill:#D1942A;" d="M3.531,216.278h102.4c4.882,0,8.828-3.946,8.828-8.828s-3.946-8.828-8.828-8.828H10.593
+        L3.531,216.278z"/>
+    <path style="fill:#D1942A;" d="M8.149,260.416H150.07c4.882,0,8.828-3.946,8.828-8.828c0-4.882-3.946-8.828-8.828-8.828H4.07
+        L8.149,260.416z"/>
+</g>
+</g>"#;
+pub fn vis(input: &Input, out: &[Action]) -> VisResult {
+    let D = 600 / input.N;
+    let W = D * input.N;
+    let H = D * input.N;
+    let (score, err, (h, pi, pj, v, cost, diff, last_dir)) = compute_score_details(input, &out);
     let mut doc = svg::Document::new()
         .set("id", "vis")
         .set("viewBox", (-5, -5, W + 10, H + 10))
@@ -336,145 +364,92 @@ pub fn vis(input: &Input, out: &Output, t: usize) -> (i64, String, String) {
     )));
     doc = doc.add(
         Symbol::new()
-            .set("id", "crane")
+            .set("id", "dump")
             .set("viewBox", (0, 0, 512, 512))
-            .add(svg::node::Blob::new(CRANE)),
+            .add(svg::node::Blob::new(DUMP)),
     );
-    for i in 0..state.n {
-        let mv = out.out[i].get(t).copied().unwrap_or('.');
-        doc = doc.add(
-            Text::new(format!("{i}: {mv}"))
-                .set("x", D * (1 + i) + D / 2)
-                .set("y", S / 2)
-                .set("font-size", S / 2)
-                .set("fill", "black"),
-        );
+    for i in 0..input.N {
+        for j in 0..input.N {
+            let c = if h[i][j] == 0 {
+                0.5
+            } else if h[i][j] < 0 {
+                0.5 - ((-h[i][j] as f64).ln() * 0.1).min(0.5)
+            } else {
+                0.5 + ((h[i][j] as f64).ln() * 0.1).min(0.5)
+            };
+            doc = doc.add(group(format!("h[{},{}]={}", i, j, h[i][j])).add(rect(
+                j * D,
+                i * D,
+                D,
+                D,
+                &color(c),
+            )));
+        }
     }
-    for i in 0..=state.n {
+    let dump = Use::new()
+        .set("x", pj * D + D / 8)
+        .set("y", pi * D + D / 8)
+        .set("width", D * 3 / 4)
+        .set("height", D * 3 / 4)
+        .set("href", "#dump");
+    if last_dir == 0 {
+        doc = doc.add(dump);
+    } else if last_dir == 1 {
+        doc = doc.add(dump.set(
+            "transform",
+            format!(
+                "rotate(90, {}, {}) translate({}, {}) scale(1, -1) translate({}, {})",
+                pj * D + D / 2,
+                pi * D + D / 2,
+                pj * D + D / 2,
+                pi * D + D / 2,
+                -((pj * D + D / 2) as i32),
+                -((pi * D + D / 2) as i32)
+            ),
+        ));
+    } else if last_dir == 2 {
+        doc = doc.add(dump.set(
+            "transform",
+            format!(
+                "translate({}, {}) scale(-1, 1) translate({}, {})",
+                pj * D + D / 2,
+                pi * D + D / 2,
+                -((pj * D + D / 2) as i32),
+                -((pi * D + D / 2) as i32)
+            ),
+        ));
+    } else {
+        doc = doc.add(dump.set(
+            "transform",
+            format!("rotate(270, {}, {})", pj * D + D / 2, pi * D + D / 2),
+        ));
+    }
+    for i in 0..=input.N {
         doc = doc.add(
             Line::new()
-                .set("x1", D)
-                .set("y1", S + D * i)
-                .set("x2", D * (1 + state.n))
-                .set("y2", S + D * i)
+                .set("x1", 0)
+                .set("y1", i * D)
+                .set("x2", W)
+                .set("y2", i * D)
                 .set("stroke", "gray")
                 .set("stroke-width", 1),
         );
         doc = doc.add(
             Line::new()
-                .set("x1", D * (1 + i))
-                .set("y1", S)
-                .set("x2", D * (1 + i))
-                .set("y2", S + D * state.n)
+                .set("x1", i * D)
+                .set("y1", 0)
+                .set("x2", i * D)
+                .set("y2", H)
                 .set("stroke", "gray")
                 .set("stroke-width", 1),
         );
     }
-    for i in 0..state.n {
-        for j in 0..state.A[i].len() {
-            doc = doc.add(rect(
-                D / input.n * j,
-                S + D * i,
-                D / input.n,
-                D,
-                &color(state.A[i][j] as f64 / (input.n * input.n - 1) as f64),
-            ));
-            doc = doc.add(
-                Text::new(format!("{}", state.A[i][j]))
-                    .set("x", D / input.n * j + D / input.n / 2)
-                    .set("y", S + D * i + D / 2)
-                    .set("font-size", D / input.n / 2)
-                    .set("fill", "black"),
-            );
-        }
-        for j in 0..state.B[i].len() {
-            doc = doc.add(rect(
-                D * (1 + state.n) + D / input.n * (input.n - j),
-                S + D * i,
-                D / input.n,
-                D,
-                &color(state.B[i][j] as f64 / (input.n * input.n - 1) as f64),
-            ));
-            doc = doc.add(
-                Text::new(format!("{}", state.B[i][j]))
-                    .set("x", D * (1 + state.n) + D / input.n * (input.n - j) + D / input.n / 2)
-                    .set("y", S + D * i + D / 2)
-                    .set("font-size", D / input.n / 2)
-                    .set("fill", "black"),
-            );
-        }
+    VisResult {
+        score,
+        err,
+        svg: doc.to_string(),
+        cost,
+        v,
+        diff,
     }
-    for i in 0..state.n {
-        for j in 0..state.n {
-            if state.board[i][j] != -1 {
-                doc = doc.add(rect(
-                    D * (1 + j),
-                    S + D * i + D / 2,
-                    D,
-                    D / 2,
-                    &color(state.board[i][j] as f64 / (input.n * input.n - 1) as f64),
-                ));
-                doc = doc.add(
-                    Text::new(format!("{}", state.board[i][j]))
-                        .set("x", D * (1 + j) + D / 2)
-                        .set("y", S + D * i + D / 2 + D / 4)
-                        .set("font-size", D / 4)
-                        .set("fill", "black"),
-                );
-            }
-        }
-    }
-    for i in 0..state.n {
-        if state.pos[i].0 != !0 {
-            doc = doc.add(
-                Use::new()
-                    .set("x", D * (1 + state.pos[i].1) + D / 4)
-                    .set("y", S + D * state.pos[i].0)
-                    .set("width", D / 2)
-                    .set("height", D / 2)
-                    .set("href", "#crane"),
-            );
-            doc = doc.add(
-                Text::new(format!("{}", i))
-                    .set("x", D * (1 + state.pos[i].1) + D / 2 + 2)
-                    .set("y", S + D * state.pos[i].0 + D / 8)
-                    .set("font-size", D / 6)
-                    .set("fill", "black"),
-            );
-            if state.pos[i].2 != -1 {
-                if i == 0 {
-                    doc = doc.add(rect(
-                        D * (1 + state.pos[i].1),
-                        S + D * state.pos[i].0,
-                        D,
-                        D / 2,
-                        &color(state.pos[i].2 as f64 / (input.n * input.n - 1) as f64),
-                    ));
-                    doc = doc.add(
-                        Text::new(format!("{}", state.pos[i].2))
-                            .set("x", D * (1 + state.pos[i].1) + D / 2)
-                            .set("y", S + D * state.pos[i].0 + D / 4)
-                            .set("font-size", D / 4)
-                            .set("fill", "black"),
-                    );
-                } else {
-                    doc = doc.add(rect(
-                        D * (1 + state.pos[i].1),
-                        S + D * state.pos[i].0 + D / 4,
-                        D,
-                        D / 2,
-                        &color(state.pos[i].2 as f64 / (input.n * input.n - 1) as f64),
-                    ));
-                    doc = doc.add(
-                        Text::new(format!("{}", state.pos[i].2))
-                            .set("x", D * (1 + state.pos[i].1) + D / 2)
-                            .set("y", S + D * state.pos[i].0 + D / 2)
-                            .set("font-size", D / 4)
-                            .set("fill", "black"),
-                    );
-                }
-            }
-        }
-    }
-    (score, err, doc.to_string())
 }
