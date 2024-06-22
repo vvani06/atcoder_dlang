@@ -5,6 +5,8 @@ cd `dirname $0`
 TARGET=$1
 
 declare -A TOOLS_URLS=(
+  ["AHC019"]="https://img.atcoder.jp/ahc019/b36525d8.zip"
+  ["AHC025"]="https://img.atcoder.jp/ahc025/tNvZmDfV.zip"
   ["AHC026"]="https://img.atcoder.jp/ahc026/lPQezTZx.zip"
   ["AHC027"]="https://img.atcoder.jp/ahc027/aPdjCUIZ_v2.zip"
   ["AHC028"]="https://img.atcoder.jp/ahc028/fWRno7xB.zip"
@@ -28,6 +30,12 @@ seq 0 1999 > seeds
 cargo run -r --bin gen seeds
 rm -rf /ahc_in
 cp -r in /ahc_in/
+
+ls ./src/bin
+if [ -f ./src/bin/tester* ]; then
+  cargo build -r --bin tester
+  cp target/release/tester /usr/bin/tester
+fi
 
 cd ..
 rm -rf tools tools.zip
