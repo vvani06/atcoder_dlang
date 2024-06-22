@@ -1,6 +1,6 @@
-FROM debian:12-slim
+FROM rust:slim
 
-RUN apt update && apt install -y --no-install-recommends curl build-essential ca-certificates libxml2 git fish
+RUN apt update && apt install -y --no-install-recommends curl build-essential ca-certificates libxml2 git fish unzip wget
 
 RUN git config --global user.name "allegrogiken"
 RUN git config --global user.email "vvani06+dev@gmail.com"

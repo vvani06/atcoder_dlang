@@ -2,7 +2,7 @@
 
 cd `dirname $0`
 
-ldmd2 -O -release ../src/a.d -of ./a "--DRT-gcopt=disable:1" 
+ldmd2 -O -release ../src/a.d -of ./a
 touch score
 mkdir -p out
 mkdir -p logs
@@ -18,7 +18,7 @@ for cycle in `eval echo {0..$CYCLE}`; do
   max=$(($cycle * $PARALLEL_SIZE + $PARALLEL_SIZE - 1))
   for i in {0000..0999}; do
     if [ $min -le $i ] && [ $max -ge $i ]; then
-      ./a "--DRT-gcopt=disable:1" < in/${i}.txt > out/${i}.txt &
+      ./a < /ahc_in/${i}.txt > out/${i}.txt &
       sleep 0.1
     fi
   done
@@ -27,7 +27,7 @@ done
 
 for i in {0000..0999}; do
   if [ -f out/${i}.txt ]; then
-    ./vis in/${i}.txt out/${i}.txt >> score
+    vis /ahc_in/${i}.txt out/${i}.txt >> score
   fi
 done
 
