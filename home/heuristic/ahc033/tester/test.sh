@@ -10,7 +10,7 @@ rm score
 rm out/*
 
 TOTAL_CASES=50
-PARALLEL_SIZE=5
+PARALLEL_SIZE=10
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 
 for cycle in `eval echo {0..$CYCLE}`; do
