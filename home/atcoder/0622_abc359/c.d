@@ -7,21 +7,20 @@ void problem() {
   auto TY = scan!long;
 
   auto solve() {
-    auto msy = SY % 2;
-    auto mty = TY % 2;
-    
-    auto startLeft = msy == 1 ? SX % 2 : 1 - (SX % 2);
-    if (!startLeft) SX--;
+    // 始点終点をタイル内の左側に寄せる
+    if (SY % 2 == 0) SX -= SX % 2; else SX -= 1 - SX % 2;
+    if (TY % 2 == 0) TX -= TX % 2; else TX -= 1 - TX % 2;
 
-    auto goalLeft = mty == 1 ? TX % 2 : 1 - (TX % 2);
-    if (!goalLeft) TX--;
-    
-    SX /= 2;
-    TX /= 2;
+    // HEXとして捉えた際のタイルの X座標番号 
+    auto tsx = (SX + SY % 2) / 2;
+    auto ttx = (TX + TY % 2) / 2;
+
+    [[tsx, SY], [ttx, TY]].deb;
 
     auto dy = (TY - SY).abs;
-    auto dx = (TX - SX).abs;
-    return dy + max(0, max(0, dx - dy) / 2);
+    auto dx = (ttx - tsx).abs;
+    [dy, dx].deb;
+    return dy + max(0, ((TX - SX).abs - dy + 1) / 2);
   }
 
   outputForAtCoder(&solve);
