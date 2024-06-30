@@ -5,13 +5,25 @@ void problem() {
   auto H = scan!long(N);
 
   auto solve() {
-    auto segtree = LazySegtree!("a + b", long)(new long[](N + 1));
-    segtree.update(0, H[0]);
+    auto stack = DList!(long[])([[long.max, 0]]);
 
-    int pre;
-    foreach(i, h; H[1..$].enumerate(1)) {
-            
+    long[] ans;
+    long cur;
+    foreach(h; H) {
+      long acc;
+      long size = 1;
+      for(auto s = stack.back; s[0] < h; s = stack.back) {
+        acc += s[0] * s[1];
+        size += s[1];
+        stack.removeBack;
+      }
+
+      stack.insertBack([h, size]);
+      cur += h * size - acc;
+      ans ~= cur + 1;
     }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -62,77 +74,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct LazySegtree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  size_t size;
-  T[] data, waited;
-  T monoid, undef;
- 
-  this(T[] src, T monoid = T.init, T undef = T.min) {
-    for(long i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    waited = new T[](size * 2);
-    waited[] = undef;
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
-
-  void eval(size_t k) {
-    if (waited[k] == undef) return;
-
-    if (k < size) {
-      waited[k * 2] = waited[k];
-      waited[k * 2 + 1] = waited[k];
-    }
-    data[k] = waited[k];
-    waited[k] = undef;
-  }
- 
-  void update(long a, long b, T x, size_t k = 1, long l = 0, long r = -1) {
-    eval(k);
-    if (r < 0) r = size;
-    
-    if (a <= l && r <= b) {
-      waited[k] = x;
-      eval(k);
-    } else if (a < r && l < b) {
-      update(a, b, x, 2*k, l, (l + r) / 2);
-      update(a, b, x, 2*k + 1, (l + r) / 2, r);
-      data[k] = predFun(data[2*k], data[2*k + 1]);
-    }
-  }
- 
-  void update(long index, T value) {
-    long i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
- 
-  T get(long index) {
-    return data[index + size];
-  }
- 
-  T sum(long a, long b, size_t k = 1, long l = 0, long r = -1) {
-    eval(k);
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}

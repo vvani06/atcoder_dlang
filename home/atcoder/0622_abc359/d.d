@@ -22,7 +22,7 @@ void problem() {
 
         if (c == 'A' || c == '?') {
           auto t = p ~ 'A';
-          if (t.length != K || !isParindrome(t)) {
+          if (t.length != K || !memoize!isParindrome(t)) {
             dp.require(t, MInt9(0));
             dp[t] += v;
           }
@@ -30,7 +30,7 @@ void problem() {
 
         if (c == 'B' || c == '?') {
           auto t = p ~ 'B';
-          if (t.length != K || !isParindrome(t)) {
+          if (t.length != K || !memoize!isParindrome(t)) {
             dp.require(t, MInt9(0));
             dp[t] += v;
           }

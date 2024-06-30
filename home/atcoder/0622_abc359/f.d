@@ -2,26 +2,59 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!long(N);
+  auto H = scan!long(N);
+
+  struct LazySum {
+    static long op_ss(long a, long b) {
+      return a + b;
+    }
+
+    static long op_ts(long a, long b) {
+      return a + b;
+    }
+
+    static long op_tt(long a, long b) {
+      return b;
+    }
+
+    static long e_s() {
+      return 0;
+    }
+
+    static long e_t() {
+      return 0;
+    }
+  }
 
   auto solve() {
-    auto vTree = SegTree!("a + b", long)(new long[](N));
-    auto cTree = SegTree!("a + b", long)(new long[](N));
+    auto segtree = LazySegTree!(long, LazySum.op_ss, LazySum.e_s, long, LazySum.op_ts, LazySum.op_tt, LazySum.e_t)(N);
+    auto lefts = new int[](N); {
+      lefts[] = -1;
+      auto rbt = new long[][](0, 2).redBlackTree!"a[0] < b[0]";
+      foreach_reverse(i; 0..N) {
+        auto h = H[i];
+        foreach(r; rbt.lowerBound([h + 1, 0]).array) {
+          lefts[r[1]] = i;
+          rbt.removeKey(r);
+        }
+        rbt.insert([h, i]);
+      }
+    }
+    lefts.deb;
 
-    foreach(c, v; zip(A.compress, A)) {
-      auto ci = c.to!int;
-      cTree.add(ci, 1);
-      vTree.add(ci, v);
+    long cur;
+    long[] ans;
+    foreach(i, h; H.enumerate(0)) {
+      auto x = lefts[i] + 1;
+      auto s = (i + 1 - x);
+      [x, cur, i, h, h * s, segtree.prod(x, i)].deb;
+
+      cur += h * s - segtree.prod(x, i);
+      ans ~= cur + 1;
+      segtree.apply(x, i + 1, h);
     }
 
-    long ans;
-    foreach_reverse(c, v; zip(A.compress, A)) {
-      auto ci = c.to!int;
-      ans += cTree.sum(0, ci) * v;
-      ans -= vTree.sum(0, ci);
-      cTree.add(ci, -1);
-      vTree.add(ci, -v);
-    }
+    // maxAcc.deb;
     return ans;
   }
 
@@ -30,7 +63,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
+import std, core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -74,73 +107,296 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
-
-  void add(int index, T value) {
-    update(index, get(index) + value);
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
+int celiPow2(int n) @safe pure nothrow @nogc
+{
+    int x = 0;
+    while ((1u << x) < cast(uint)(n))
+        x++;
+    return x;
 }
 
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
+struct LazySegTree(S, alias op, alias e, F, alias mapping, alias composition, alias id)
+{
+    import std.functional : unaryFun, binaryFun;
+    import std.traits : isCallable, Parameters;
+
+    static if (is(typeof(e) : string))
+    {
+        auto unit()
+        {
+            return mixin(e);
+        }
     }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
+    else
+    {
+        alias unit = e;
+    }
+    static if (is(typeof(id) : string))
+    {
+        auto identity()
+        {
+            return mixin(id);
+        }
+    }
+    else
+    {
+        alias identity = id;
+    }
+public:
+    this(int n)
+    {
+        auto v = new S[](n);
+        v[] = unit();
+        this(v);
+    }
+
+    this(const S[] v)
+    {
+        _n = cast(int) v.length;
+        log = celiPow2(_n);
+        size = 1 << log;
+        assert(1 <= size);
+        d = new S[](2 * size);
+        d[] = unit();
+        lz = new F[](size);
+        lz[] = identity();
+        foreach (i; 0 .. _n)
+            d[size + i] = v[i];
+        foreach_reverse (i; 1 .. size)
+            update(i);
+    }
+
+    void set(int p, S x)
+    {
+        assert(0 <= p && p < _n);
+        p += size;
+        foreach_reverse (i; 1 .. log + 1)
+            push(p >> i);
+        d[p] = x;
+        foreach (i; 1 .. log + 1)
+            update(p >> i);
+    }
+
+    S get(int p)
+    {
+        assert(0 <= p && p < _n);
+        p += size;
+        foreach_reverse (i; 1 .. log + 1)
+            push(p >> i);
+        return d[p];
+    }
+
+    S prod(int l, int r)
+    {
+        assert(0 <= l && l <= r && r <= _n);
+        if (l == r)
+            return unit();
+        l += size;
+        r += size;
+        foreach_reverse (i; 1 .. log + 1)
+        {
+            if (((l >> i) << i) != l)
+                push(l >> i);
+            if (((r >> i) << i) != r)
+                push(r >> i);
+        }
+
+        S sml = unit(), smr = unit();
+        while (l < r)
+        {
+            if (l & 1)
+                sml = binaryFun!(op)(sml, d[l++]);
+            if (r & 1)
+                smr = binaryFun!(op)(d[--r], smr);
+            l >>= 1;
+            r >>= 1;
+        }
+
+        return binaryFun!(op)(sml, smr);
+    }
+
+    S allProd()
+    {
+        return d[1];
+    }
+
+    void apply(int p, F f)
+    {
+        assert(0 <= p && p < _n);
+        p += size;
+        foreach_reverse (i; 1 .. log + 1)
+            push(p >> i);
+        d[p] = binaryFun!(mapping)(f, d[p]);
+        foreach (i; 1 .. log + 1)
+            update(p >> i);
+    }
+
+    void apply(int l, int r, F f)
+    {
+        assert(0 <= l && l <= r && r <= _n);
+        if (l == r)
+            return;
+        l += size;
+        r += size;
+        foreach_reverse (i; 1 .. log + 1)
+        {
+            if (((l >> i) << i) != l)
+                push(l >> i);
+            if (((r >> i) << i) != r)
+                push((r - 1) >> i);
+        }
+        {
+            int l2 = l, r2 = r;
+            while (l < r)
+            {
+                if (l & 1)
+                    all_apply(l++, f);
+                if (r & 1)
+                    all_apply(--r, f);
+                l >>= 1;
+                r >>= 1;
+            }
+            l = l2;
+            r = r2;
+        }
+        foreach (i; 1 .. log + 1)
+        {
+            if (((l >> i) << i) != l)
+                update(l >> i);
+            if (((r >> i) << i) != r)
+                update((r - 1) >> i);
+        }
+    }
+
+    int maxRight(alias g)(int l)
+    {
+        return maxRight(l, unaryFun!(g));
+    }
+
+    int maxRight(G)(int l, G g) if (isCallable!G && Parameters!(G).length == 1)
+    {
+        assert(0 <= l && l <= _n);
+        assert(g(unit()));
+        if (l == _n)
+            return _n;
+        l += size;
+        foreach_reverse (i; 1 .. log + 1)
+            push(l >> i);
+        S sm = unit();
+        do
+        {
+            while (l % 2 == 0)
+                l >>= 1;
+            if (!g(binaryFun!(op)(sm, d[l])))
+            {
+                while (l < size)
+                {
+                    push(l);
+                    l = 2 * l;
+                    if (g(binaryFun!(op)(sm, d[l])))
+                    {
+                        sm = binaryFun!(op)(sm, d[l]);
+                        l++;
+                    }
+                }
+                return l - size;
+            }
+            sm = binaryFun!(op)(sm, d[l]);
+            l++;
+        }
+        while ((l & -l) != l);
+        return _n;
+    }
+
+    int minLeft(alias g)(int r)
+    {
+        return minLeft(r, unaryFun!(g));
+    }
+
+    int minLeft(G)(int r, G g) if (isCallable!G && Parameters!(G).length == 1)
+    {
+        assert(0 <= r && r <= _n);
+        assert(g(unit()));
+        if (r == 0)
+            return 0;
+        r += size;
+        foreach_reverse (i; 1 .. log + 1)
+            push((r - 1) >> i);
+        S sm = unit();
+        do
+        {
+            r--;
+            while (r > 1 && (r % 2))
+                r >>= 1;
+            if (!g(binaryFun!(op)(d[r], sm)))
+            {
+                while (r < size)
+                {
+                    push(r);
+                    r = (2 * r + 1);
+                    if (g(binaryFun!(op)(d[r], sm)))
+                    {
+                        sm = binaryFun!(op)(d[r], sm);
+                        r--;
+                    }
+                }
+                return r + 1 - size;
+            }
+            sm = binaryFun!(op)(d[r], sm);
+        }
+        while ((r & -r) != r);
+        return 0;
+    }
+
+private:
+    int _n = 0, size = 1, log = 0;
+    S[] d = [unit(), unit()];
+    F[] lz = [identity()];
+
+    void update(int k)
+    {
+        d[k] = binaryFun!(op)(d[2 * k], d[2 * k + 1]);
+    }
+
+    void all_apply(int k, F f)
+    {
+        d[k] = binaryFun!(mapping)(f, d[k]);
+        if (k < size)
+            lz[k] = binaryFun!(composition)(f, lz[k]);
+    }
+
+    void push(int k)
+    {
+        all_apply(2 * k, lz[k]);
+        all_apply(2 * k + 1, lz[k]);
+        lz[k] = identity();
+    }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
   }
-  return ret;
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
 }
