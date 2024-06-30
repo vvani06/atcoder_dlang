@@ -2,61 +2,26 @@ void main() { runSolver(); }
 
 void problem() {
   auto K = scan!int;
-  auto C = scan!int(26).sort;
+  auto C = scan!int(26);
 
   auto solve() {
     auto fermet = FermetCalculator!998_244_353(1001);
-    auto zeros = C.count(0).to!int;
-    auto notZeros = 26 - zeros;
-    
-    auto patterns = new int[int[]][](notZeros + 1);
-    patterns[0][[]] = 1;
-    foreach(i, c; C.enumerate(1)) {
-      if (c == 0) continue;
 
-      foreach_reverse(f; 0..notZeros) {
-        foreach(from, counts; patterns[f]) {
-          auto to = from ~ (c + 1);
-          if (to.sum > K) continue;
+    auto dp = new MInt9[][](27, K + 1);
+    dp[0][0] = MInt9(1);
 
-          patterns[f + 1][to] += counts;
-        }
-      }
-    }
-    // patterns.deb;
-    // [1, 2, 3, 3].permutations.map!"a.to!string".array.sort.uniq.deb;
+    foreach(a, c; C.enumerate(0)) {
+      foreach(from; 0..K + 1) {
+        foreach(add; 0..c + 1) {
+          auto to = from + add;
+          if (to > K) continue;
 
-    MInt9 ans;
-    foreach(k; 1..K + 1) {
-      ans += MInt9(notZeros) ^^ k;
-
-      foreach(pn, p; patterns[1..$].enumerate(1)) {
-        foreach(fill, count; p) {
-          auto fs = fill.sum;
-          if (fs > k) continue;
-
-          auto choices = MInt9(fermet.combine(k, fs));
-          auto ngs = MInt9(fermet.factrial[fs]);
-          foreach(f; fill) {
-            ngs /= MInt9(fermet.factrial[f]);
-          }
-          auto mc = MInt9(count);
-          auto others = MInt9(notZeros - pn) ^^ (k - fs);
-          
-          auto delta = choices * ngs * mc * others;
-          if (pn % 2 == 1) {
-            ans -= delta;
-            // fill.deb;
-            // [choices, ngs, mc, others].deb;
-          } else {
-            ans += delta;
-          }
+          dp[a + 1][to] += dp[a][from] * MInt9(fermet.combine(to, add));
         }
       }
     }
 
-
-    return ans;
+    return dp[26][1..$].sum;
   }
 
   outputForAtCoder(&solve);
