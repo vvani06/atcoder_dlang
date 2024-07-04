@@ -4,3 +4,4 @@ services:
     volumes:
       - ./home:/workspace
       - ~/.ssh:/root/.ssh
+    working_dir: /workspace
