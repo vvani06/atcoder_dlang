@@ -3,59 +3,29 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto A = scan!int(N);
+  auto MAX = A.maxElement;
 
   auto solve() {
-    enum MAX = 10^^6 + 1;
-    auto arr = new int[](MAX + 1);
-    foreach(a; A) arr[a]++;
-    auto segtree = SegTree!("a + b", int)(arr);
-
-    int[] divNums(int x) {
-      int[] ret = [x];
-      int cur = x;
-      int curDiv = 1;
-
-      bool isMore(int y) {
-        return x / y > curDiv;
-      }
-
-      while(cur > 1) {
-        int next = binarySearch(&isMore, 1, cur);
-        // [cur, next + 1].deb;
-        cur = next;
-        curDiv = x / next;
-        ret ~= cur;
-      }
-
-      return ret;
-    }
-
-    int[][int] dns;
-    foreach(a; A.redBlackTree) {
-      dns[a] = divNums(a).reverse.array;
-    }
-
-    "count".deb;
-
+    auto counts = new long[](MAX + 1);
+    foreach(a; A) counts[a]++;
+    auto acc = counts.cumulativeFold!"a + b".array;
+    // acc.deb;
+    
     long ans;
-    foreach(a; A.sort.reverse) {
-      // a.deb;
-      segtree.add(a, -1);
+    foreach(long y; 1..MAX + 1) {
+      if (counts[y] == 0) continue;
 
-      int cur = 1;
-      foreach(border; dns[a]) {
-        int l = cur;
-        int r = border + 1;
-        long counts = segtree.sum(l, r);
+      for(long x = 1; x*y <= MAX; x++) {
+        long l = y * x;
+        long r = min(MAX + 1, y * (x + 1));
 
-        long div = a / l;
-        // [l, r, counts, div, counts * div].deb;
-        ans += counts * div;
-
-        cur = r;
+        const add = (acc[r - 1] - acc[l - 1]) * x * counts[y];
+        ans += add;
+        // [[y, x], [l - 1, r - 1], [acc[r - 1] - acc[l - 1], add, ans]].deb;
       }
     }
-    return ans;
+
+    return ans - counts.map!"a * (a + 1) / 2".sum;
   }
 
   outputForAtCoder(&solve);
@@ -106,83 +76,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
-
-  void add(int index, T value) {
-    update(index, get(index) + value);
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}
