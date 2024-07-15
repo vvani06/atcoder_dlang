@@ -2,36 +2,34 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto NR = N.to!real + 0.0001L;
+  enum real EPS = real.epsilon;
+  auto NR = N.to!real + EPS;
 
   auto solve() {
-    long ans = 1;
+    long ans = NR.sqrt.to!long;
+    // ans.deb;
 
-    auto erat = new long[][](61, min(N, 10 ^^ 6) + 1);
-    long[] adj;
-    foreach(b; 2..N) {
-      auto p = pow(NR, 1.0L / b.to!real).to!long;
-      if (p == 1) break;
-
-      // [N, b, p].deb;
-
-      ans += p - 1;
-
-      for(long x = 2; x^^2 <= p; x++) {
-        for(long t = b + b; t <= 60; t += b) {
-          erat[t][x]++;
-        }
-      }
-
-      if (b > 2) {
-        adj ~= erat[b][0..p + 1].sum;
-      }
+    long nrsq = NR.sqrt.to!long;
+    bool isSquare(real x) {
+      auto l = binarySearch((long l) => l^^2 < x, 1L, nrsq + 1);
+      auto r = binarySearch((long l) => l^^2 <= x, 1L, nrsq + 1);
+      return l != r;
     }
 
-    adj.deb;
-    ans -= adj.sum;
-    foreach(i; iota(2, adj.length, 2)) {
-      ans += adj[i];
+    bool[long] used;
+    foreach(real b; 3..61) {
+      for(real a = 2; a.pow(b) <= NR; a++) {
+        real x = a.pow(b);
+        auto xl = x.to!long;
+        
+        if (xl in used || isSquare(x)) {
+          used[xl] = true;
+          continue;
+        }
+
+        used[xl] = true;
+        ans++;
+      }
     }
 
     return ans;
