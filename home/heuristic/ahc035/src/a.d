@@ -29,7 +29,7 @@ void problem() {
 
     int power() {
       if (memoPower > 0) return memoPower;
-      return memoPower = A.map!"a ^^ 3".sum;
+      return memoPower = A.map!"a ^^ 2".sum;
     }
 
     int norm(Seed other) {
@@ -105,7 +105,7 @@ void problem() {
 
   foreach(t; 0..T) {
     Seed[] seeds = X.enumerate(0).map!(x => Seed(x[0], x[1])).array;
-    seeds.sort!"a.value > b.value";
+    seeds.sort!"a.power > b.power";
     auto sim = Sim(seeds);
     // auto simFunc = t % 2 == 1 ? &(sim.simulate2) : &(sim.simulate2);
     auto simFunc =&(sim.simulate3);
