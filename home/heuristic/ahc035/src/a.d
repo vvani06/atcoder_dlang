@@ -14,42 +14,42 @@ void problem() {
   int T = scan!int;
   int SN = 2 * N * (N - 1);
   int NN = N * N;
-  int[][] X = scan!int(SN * M).chunks(M).array;
+  long[][] X = scan!long(SN * M).chunks(M).array;
 
   struct Seed {
     int id;
-    int[] A;
+    long[] A;
 
-    int memoPower, memoValue;
+    long memoPower, memoValue;
 
-    int value() {
+    long value() {
       if (memoValue > 0) return memoValue;
       return memoValue = A.sum;
     }
 
-    int power() {
+    long power() {
       if (memoPower > 0) return memoPower;
-      return memoPower = A.map!"a ^^ 3".sum;
+      return memoPower = A.sum + A.map!"a ^^ 2".sum;
     }
 
-    int norm(Seed other) {
-      return zip(A, other.A).map!"(a[0] - a[1])^^2".sum;
+    long power2(long[] maxes) {
+      return  A.map!"a ^^ 3".sum;
     }
   }
 
   struct Sim {
     Seed[] seeds;
-    int basePower;
+    long basePower;
 
     this(Seed[] s) {
       seeds = s;
       basePower = s.map!"a.power".sum * 4;
     }
 
-    int simulate(ref int[] cropped) {
+    long simulate(ref int[] cropped) {
       auto grid = cropped.chunks(N).array;
 
-      int ret;
+      long ret;
       foreach(r; 0..N) foreach(c; 0..N) {
         auto base = &seeds[grid[r][c]];
 
@@ -65,10 +65,10 @@ void problem() {
       return ret;
     }
 
-    int simulate2(ref int[] cropped) {
+    long simulate2(ref int[] cropped) {
       auto grid = cropped.chunks(N).array;
 
-      int ret;
+      long ret;
       foreach(r; 0..N) foreach(c; 0..N) {
         auto base = &seeds[grid[r][c]];
 
@@ -84,62 +84,106 @@ void problem() {
       return ret;
     }
 
-    int simulate3(ref int[] cropped) {
+    long simulate3(ref int[] cropped) {
       auto grid = cropped.chunks(N).array;
 
-      int ret;
-
+      long ret;
       ret += seeds[grid[0][0]].power * 2;
       ret += seeds[grid[N - 1][0]].power * 2;
       ret += seeds[grid[0][N - 1]].power * 2;
       ret += seeds[grid[N - 1][N - 1]].power * 2;
-      
       foreach(n; 1..N - 1) {
         ret += seeds[grid[n][0]].power * 3;
         ret += seeds[grid[0][n]].power * 3;
         ret += seeds[grid[n][N - 1]].power * 3;
         ret += seeds[grid[N - 1][n]].power * 3;
       }
-
       foreach(r; 1..N - 1) foreach(c; 1..N - 1) {
         ret += seeds[grid[r][c]].power * 4;
       }
-
       return ret;
     }
 
-    int simulate4(ref int[] cropped) {
+    long simulate4(ref int[] cropped) {
       auto grid = cropped.chunks(N).array;
 
-      int sub;
+      long sub;
       sub += seeds[grid[0][0]].power * 2;
       sub += seeds[grid[N - 1][0]].power * 2;
       sub += seeds[grid[0][N - 1]].power * 2;
       sub += seeds[grid[N - 1][N - 1]].power * 2;
-      foreach(n; 1..N - 1) {
+      static foreach(n; 1..5) {
         sub += seeds[grid[n][0]].power;
         sub += seeds[grid[0][n]].power;
         sub += seeds[grid[n][N - 1]].power;
         sub += seeds[grid[N - 1][n]].power;
       }
-
       return basePower - sub;
+    }
+
+    long simulate5(ref int[] cropped, int rem) {
+      auto grid = cropped.chunks(N).array;
+
+      long sub;
+      sub += seeds[grid[0][0]].power * 2;
+      sub += seeds[grid[N - 1][0]].power * 2;
+      sub += seeds[grid[0][N - 1]].power * 2;
+      sub += seeds[grid[N - 1][N - 1]].power * 2;
+      static foreach(n; 1..5) {
+        sub += seeds[grid[n][0]].power;
+        sub += seeds[grid[0][n]].power;
+        sub += seeds[grid[n][N - 1]].power;
+        sub += seeds[grid[N - 1][n]].power;
+      }
+      return basePower - sub + simulate(cropped) * NN * 8 / rem;
     }
   }
 
-  foreach(t; 0..T) {
+  foreach(_t; 0..T) {
     Seed[] seeds = X.enumerate(0).map!(x => Seed(x[0], x[1])).array;
-    seeds.sort!"a.power > b.power";
+    {
+      auto maxes = M.iota.map!(i => seeds.map!(a => a.A[i]).maxElement).array;
+      seeds.sort!((a, b) => a.power2(maxes) > b.power2(maxes));
+      
+      auto tops = new int[][](SN, 0);
+      foreach(s; 0..SN) foreach(i; 0..M) {
+        if (seeds[s].A[i] == maxes[i]) tops[s] ~= i;
+      }
+
+      bool[] usedM = new bool[](M);
+      bool[] usedS = new bool[](SN);
+      while(usedM.canFind(false)) {
+        int maxi = -1;
+        int maxim = -1;
+        foreach(i; 0..SN) {
+          if (usedS[i]) continue;
+
+          auto l = tops[i].count!(m => !usedM[m]).to!int;
+          if (maxim.chmax(l)) maxi = i;
+        }
+
+        usedS[maxi] = true;
+        foreach(m; tops[maxi]) {
+          usedM[m] = true;
+        }
+      }
+      usedM.deb;
+      usedS.deb;
+
+      auto topSeeds = SN.iota.filter!(s => usedS[s]).map!(s => seeds[s]).array;
+      auto remSeeds = SN.iota.filter!(s => !usedS[s]).map!(s => seeds[s]).array;
+      seeds = topSeeds ~ remSeeds.array;
+    }
+
     auto sim = Sim(seeds);
-    // auto simFunc = t % 2 == 1 ? &(sim.simulate2) : &(sim.simulate2);
-    auto simFunc =&(sim.simulate4);
+    auto simFunc = &(sim.simulate5);
 
     // ランダムで初期解生成
-    int bestScore;
+    long bestScore;
     int[] bestArr;
-    foreach(_; 0..500_000) {
+    foreach(_; 0..150_000) {
       auto arr = NN.iota.array.randomShuffle(RND)[0..NN];
-      if (bestScore.chmax(simFunc(arr))) {
+      if (bestScore.chmax(simFunc(arr, 10 - _t))) {
         bestArr = arr.dup;
         // bestScore.deb;
       }
@@ -168,7 +212,7 @@ void problem() {
       writefln("%(%s %)", bestArr[r * N..r * N + N].map!(s => seeds[s].id));
     }
     stdout.flush();
-    X = scan!int(SN * M).chunks(M).array;
+    X = scan!long(SN * M).chunks(M).array;
   }
 }
 
