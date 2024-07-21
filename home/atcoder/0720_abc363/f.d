@@ -13,8 +13,26 @@ void problem() {
       return t.split('*').map!(x => x.to!long).fold!"a * b"(1L) == N;
     }
 
+    auto nums = "123456789".array;
+    auto numsMul = "123456789*".array;
+    foreach(_; 0..10^^6) {
+      auto size = uniform(1, 7);
+      
+      string t;
+      foreach(l; 0..size) {
+        if (l == 0 || l == size - 1 || t[$ - 1] == '*') {
+          t ~= nums.choice();
+        } else {
+          t ~= numsMul.choice();
+        }
+      }
+      
+      // t.deb;
+      if (eval(t)) return t ~ t.retro.to!string;
+      if (eval2(t)) return t[0..$ - 1] ~ t.retro.to!string;
+    }
 
-    return eval2("36");
+    return "-1";
   }
 
   outputForAtCoder(&solve);
