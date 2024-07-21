@@ -29,7 +29,7 @@ void problem() {
 
     int power() {
       if (memoPower > 0) return memoPower;
-      return memoPower = A.map!"a ^^ 2".sum;
+      return memoPower = A.map!"a ^^ 3".sum;
     }
 
     int norm(Seed other) {
@@ -39,6 +39,12 @@ void problem() {
 
   struct Sim {
     Seed[] seeds;
+    int basePower;
+
+    this(Seed[] s) {
+      seeds = s;
+      basePower = s.map!"a.power".sum * 4;
+    }
 
     int simulate(ref int[] cropped) {
       auto grid = cropped.chunks(N).array;
@@ -101,6 +107,24 @@ void problem() {
 
       return ret;
     }
+
+    int simulate4(ref int[] cropped) {
+      auto grid = cropped.chunks(N).array;
+
+      int sub;
+      sub += seeds[grid[0][0]].power * 2;
+      sub += seeds[grid[N - 1][0]].power * 2;
+      sub += seeds[grid[0][N - 1]].power * 2;
+      sub += seeds[grid[N - 1][N - 1]].power * 2;
+      foreach(n; 1..N - 1) {
+        sub += seeds[grid[n][0]].power;
+        sub += seeds[grid[0][n]].power;
+        sub += seeds[grid[n][N - 1]].power;
+        sub += seeds[grid[N - 1][n]].power;
+      }
+
+      return basePower - sub;
+    }
   }
 
   foreach(t; 0..T) {
@@ -108,12 +132,12 @@ void problem() {
     seeds.sort!"a.power > b.power";
     auto sim = Sim(seeds);
     // auto simFunc = t % 2 == 1 ? &(sim.simulate2) : &(sim.simulate2);
-    auto simFunc =&(sim.simulate3);
+    auto simFunc =&(sim.simulate4);
 
     // ランダムで初期解生成
     int bestScore;
     int[] bestArr;
-    foreach(_; 0..200_000) {
+    foreach(_; 0..500_000) {
       auto arr = NN.iota.array.randomShuffle(RND)[0..NN];
       if (bestScore.chmax(simFunc(arr))) {
         bestArr = arr.dup;
