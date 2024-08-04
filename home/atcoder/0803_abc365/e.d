@@ -10,6 +10,7 @@ void problem() {
       int bn = 2 ^^ bi;
       auto cns = A.map!(a => (a & bn) == bn).array;
 
+      // long[] memo = new long[](2);
       long[] memo = 0L.repeat(2).array;
       memo[cns[0]]++;
       foreach(c; cns[1..$]) {

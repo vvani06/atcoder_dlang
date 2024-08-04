@@ -7,7 +7,7 @@ import fswatch;
 void main()
 {
   auto build(string pg) {
-    auto status = wait(spawnShell("clear; echo BUILD "~pg~"; ldmd2 -debug -of/tmp/"~pg~"_out "~pg~".d", std.stdio.stdin, std.stdio.stdout));
+    auto status = wait(spawnShell("clear; echo BUILD "~pg~"; ldmd2 -O -debug -of/tmp/"~pg~"_out "~pg~".d", std.stdio.stdin, std.stdio.stdout));
     return status == 0 ? spawnProcess("/tmp/"~pg~"_out", File("input/"~pg), std.stdio.stdout) : null;
   }
   auto stop(ref Pid task) {
