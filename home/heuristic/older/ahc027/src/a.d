@@ -200,7 +200,7 @@ void problem() {
         // [1, newScore, score].deb;
 
         route.insertInPlace(index, to);
-        moves.replaceInPlace(index, index + 1, [moves1, moves2]);
+        moves.replace(index, index + 1, [moves1, moves2]);
         visited = newVisited;
         score = newScore;
       }
