@@ -6,28 +6,20 @@ void problem() {
   auto LRC = scan!int(Q * 3).chunks(3).array;
 
   auto solve() {
-    auto adds = new int[][](N + 1, 0);
-    auto subs = new int[][](N + 1, 0);
-    foreach(lrc; LRC) {
-      auto l = lrc[0] - 1;
-      auto r = lrc[1];
-      auto c = lrc[2];
+    auto xs = A.dup.sort;
 
-      adds[l] ~= c;
-      subs[r] ~= c;
+    foreach(bk; BK) {
+      int b = bk[0];
+      int k = bk[1];
+
+      bool isOk(int d) {
+        auto c = xs.upperBound(b - d).lowerBound(b + d).length;
+        return c < k;
+      }
+
+      auto ans = binarySearch(&isOk, 0, 10^^8 * 4);
+      ans.writeln;
     }
-
-    long ans;
-    auto cur = [int.max].redBlackTree!true;
-    foreach(i; 0..N) {
-      foreach(s; subs[i]) cur.removeKey(s);
-      foreach(a; adds[i]) cur.insert(a);
-
-      if (cur.front == int.max) return -1;
-      if (i > 0) ans += cur.front;
-    }
-
-    return ans + LRC.map!"a[2].to!long".sum;
   }
 
   outputForAtCoder(&solve);

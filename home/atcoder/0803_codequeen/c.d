@@ -2,32 +2,27 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto LRC = scan!int(Q * 3).chunks(3).array;
+  auto K = scan!int;
+  auto T = scan!int;
+  auto P = scan!long(N);
 
   auto solve() {
-    auto adds = new int[][](N + 1, 0);
-    auto subs = new int[][](N + 1, 0);
-    foreach(lrc; LRC) {
-      auto l = lrc[0] - 1;
-      auto r = lrc[1];
-      auto c = lrc[2];
+    auto acc = 0 ~ P.cumulativeFold!"a + b".array;
+    auto dp = new long[][](K + 1, N + 1);
+    foreach(ref d; dp) d[] = long.max / 3;
+    dp[0][0] = 0;
 
-      adds[l] ~= c;
-      subs[r] ~= c;
+    foreach(i; 0..N - T + 1) {
+      long add = acc[i + T] - acc[i];
+      foreach(k; 0..K) {
+        dp[k][i + 1].chmin(dp[k][i]);
+      }
+      foreach_reverse(k; 0..K) {
+        dp[k + 1][i + T].chmin(dp[k][i] + add);
+      }
     }
 
-    long ans;
-    auto cur = [int.max].redBlackTree!true;
-    foreach(i; 0..N) {
-      foreach(s; subs[i]) cur.removeKey(s);
-      foreach(a; adds[i]) cur.insert(a);
-
-      if (cur.front == int.max) return -1;
-      if (i > 0) ans += cur.front;
-    }
-
-    return ans + LRC.map!"a[2].to!long".sum;
+    return dp[K].minElement;
   }
 
   outputForAtCoder(&solve);
@@ -36,6 +31,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -44,7 +40,6 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
-size_t digitSize(T)(T t) { return t.to!string.length; }
 struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);

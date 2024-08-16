@@ -2,32 +2,62 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto M = scan!int;
+  auto TP = scan!int(2 * M).chunks(2);
   auto Q = scan!int;
-  auto LRC = scan!int(Q * 3).chunks(3).array;
+  auto AB = scan!int(2 * Q).chunks(2);
 
   auto solve() {
-    auto adds = new int[][](N + 1, 0);
-    auto subs = new int[][](N + 1, 0);
-    foreach(lrc; LRC) {
-      auto l = lrc[0] - 1;
-      auto r = lrc[1];
-      auto c = lrc[2];
+    auto lastIn = new int[](N + 1);
+    lastIn[] = int.max;
 
-      adds[l] ~= c;
-      subs[r] ~= c;
+    auto costs = new int[](N + 1);
+    foreach(ab; AB) costs[ab[0]]++;
+
+    auto rel = new int[][](N + 1, 0);
+    foreach(ab; AB) {
+      rel[ab[0]] ~= ab[1];
+      rel[ab[1]] ~= ab[0];
     }
 
-    long ans;
-    auto cur = [int.max].redBlackTree!true;
-    foreach(i; 0..N) {
-      foreach(s; subs[i]) cur.removeKey(s);
-      foreach(a; adds[i]) cur.insert(a);
+    auto base = new int[](0).redBlackTree;
+    foreach(cn; costs.enumerate(0).array.sort!"a[1] < b[1]") {
+      auto p = cn[0];
+      foreach(t; rel[p]) {
+        // if (t in base) continue;
 
-      if (cur.front == int.max) return -1;
-      if (i > 0) ans += cur.front;
+        base.insert(p);
+        break;
+      }
+    }
+    base.deb;
+
+    auto ans = new int[int][](N + 1);
+    foreach(ab; AB) ans[ab[0]][ab[1]] = 0;
+
+    foreach(tp; TP.array.sort!"a[0] < b[0]") {
+      int t = tp[0];
+      int p = tp[1];
+      bool entry = lastIn[p] == int.max;
+
+      if (entry) {
+        lastIn[p] = t;
+        continue;
+      }
+
+      if (p in base) {
+        foreach(q; rel[p]) {
+          if (lastIn[q] == int.max) continue;
+          
+          ans[min(p, q)][max(p, q)] += t - max(lastIn[p], lastIn[q]);
+        }
+      }
+      lastIn[p] = int.max;
     }
 
-    return ans + LRC.map!"a[2].to!long".sum;
+    foreach(ab; AB) {
+      ans[ab[0]][ab[1]].writeln;
+    }
   }
 
   outputForAtCoder(&solve);
@@ -35,7 +65,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
+import std, core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -44,7 +74,6 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
-size_t digitSize(T)(T t) { return t.to!string.length; }
 struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);
@@ -80,30 +109,50 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
+struct UnionFind {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
  
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
   }
  
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
   }
  
-  return ok;
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
 }

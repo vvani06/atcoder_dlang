@@ -2,32 +2,19 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto LRC = scan!int(Q * 3).chunks(3).array;
 
   auto solve() {
-    auto adds = new int[][](N + 1, 0);
-    auto subs = new int[][](N + 1, 0);
-    foreach(lrc; LRC) {
-      auto l = lrc[0] - 1;
-      auto r = lrc[1];
-      auto c = lrc[2];
-
-      adds[l] ~= c;
-      subs[r] ~= c;
+    auto times = [10, 15, 17];
+    if (times.canFind(N)) return N;
+    
+    int ans = N;
+    foreach(t; times) {
+      if (t >= ans) {
+        ans = t;
+        break;
+      }
     }
-
-    long ans;
-    auto cur = [int.max].redBlackTree!true;
-    foreach(i; 0..N) {
-      foreach(s; subs[i]) cur.removeKey(s);
-      foreach(a; adds[i]) cur.insert(a);
-
-      if (cur.front == int.max) return -1;
-      if (i > 0) ans += cur.front;
-    }
-
-    return ans + LRC.map!"a[2].to!long".sum;
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -44,7 +31,6 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
-size_t digitSize(T)(T t) { return t.to!string.length; }
 struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
 alias MInt1 = ModInt!(10^^9 + 7);
 alias MInt9 = ModInt!(998_244_353);
@@ -67,7 +53,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -79,31 +65,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}

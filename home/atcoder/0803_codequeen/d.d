@@ -2,32 +2,42 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto LRC = scan!int(Q * 3).chunks(3).array;
+  auto M = scan!int;
+  auto K = scan!int;
+  auto ABD = scan!int(3 * M).chunks(3);
+  auto CT = scan!int(2 * K).chunks(2);
 
   auto solve() {
-    auto adds = new int[][](N + 1, 0);
-    auto subs = new int[][](N + 1, 0);
-    foreach(lrc; LRC) {
-      auto l = lrc[0] - 1;
-      auto r = lrc[1];
-      auto c = lrc[2];
-
-      adds[l] ~= c;
-      subs[r] ~= c;
+    alias Cursor = Tuple!(int, "node", long, "time");
+    auto graph = new Cursor[][](N, 0);
+    foreach(abd; ABD) {
+      abd[0]--;
+      abd[1]--;
+      graph[abd[0]] ~= Cursor(abd[1], abd[2]);
+      graph[abd[1]] ~= Cursor(abd[0], abd[2]);
     }
 
-    long ans;
-    auto cur = [int.max].redBlackTree!true;
-    foreach(i; 0..N) {
-      foreach(s; subs[i]) cur.removeKey(s);
-      foreach(a; adds[i]) cur.insert(a);
+    enum INF = long.max / 3;
+    long[][] dist = new long[][](N, N);
+    foreach(from; 0..N) {
+      auto d = dist[from];
+      d[] = INF;
+      d[from] = 0;
+      for(auto queue = [Cursor(from, 0)].heapify!"a.time > b.time"; !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (d[cur.node] != cur.time) continue;
 
-      if (cur.front == int.max) return -1;
-      if (i > 0) ans += cur.front;
+        foreach(next; graph[cur.node]) {
+          auto t = cur.time + next.time;
+          if (d[next.node].chmin(t)) {
+            queue.insert(Cursor(next.node, t));
+          }
+        }
+      }
     }
 
-    return ans + LRC.map!"a[2].to!long".sum;
+    dist.deb;
   }
 
   outputForAtCoder(&solve);
