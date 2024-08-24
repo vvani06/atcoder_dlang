@@ -19,72 +19,6 @@ void problem() {
   int[] T = scan!int(TN);
   int[][] XY = scan!int(2 * N).chunks(2).array;
 
-  int[][] graph = new int[][](N, 0);
-  foreach(uv; UV) {
-    graph[uv[0]] ~= uv[1];
-    graph[uv[1]] ~= uv[0];
-  }
-
-  /* 最小全域木 */
-  graph = new int[][](N, 0);
-  long countValue(int[] uv) { return T.count(uv[0]) + T.count(uv[1]); }
-  UnionFind uf = UnionFind(N);
-  foreach(uv; UV.sort!((a, b) => countValue(a) > countValue(b))) {
-    if (uf.same(uv[0], uv[1])) continue;
-
-    uf.unite(uv[0], uv[1]);
-    graph[uv[0]] ~= uv[1];
-    graph[uv[1]] ~= uv[0];
-  }
-
-  int[][] nexts = new int[][](N, N);
-  foreach(to; 0..N) {
-    int[] froms = new int[](N);
-    froms[] = -1;
-    froms[to] = to;
-    for(auto queue = DList!int(to); !queue.empty;) {
-      auto cur = queue.front;
-      queue.removeFront;
-
-      foreach(next; graph[cur]) {
-        if (froms[next] != -1) continue;
-
-        queue.insertBack(next);
-        froms[next] = cur;
-      }
-      foreach(from; 0..N) {
-        nexts[from][to] = froms[from];
-      }
-    }
-  }
-
-  int[] route; {
-    int cur = 0;
-    foreach(t; T) {
-      while(cur != t) {
-        cur = nexts[cur][t];
-        route ~= cur;
-      }
-    }
-  }
-
-  // int[] routeCounts = new int[](N);
-  // foreach(r; route) routeCounts[r]++;
-  // {
-  //   route.length.deb;
-  //   int[][int] rcm;
-  //   foreach(i, c; routeCounts.enumerate(0)) rcm[c] ~= i;
-  //   int vsum;
-  //   foreach(k; rcm.keys.sort.reverse) {
-  //     vsum += k * rcm[k].length;
-  //     deb(k, " : ", vsum * 100 / route.length, " : ", rcm[k]);
-  //   }
-  // }
-
-  long[][] hashes = new long[][](LB + 1, route.length);
-  int[long][] hashCount = new int[long][](LB + 1);
-  int[long][] hashIndex = new int[long][](LB + 1);
-  
   struct HashValue {
     int count, length, index;
     long hash;
@@ -97,30 +31,89 @@ void problem() {
     }
   }
 
-  auto hashValueHeap = new HashValue[](0).heapify;
-  foreach(l; 1..LB + 1) {
-    foreach(i; 0..route.length) {
-      auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
-      long hash;
-      foreach(n; uniqueNodes) hash ^= n.hashOf(seed);
-      hashes[l][i] = hash;
-      hashCount[l][hash]++;
-      hashIndex[l].require(hash, i.to!int);
-    }
-    
-    foreach(hash; hashCount[l].keys) {
-      hashValueHeap.insert(HashValue(hashCount[l][hash], l, hashIndex[l][hash], hash));
+  struct Ans {
+    int score;
+    string output;
+
+    const int opCmp(const Ans other) {
+      return cmp(
+        [score, ],
+        [other.score, ]
+      );
     }
   }
 
-  {
-    int[long][] indiciesForSignalHash = new int[long][](LB + 1);
-    int[] signals; {
-      auto rbt = hashValueHeap.array.redBlackTree!"a > b";
+  class Simulator {
+    int[][] graph;
+
+    int[][] nexts;
+    int[] route;
+
+    this(int[][] g) {
+      graph = g.map!"a.dup".array;
+      nexts = new int[][](N, N);
+
+      foreach(to; 0..N) {
+        int[] froms = new int[](N);
+        froms[] = -1;
+        froms[to] = to;
+        for(auto queue = DList!int(to); !queue.empty;) {
+          auto cur = queue.front;
+          queue.removeFront;
+
+          foreach(next; graph[cur]) {
+            if (froms[next] != -1) continue;
+
+            queue.insertBack(next);
+            froms[next] = cur;
+          }
+          foreach(from; 0..N) {
+            nexts[from][to] = froms[from];
+          }
+        }
+      }
+
+      int cur = 0;
+      foreach(t; T) {
+        while(cur != t) {
+          cur = nexts[cur][t];
+          route ~= cur;
+        }
+      }
+    }
+
+    int[] signals;
+    int[long][] indiciesForSignalHash;
+    int[] indiciesForSignal;
+
+    void provisionSignal() {
+      indiciesForSignalHash = new int[long][](LB + 1);
+      indiciesForSignal = new int[](N);
+
+      long[][] hashes = new long[][](LB + 1, route.length);
+      int[long][] hashCount = new int[long][](LB + 1);
+      int[long][] hashIndex = new int[long][](LB + 1);
+      auto hashTree = new HashValue[](0).redBlackTree!"a > b";
+      
+      foreach(l; 1..LB + 1) {
+        foreach(i; 0..route.length) {
+          auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
+          long hash;
+          foreach(n; uniqueNodes) hash ^= n.hashOf(seed);
+          hashes[l][i] = hash;
+          hashCount[l][hash]++;
+          hashIndex[l].require(hash, i.to!int);
+        }
+        
+        foreach(hash; hashCount[l].keys) {
+          hashTree.insert(HashValue(hashCount[l][hash], l, hashIndex[l][hash], hash));
+        }
+      }
+
       while(true) {
         bool added;
         bool[] used = new bool[](N);
-        foreach(hv; rbt.array) {
+        foreach(hv; hashTree.array) {
           auto i = hv.index;
           auto l = hv.length;
           if (signals.length + l > LA) continue;
@@ -132,64 +125,89 @@ void problem() {
           indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
           signals ~= uniqueNodes.array;
           added = true;
-          rbt.removeKey(hv);
-          hv.deb;
+          hashTree.removeKey(hv);
         }
 
-        [[added]].deb;
         if (!added) break;
       }
+
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
+
+      indiciesForSignal[] = -1;
+      foreach(i, s; signals.enumerate(0)) {
+        if (indiciesForSignal[s] != -1) continue;
+
+        indiciesForSignal[s] = i;
+      }
     }
 
-    string ans;
-    signals.deb;
-    ans ~= format("%(%s %) \n", signals);
+    Ans simulate() {
+      provisionSignal();
 
-    int[] indiciesForSignal = new int[](N);
-    indiciesForSignal[] = -1;
-    foreach(i, s; signals.enumerate(0)) {
-      if (indiciesForSignal[s] != -1) continue;
+      int score;
+      string ans = format("%(%d %) \n", signals);
+      
+      int[] visitable = (-1).repeat(LB).array;
+      foreach(ti, t; route.enumerate(0)) {
+        if (!visitable.canFind(t)) {
+          auto rbt = new int[](0).redBlackTree;
+          int sigLeft = indiciesForSignal[t];
+          int sigSize = min(LA - sigLeft, LB);
+          long hash;
+          foreach(l; 1..LB + 1) {
+            int ri = ti + l - 1;
+            if (ri >= route.length) break;
 
-      indiciesForSignal[s] = i;
-    }
+            int rn = route[ri];
+            if (!(rn in rbt)) {
+              hash ^= rn.hashOf(seed);
+              rbt.insert(rn);
+            }
 
-    int[] visitable = (-1).repeat(LB).array;
-    foreach(ti, t; route.enumerate(0)) {
-      if (!visitable.canFind(t)) {
-        auto rbt = new int[](0).redBlackTree;
-        int sigLeft = indiciesForSignal[t];
-        int sigSize = min(LA - sigLeft, LB);
-        long hash;
-        foreach(l; 1..LB + 1) {
-          int ri = ti + l - 1;
-          if (ri >= route.length) break;
-
-          int rn = route[ri];
-          if (!(rn in rbt)) {
-            hash ^= rn.hashOf(seed);
-            rbt.insert(rn);
+            if (hash in indiciesForSignalHash[l]) {
+              sigLeft = indiciesForSignalHash[l][hash];
+              sigSize = l;
+            }
           }
 
-          if (hash in indiciesForSignalHash[l]) {
-            sigLeft = indiciesForSignalHash[l][hash];
-            sigSize = l;
-          }
+          [ti, t, sigLeft].deb;
+
+          ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
+          visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+          score++;
         }
 
-        [ti, t, sigLeft].deb;
-
-        ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
-        visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+        ans ~= format("m %d \n", t);
       }
-
-      ans ~= format("m %d \n", t);
+      return Ans(score, ans);
     }
-
-    ans.writeln;
   }
 
+  int[][] graphNormal = new int[][](N, 0);
+  foreach(uv; UV) {
+    graphNormal[uv[0]] ~= uv[1];
+    graphNormal[uv[1]] ~= uv[0];
+  }
+
+  int[][] graphMST = new int[][](N, 0); {
+    long countValue(int[] uv) { return T.count(uv[0]) + T.count(uv[1]); }
+    UnionFind uf = UnionFind(N);
+    foreach(uv; UV.sort!((a, b) => countValue(a) > countValue(b))) {
+      if (uf.same(uv[0], uv[1])) continue;
+
+      uf.unite(uv[0], uv[1]);
+      graphMST[uv[0]] ~= uv[1];
+      graphMST[uv[1]] ~= uv[0];
+    }
+  }
+  
+  auto ans = [
+    new Simulator(graphNormal).simulate(),
+    new Simulator(graphMST).simulate(),
+  ];
+
+  writeln(ans.minElement.output);
   "FIN".deb;
 }
 
