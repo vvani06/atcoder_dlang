@@ -7,7 +7,8 @@ void problem() {
   bool elapsed(int ms) { 
     return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
   }
-  auto RND = Xorshift(0);
+  auto seed = 983_741_243;
+  auto RND = Xorshift(seed);
 
   int N = scan!int;
   int M = scan!int;
@@ -23,6 +24,18 @@ void problem() {
     graph[uv[0]] ~= uv[1];
     graph[uv[1]] ~= uv[0];
   }
+
+  // /* 最小全域木 */
+  // graph = new int[][](N, 0);
+  // long countValue(int[] uv) { return T.count(uv[0]) + T.count(uv[1]); }
+  // UnionFind uf = UnionFind(N);
+  // foreach(uv; UV.sort!((a, b) => countValue(a) > countValue(b))) {
+  //   if (uf.same(uv[0], uv[1])) continue;
+
+  //   uf.unite(uv[0], uv[1]);
+  //   graph[uv[0]] ~= uv[1];
+  //   graph[uv[1]] ~= uv[0];
+  // }
 
   int[][] nexts = new int[][](N, N);
   foreach(to; 0..N) {
@@ -45,14 +58,59 @@ void problem() {
     }
   }
 
-  nexts[0].deb;
+  int[] route; {
+    int cur = 0;
+    foreach(t; T) {
+      while(cur != t) {
+        cur = nexts[cur][t];
+        route ~= cur;
+      }
+    }
+  }
+
+  // int[] routeCounts = new int[](N);
+  // foreach(r; route) routeCounts[r]++;
+  // {
+  //   route.length.deb;
+  //   int[][int] rcm;
+  //   foreach(i, c; routeCounts.enumerate(0)) rcm[c] ~= i;
+  //   int vsum;
+  //   foreach(k; rcm.keys.sort.reverse) {
+  //     vsum += k * rcm[k].length;
+  //     deb(k, " : ", vsum * 100 / route.length, " : ", rcm[k]);
+  //   }
+  // }
+
+  long[][] hashes = new long[][](LB + 1, route.length + 1);
+  foreach(l; 1..LB + 1) {
+
+  }
 
   {
     string ans;
-    auto signals = (N.iota.array.randomShuffle.array ~ N.iota.array.randomShuffle.array)[0..LA];
+    int[] signals = (N.iota.array.randomShuffle.array ~ N.iota.array.randomShuffle.array)[0..LA]; {
+      bool[] used = new bool[](N);
+      signals.length = 0;
+      int pre;
+      int[] toAdd;
+      foreach(r; route) {
+        if (!used[r]) {
+          toAdd ~= r;
+          used[r] = true;
+        } else {
+          signals ~= toAdd;
+          toAdd.length = 0;
+        }
+      }
+      signals ~= toAdd;
+      signals ~= 0.repeat(LA).array;
+      signals = signals[0..LA];
+      signals.deb;
+      signals.length.deb;
+    }
     ans ~= format("%(%s %) \n", signals);
 
-    auto indiciesForSignal = new int[](N);
+    int[] indiciesForSignal = new int[](N);
     indiciesForSignal[] = -1;
     foreach(i, s; signals.enumerate(0)) {
       if (indiciesForSignal[s] != -1) continue;
@@ -60,21 +118,16 @@ void problem() {
       indiciesForSignal[s] = i;
     }
 
-    int cur = 0;
     int[] visitable = (-1).repeat(LB).array;
-
-    foreach(t; T) {
-      while(cur != t) {
-        cur = nexts[cur][t];
-        if (!visitable.canFind(cur)) {
-          auto sigLeft = indiciesForSignal[cur];
-          auto sigSize = min(LA - sigLeft, LB);
-          ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
-          visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
-        }
-
-        ans ~= format("m %d \n", cur);
+    foreach(t; route) {
+      if (!visitable.canFind(t)) {
+        auto sigLeft = indiciesForSignal[t];
+        auto sigSize = min(LA - sigLeft, LB);
+        ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
+        visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
       }
+
+      ans ~= format("m %d \n", t);
     }
 
     ans.writeln;
@@ -115,3 +168,51 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct UnionFind {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+}
