@@ -149,6 +149,7 @@ void problem() {
       string ans = format("%(%d %) \n", signals);
       
       int[] visitable = (-1).repeat(LB).array;
+      int offsetB;
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
           auto rbt = new int[](0).redBlackTree;
@@ -173,8 +174,10 @@ void problem() {
 
           [ti, t, sigLeft].deb;
 
-          ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
-          visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+          auto offset = offsetB % 2 == 0 ? 0 : LB - sigSize;
+          ans ~= format("s %d %d %d \n", sigSize, sigLeft, offset);
+          offsetB++;
+          visitable[offset..offset + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
           score++;
         }
 
