@@ -25,17 +25,17 @@ void problem() {
     graph[uv[1]] ~= uv[0];
   }
 
-  // /* 最小全域木 */
-  // graph = new int[][](N, 0);
-  // long countValue(int[] uv) { return T.count(uv[0]) + T.count(uv[1]); }
-  // UnionFind uf = UnionFind(N);
-  // foreach(uv; UV.sort!((a, b) => countValue(a) > countValue(b))) {
-  //   if (uf.same(uv[0], uv[1])) continue;
+  /* 最小全域木 */
+  graph = new int[][](N, 0);
+  long countValue(int[] uv) { return T.count(uv[0]) + T.count(uv[1]); }
+  UnionFind uf = UnionFind(N);
+  foreach(uv; UV.sort!((a, b) => countValue(a) > countValue(b))) {
+    if (uf.same(uv[0], uv[1])) continue;
 
-  //   uf.unite(uv[0], uv[1]);
-  //   graph[uv[0]] ~= uv[1];
-  //   graph[uv[1]] ~= uv[0];
-  // }
+    uf.unite(uv[0], uv[1]);
+    graph[uv[0]] ~= uv[1];
+    graph[uv[1]] ~= uv[0];
+  }
 
   int[][] nexts = new int[][](N, N);
   foreach(to; 0..N) {
@@ -89,10 +89,10 @@ void problem() {
     int count, length, index;
     long hash;
 
-    int opCmp(HashValue other) {
+    const int opCmp(const HashValue other) {
       return cmp(
-        [count * length, length],
-        [other.count * other.length, other.length],
+        [count * length, length, hash],
+        [other.count * other.length, other.length, other.hash],
       );
     }
   }
@@ -116,16 +116,28 @@ void problem() {
   {
     int[long][] indiciesForSignalHash = new int[long][](LB + 1);
     int[] signals; {
-      bool[] used = new bool[](N);
-      foreach(hv; hashValueHeap) {
-        auto i = hv.index;
-        auto l = hv.length;
-        auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
-        if (uniqueNodes.any!(n => used[n])) continue;
+      auto rbt = hashValueHeap.array.redBlackTree!"a > b";
+      while(true) {
+        bool added;
+        bool[] used = new bool[](N);
+        foreach(hv; rbt.array) {
+          auto i = hv.index;
+          auto l = hv.length;
+          if (signals.length + l > LA) continue;
 
-        foreach(n; uniqueNodes) used[n] = true;
-        indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
-        signals ~= uniqueNodes.array;
+          auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
+          if (uniqueNodes.any!(n => used[n])) continue;
+
+          foreach(n; uniqueNodes) used[n] = true;
+          indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
+          signals ~= uniqueNodes.array;
+          added = true;
+          rbt.removeKey(hv);
+          hv.deb;
+        }
+
+        [[added]].deb;
+        if (!added) break;
       }
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
@@ -147,8 +159,8 @@ void problem() {
     foreach(ti, t; route.enumerate(0)) {
       if (!visitable.canFind(t)) {
         auto rbt = new int[](0).redBlackTree;
-        int sigLeft;
-        int sigSize;
+        int sigLeft = indiciesForSignal[t];
+        int sigSize = min(LA - sigLeft, LB);
         long hash;
         foreach(l; 1..LB + 1) {
           int ri = ti + l - 1;
@@ -166,11 +178,8 @@ void problem() {
           }
         }
 
-        if (sigSize == 0) {
-          sigLeft = indiciesForSignal[t];
-          sigSize = min(LA - sigLeft, LB);
-        }
-        
+        [ti, t, sigLeft].deb;
+
         ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
         visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
       }
