@@ -81,33 +81,58 @@ void problem() {
   //   }
   // }
 
-  long[][] hashes = new long[][](LB + 1, route.length + 1);
-  foreach(l; 1..LB + 1) {
+  long[][] hashes = new long[][](LB + 1, route.length);
+  int[long][] hashCount = new int[long][](LB + 1);
+  int[long][] hashIndex = new int[long][](LB + 1);
+  
+  struct HashValue {
+    int count, length, index;
+    long hash;
 
+    int opCmp(HashValue other) {
+      return cmp(
+        [count * length, length],
+        [other.count * other.length, other.length],
+      );
+    }
+  }
+
+  auto hashValueHeap = new HashValue[](0).heapify;
+  foreach(l; 1..LB + 1) {
+    foreach(i; 0..route.length) {
+      auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
+      long hash;
+      foreach(n; uniqueNodes) hash ^= n.hashOf(seed);
+      hashes[l][i] = hash;
+      hashCount[l][hash]++;
+      hashIndex[l].require(hash, i.to!int);
+    }
+    
+    foreach(hash; hashCount[l].keys) {
+      hashValueHeap.insert(HashValue(hashCount[l][hash], l, hashIndex[l][hash], hash));
+    }
   }
 
   {
-    string ans;
-    int[] signals = (N.iota.array.randomShuffle.array ~ N.iota.array.randomShuffle.array)[0..LA]; {
+    int[long][] indiciesForSignalHash = new int[long][](LB + 1);
+    int[] signals; {
       bool[] used = new bool[](N);
-      signals.length = 0;
-      int pre;
-      int[] toAdd;
-      foreach(r; route) {
-        if (!used[r]) {
-          toAdd ~= r;
-          used[r] = true;
-        } else {
-          signals ~= toAdd;
-          toAdd.length = 0;
-        }
+      foreach(hv; hashValueHeap) {
+        auto i = hv.index;
+        auto l = hv.length;
+        auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
+        if (uniqueNodes.any!(n => used[n])) continue;
+
+        foreach(n; uniqueNodes) used[n] = true;
+        indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
+        signals ~= uniqueNodes.array;
       }
-      signals ~= toAdd;
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
-      signals.deb;
-      signals.length.deb;
     }
+
+    string ans;
+    signals.deb;
     ans ~= format("%(%s %) \n", signals);
 
     int[] indiciesForSignal = new int[](N);
@@ -119,10 +144,33 @@ void problem() {
     }
 
     int[] visitable = (-1).repeat(LB).array;
-    foreach(t; route) {
+    foreach(ti, t; route.enumerate(0)) {
       if (!visitable.canFind(t)) {
-        auto sigLeft = indiciesForSignal[t];
-        auto sigSize = min(LA - sigLeft, LB);
+        auto rbt = new int[](0).redBlackTree;
+        int sigLeft;
+        int sigSize;
+        long hash;
+        foreach(l; 1..LB + 1) {
+          int ri = ti + l - 1;
+          if (ri >= route.length) break;
+
+          int rn = route[ri];
+          if (!(rn in rbt)) {
+            hash ^= rn.hashOf(seed);
+            rbt.insert(rn);
+          }
+
+          if (hash in indiciesForSignalHash[l]) {
+            sigLeft = indiciesForSignalHash[l][hash];
+            sigSize = l;
+          }
+        }
+
+        if (sigSize == 0) {
+          sigLeft = indiciesForSignal[t];
+          sigSize = min(LA - sigLeft, LB);
+        }
+        
         ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
         visitable[0..sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
       }
@@ -132,7 +180,6 @@ void problem() {
 
     ans.writeln;
   }
-
 
   "FIN".deb;
 }
