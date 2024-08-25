@@ -45,33 +45,45 @@ void problem() {
 
   final class Simulator {
     int[][] graph;
+    long[] nodeCosts;
 
     int[] route;
 
-    this(int[][] g) {
+    this(int[][] g, long[] costs) {
       graph = g.map!"a.dup".array;
+      nodeCosts = costs.dup;
 
       provisionRoute();
       provisionSignal();
     }
 
-    int[][] nexts;
     void provisionRoute() {
-      nexts = new int[][](N, N);
+      int[][] nexts = new int[][](N, N);
 
       foreach(to; 0..N) {
         int[] froms = new int[](N);
         froms[] = -1;
         froms[to] = to;
-        for(auto queue = DList!int(to); !queue.empty;) {
+
+        long[] costMemo = new long[](N);
+        costMemo[] = long.max / 3;
+        costMemo[to] = 0;
+
+        alias CostNode = Tuple!(int, "node", int, "from", long, "cost");
+
+        for(auto queue = [CostNode(to, to, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
           auto cur = queue.front;
           queue.removeFront;
+          if (cur.cost != costMemo[cur.node]) continue;
 
-          foreach(next; graph[cur]) {
+          froms[cur.node] = cur.from;
+          foreach(next; graph[cur.node]) {
             if (froms[next] != -1) continue;
 
-            queue.insertBack(next);
-            froms[next] = cur;
+            long cost = cur.cost + nodeCosts[next];
+            if (costMemo[next].chmin(cost)) {
+              queue.insert(CostNode(next, cur.node, cost));
+            }
           }
         }
         foreach(from; 0..N) {
@@ -176,8 +188,7 @@ void problem() {
             }
           }
 
-          [ti, t, sigLeft].deb;
-
+          // [ti, t, sigLeft].deb;
           auto offset = offsetB % 2 == 0 ? 0 : LB - sigSize;
           ans ~= format("s %d %d %d \n", sigSize, sigLeft, offset);
           offsetB++;
@@ -208,10 +219,34 @@ void problem() {
       graphMST[uv[1]] ~= uv[0];
     }
   }
+
+  long[] costsNormal = 1L.repeat(N).array;
+  long[] costsWeighted = (10L ^^ 15).repeat(N).array; {
+    // 訪問先から n 歩周囲のマスに対してコストを低減していく
+    foreach(t; T) {
+      bool[] visited = new bool[](N);
+      auto queue = [t].redBlackTree;
+      for(long x = 3; x <= 6; x++) {
+        auto nodes = queue.array;
+        queue.clear;
+        foreach(node; nodes) {
+          visited[node] = true;
+          costsWeighted[node] = (costsWeighted[node] * (x - 1)) / x;
+        
+          foreach(next; graphNormal[node]) {
+            if (visited[next]) continue;
+
+            queue.insert(next);
+          }
+        }
+      }
+    }
+  }
   
   auto ans = [
-    new Simulator(graphNormal).simulate(),
-    new Simulator(graphMST).simulate(),
+    new Simulator(graphNormal, costsNormal).simulate(),
+    new Simulator(graphNormal, costsWeighted).simulate(),
+    new Simulator(graphMST, costsNormal).simulate(),
   ];
 
   writeln(ans.minElement.output);
