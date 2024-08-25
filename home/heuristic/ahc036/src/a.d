@@ -23,10 +23,14 @@ void problem() {
     int count, length, index;
     long hash;
 
-    const int opCmp(const HashValue other) {
+    inout long[] cmpValues() {
+      return [count * length, count, length, hash];
+    }
+
+    inout int opCmp(inout HashValue other) {
       return cmp(
-        [count * length, length, hash],
-        [other.count * other.length, other.length, other.hash],
+        cmpValues(),
+        other.cmpValues(),
       );
     }
   }
@@ -163,7 +167,12 @@ void problem() {
     Ans simulate() {
       int score;
       string ans = format("%(%d %) \n", signals);
-      
+
+      int[][] accNodeCount = new int[][](N, LA + 1);
+      foreach(i, r; signals) foreach(n; 0..N) {
+        accNodeCount[n][i + 1] = accNodeCount[n][i] + (n == r ? 1 : 0);
+      }
+                  
       int[] visitable = (-1).repeat(LB).array;
       int offsetB;
       foreach(ti, t; route.enumerate(0)) {
@@ -186,6 +195,32 @@ void problem() {
               sigLeft = indiciesForSignalHash[l][hash];
               sigSize = l;
             }
+          }
+          
+          int best, bestIndex;
+          foreach(sl; 0..LA - LB) {
+            
+            int satisfied;
+            auto used = new int[](0).redBlackTree;
+            for(int ri = ti; satisfied < LB && ri < route.length; ri++) {
+              auto r = route[ri];
+              if (r in used) continue;
+              if (accNodeCount[r][sl + LB] - accNodeCount[r][sl] == 0) break;
+
+              used.insert(r);
+              satisfied++;
+            }
+            // foreach(r; route[ti..min($, ti + LB)]) {
+            //   if (accNodeCount[r][sl + LB] - accNodeCount[r][sl] == 0) break;
+            //   satisfied++;
+            // }
+
+            if (best.chmax(satisfied)) bestIndex = sl;
+          }
+
+          if (best > 0) {
+            sigLeft = bestIndex;
+            sigSize = LB;
           }
 
           // [ti, t, sigLeft].deb;
