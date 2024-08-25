@@ -24,7 +24,7 @@ void problem() {
     long hash;
 
     inout long[] cmpValues() {
-      return [count * length^^2, count, length, hash];
+      return [count * length^^5, count, length, hash];
     }
 
     inout int opCmp(inout HashValue other) {
