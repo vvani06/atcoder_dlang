@@ -24,7 +24,7 @@ void problem() {
     long hash;
 
     inout long[] cmpValues() {
-      return [count * length, count, length, hash];
+      return [count * length^^2, count, length, hash];
     }
 
     inout int opCmp(inout HashValue other) {
@@ -36,6 +36,7 @@ void problem() {
   }
 
   struct Ans {
+    string name;
     int score;
     string output;
 
@@ -48,12 +49,14 @@ void problem() {
   }
 
   final class Simulator {
+    string name;
     int[][] graph;
     long[] nodeCosts;
 
     int[] route;
 
-    this(int[][] g, long[] costs) {
+    this(string name, int[][] g, long[] costs) {
+      this.name = name;
       graph = g.map!"a.dup".array;
       nodeCosts = costs.dup;
 
@@ -177,29 +180,11 @@ void problem() {
       int offsetB;
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
-          auto rbt = new int[](0).redBlackTree;
-          int sigLeft = indiciesForSignal[t];
-          int sigSize = min(LA - sigLeft, LB);
-          long hash;
-          foreach(l; 1..LB + 1) {
-            int ri = ti + l - 1;
-            if (ri >= route.length) break;
+          int sigSize = LB;
+          int sigLeft;
+          int best;
 
-            int rn = route[ri];
-            if (!(rn in rbt)) {
-              hash ^= rn.hashOf(seed);
-              rbt.insert(rn);
-            }
-
-            if (hash in indiciesForSignalHash[l]) {
-              sigLeft = indiciesForSignalHash[l][hash];
-              sigSize = l;
-            }
-          }
-          
-          int best, bestIndex;
           foreach(sl; 0..LA - LB) {
-            
             int satisfied;
             auto used = new int[](0).redBlackTree;
             for(int ri = ti; satisfied < LB && ri < route.length; ri++) {
@@ -210,20 +195,10 @@ void problem() {
               used.insert(r);
               satisfied++;
             }
-            // foreach(r; route[ti..min($, ti + LB)]) {
-            //   if (accNodeCount[r][sl + LB] - accNodeCount[r][sl] == 0) break;
-            //   satisfied++;
-            // }
 
-            if (best.chmax(satisfied)) bestIndex = sl;
+            if (best.chmax(satisfied)) sigLeft = sl;
           }
 
-          if (best > 0) {
-            sigLeft = bestIndex;
-            sigSize = LB;
-          }
-
-          // [ti, t, sigLeft].deb;
           auto offset = offsetB % 2 == 0 ? 0 : LB - sigSize;
           ans ~= format("s %d %d %d \n", sigSize, sigLeft, offset);
           offsetB++;
@@ -233,7 +208,7 @@ void problem() {
 
         ans ~= format("m %d \n", t);
       }
-      return Ans(score, ans);
+      return Ans(name, score, ans);
     }
   }
 
@@ -279,13 +254,15 @@ void problem() {
   }
   
   auto ans = [
-    new Simulator(graphNormal, costsNormal).simulate(),
-    new Simulator(graphNormal, costsWeighted).simulate(),
-    new Simulator(graphMST, costsNormal).simulate(),
+    new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
+    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
+    new Simulator("MST Graph", graphMST, costsNormal).simulate(),
   ];
 
-  writeln(ans.minElement.output);
-  ans.minElement.score.deb;
+  auto best = ans.minElement;
+  writeln(best.output);
+  writefln("# %s", best.name);
+  best.score.deb;
 }
 
 // ----------------------------------------------
