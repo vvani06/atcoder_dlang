@@ -48,7 +48,12 @@ void problem() {
       nodeCosts = costs.dup;
 
       provisionRoute();
-      provisionSignal();
+
+      if (LA * (24 - LB) >= 14_000) {
+        provisionSignal2();
+      } else {
+        provisionSignal();
+      }
     }
 
     void provisionRoute() {
@@ -100,6 +105,7 @@ void problem() {
     HashValue[] insertedSignal;
 
     void provisionSignal() {
+      signals.length = 0;
       indiciesForSignalHash = new int[long][](LB + 1);
       indiciesForSignal = new int[](N);
 
@@ -148,8 +154,7 @@ void problem() {
         if (!added) break;
       }
 
-      hashTree.deb;
-
+      // hashTree.deb;
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
 
@@ -158,6 +163,65 @@ void problem() {
         if (indiciesForSignal[s] != -1) continue;
 
         indiciesForSignal[s] = i;
+      }
+    }
+
+    void provisionSignal2() {
+      bool[] covered = new bool[](route.length);
+      int[] efficientSignals;
+
+      while(efficientSignals.length < LA) {
+        int[long][] hashCount = new int[long][](LB + 1);
+        int[][long][] hashIndex = new int[][long][](LB + 1);
+
+        foreach(i; 0..route.length.to!int) {
+          if (covered[i]) continue;
+
+          long hash = route[i].hashOf(seed);
+          auto used = new int[](0).redBlackTree;
+
+          int l = 1;
+          foreach(x; i + 1..min(route.length.to!int, i + LB)) {
+            if (covered[x]) break;
+            l++;
+
+            int r = route[x];
+            if (r in used) continue;
+
+            hash ^= r.hashOf(seed);
+            hashCount[l][hash]++;
+            hashIndex[l][hash] ~= i;
+          }
+        }
+        
+        HashValue best;
+        foreach(l; 0..LB + 1) foreach(hash; hashCount[l].keys) {
+          best = max(best, HashValue(hashCount[l][hash], l, hashIndex[l][hash][0], hash));
+        }
+
+        if (best.length > 0) {
+          auto bestIndex = hashIndex[best.length][best.hash][0];
+          efficientSignals ~= route[bestIndex..bestIndex + best.length];
+          foreach(hi; hashIndex[best.length][best.hash]) foreach(i, node; route[hi..hi + best.length]) {
+            covered[hi + i] = true;
+          }
+        } else {
+          break;
+        }
+      }
+
+      auto requiredNodesBase = route.redBlackTree;
+      foreach(toRemove; 0..efficientSignals.length.to!int) {
+        auto requiredNodes = requiredNodesBase.dup;
+        foreach(node; efficientSignals[0..$ - toRemove]) {
+          requiredNodes.removeKey(node);
+        }
+
+        auto requireNodesArray = requiredNodes.array;
+        if (requireNodesArray.length + efficientSignals.length - toRemove <= LA) {
+          signals = (requireNodesArray ~ efficientSignals ~ 0.repeat(LA).array)[0..LA];
+          break;
+        }
       }
     }
 
@@ -194,7 +258,7 @@ void problem() {
           int sigLeft;
           int best;
 
-          foreach(sl; 0..LA - LB) {
+          foreach(sl; 0..LA - LB + 1) {
             int satisfied;
             auto used = new int[](0).redBlackTree;
             for(int ri = ti; satisfied < LB && ri < route.length; ri++) {
@@ -208,6 +272,8 @@ void problem() {
 
             if (best.chmax(satisfied)) sigLeft = sl;
           }
+
+          if (best == 0) assert("no satisfied signals");
 
           auto offset = offsetB % 2 == 0 ? 0 : LB - sigSize;
           ans ~= format("s %d %d %d \n", sigSize, sigLeft, offset);
@@ -276,7 +342,7 @@ void problem() {
   writefln("# %s", best.sim.name);
   best.score.deb;
   best.sim.signalUseCount.deb;
-  best.sim.insertedSignal.each!deb;
+  // best.sim.insertedSignal.each!deb;
 }
 
 // ----------------------------------------------
