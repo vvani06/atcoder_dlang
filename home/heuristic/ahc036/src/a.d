@@ -59,7 +59,6 @@ void problem() {
     void provisionRoute() {
       nexts = new int[][](N, N);
 
-      // 900ms per run
       foreach(to; 0..N) {
         int[] froms = new int[](N);
         froms[] = -1;
@@ -74,9 +73,9 @@ void problem() {
             queue.insertBack(next);
             froms[next] = cur;
           }
-          foreach(from; 0..N) {
-            nexts[from][to] = froms[from];
-          }
+        }
+        foreach(from; 0..N) {
+          nexts[from][to] = froms[from];
         }
       }
 
@@ -93,7 +92,6 @@ void problem() {
     int[long][] indiciesForSignalHash;
     int[] indiciesForSignal;
 
-    // 400ms per run
     void provisionSignal() {
       indiciesForSignalHash = new int[long][](LB + 1);
       indiciesForSignal = new int[](N);
