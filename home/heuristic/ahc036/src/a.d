@@ -35,19 +35,6 @@ void problem() {
     }
   }
 
-  struct Ans {
-    string name;
-    int score;
-    string output;
-
-    const int opCmp(const Ans other) {
-      return cmp(
-        [score, ],
-        [other.score, ]
-      );
-    }
-  }
-
   final class Simulator {
     string name;
     int[][] graph;
@@ -110,6 +97,7 @@ void problem() {
     int[] signals;
     int[long][] indiciesForSignalHash;
     int[] indiciesForSignal;
+    HashValue[] insertedSignal;
 
     void provisionSignal() {
       indiciesForSignalHash = new int[long][](LB + 1);
@@ -135,7 +123,7 @@ void problem() {
         }
       }
 
-      while(true) {
+      for(int turn; true; turn++) {
         bool added;
         bool[] used = new bool[](N);
         foreach(hv; hashTree.array) {
@@ -144,17 +132,23 @@ void problem() {
           if (signals.length + l > LA) continue;
 
           auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
-          if (uniqueNodes.any!(n => used[n])) continue;
+          if (uniqueNodes.any!(n => used[n])) {
+            if (l == 1) hashTree.removeKey(hv);
+            continue;
+          }
 
           foreach(n; uniqueNodes) used[n] = true;
           indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
           signals ~= uniqueNodes.array;
           added = true;
           hashTree.removeKey(hv);
+          insertedSignal ~= hv;
         }
 
         if (!added) break;
       }
+
+      hashTree.deb;
 
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
@@ -167,6 +161,20 @@ void problem() {
       }
     }
 
+    struct Ans {
+      Simulator sim;
+      int score;
+      string output;
+
+      const int opCmp(const Ans other) {
+        return cmp(
+          [score, ],
+          [other.score, ]
+        );
+      }
+    }
+
+    int[] signalUseCount;
     Ans simulate() {
       int score;
       string ans = format("%(%d %) \n", signals);
@@ -175,7 +183,9 @@ void problem() {
       foreach(i, r; signals) foreach(n; 0..N) {
         accNodeCount[n][i + 1] = accNodeCount[n][i] + (n == r ? 1 : 0);
       }
-                  
+
+      signalUseCount = new int[](LA);
+
       int[] visitable = (-1).repeat(LB).array;
       int offsetB;
       foreach(ti, t; route.enumerate(0)) {
@@ -204,11 +214,13 @@ void problem() {
           offsetB++;
           visitable[offset..offset + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
           score++;
+
+          foreach(si; sigLeft..sigLeft + sigSize) signalUseCount[si]++;
         }
 
         ans ~= format("m %d \n", t);
       }
-      return Ans(name, score, ans);
+      return Ans(this, score, ans);
     }
   }
 
@@ -261,8 +273,10 @@ void problem() {
 
   auto best = ans.minElement;
   writeln(best.output);
-  writefln("# %s", best.name);
+  writefln("# %s", best.sim.name);
   best.score.deb;
+  best.sim.signalUseCount.deb;
+  best.sim.insertedSignal.each!deb;
 }
 
 // ----------------------------------------------
