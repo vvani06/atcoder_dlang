@@ -43,16 +43,23 @@ void problem() {
     }
   }
 
-  class Simulator {
+  final class Simulator {
     int[][] graph;
 
-    int[][] nexts;
     int[] route;
 
     this(int[][] g) {
       graph = g.map!"a.dup".array;
+
+      provisionRoute();
+      provisionSignal();
+    }
+
+    int[][] nexts;
+    void provisionRoute() {
       nexts = new int[][](N, N);
 
+      // 900ms per run
       foreach(to; 0..N) {
         int[] froms = new int[](N);
         froms[] = -1;
@@ -86,6 +93,7 @@ void problem() {
     int[long][] indiciesForSignalHash;
     int[] indiciesForSignal;
 
+    // 400ms per run
     void provisionSignal() {
       indiciesForSignalHash = new int[long][](LB + 1);
       indiciesForSignal = new int[](N);
@@ -143,8 +151,6 @@ void problem() {
     }
 
     Ans simulate() {
-      provisionSignal();
-
       int score;
       string ans = format("%(%d %) \n", signals);
       
@@ -211,7 +217,7 @@ void problem() {
   ];
 
   writeln(ans.minElement.output);
-  "FIN".deb;
+  ans.minElement.score.deb;
 }
 
 // ----------------------------------------------
