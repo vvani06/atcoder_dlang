@@ -314,7 +314,7 @@ void problem() {
     foreach(t; T) {
       bool[] visited = new bool[](N);
       auto queue = [t].redBlackTree;
-      for(long x = 3; x <= 6; x++) {
+      for(long x = 5; x <= 6; x++) {
         auto nodes = queue.array;
         queue.clear;
         foreach(node; nodes) {
@@ -332,7 +332,7 @@ void problem() {
   }
   
   auto ans = [
-    new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
+    // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
     new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
     new Simulator("MST Graph", graphMST, costsNormal).simulate(),
   ];
