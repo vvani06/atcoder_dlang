@@ -356,45 +356,16 @@ void problem() {
   long[] costsNormal = 1L.repeat(N).array;
   long[][] allCosts = calcDistances(graphNormal, costsNormal);
   int[][] graphMST2 = new int[][](N, 0); {
-
-    int left = allCosts[0].maxIndex.to!int;
-    long maxDistance = allCosts[left].maxElement;
-
-    auto tTree = T.redBlackTree!true;
-    auto nodes = N.iota.redBlackTree;
-    int[] centers;
-    
     long bestDistSum = long.max;
     int center;
-    long border = maxDistance / 6;
-    foreach(_; 0..10) {
-      long bestCount;
-      int bestNode;
-      int[] tos = tTree.dup.array;
-      if (tos.length < 100) break;
-      
-      foreach(f; nodes.dup) {
-        if (bestCount.chmax(tos.count!(t => allCosts[f][t] <= border))) bestNode = f;
-      }
-
-      foreach(t; tos) {
-        if (allCosts[bestNode][t] <= border) {
-          tTree.removeKey(t);
-          nodes.removeKey(t);
-        }
-      }
-      centers ~= bestNode;
-    }
-
-    foreach(n; tTree) {
+    int[] centers;
+    foreach(n; T) {
       if (bestDistSum.chmin(T.map!(t => allCosts[n][t]).sum)) {
         center = n;
       }
     }
 
     centers ~= center;
-    centers.deb;
-
     UnionFind uf = UnionFind(N);
     bool[] visited = new bool[](N);
     for(auto queue = DList!int([center]); !queue.empty;) {
