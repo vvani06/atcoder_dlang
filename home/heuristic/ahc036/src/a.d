@@ -35,6 +35,45 @@ void problem() {
     }
   }
 
+  long[][] calcDistances(int[][] graph, long[] nodeCosts) {
+    long[][] ret = new long[][](N, N);
+    int[][] nexts = new int[][](N, N);
+
+    foreach(to; 0..N) {
+      int[] froms = new int[](N);
+      froms[] = -1;
+      froms[to] = to;
+
+      long[] costMemo = new long[](N);
+      costMemo[] = long.max / 3;
+      costMemo[to] = 0;
+
+      alias CostNode = Tuple!(int, "node", int, "from", long, "cost");
+
+      for(auto queue = [CostNode(to, to, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (cur.cost != costMemo[cur.node]) continue;
+
+        froms[cur.node] = cur.from;
+        foreach(next; graph[cur.node]) {
+          if (froms[next] != -1) continue;
+
+          long cost = cur.cost + nodeCosts[next];
+          if (costMemo[next].chmin(cost)) {
+            queue.insert(CostNode(next, cur.node, cost));
+          }
+        }
+      }
+      foreach(from; 0..N) {
+        nexts[from][to] = froms[from];
+        ret[from][to] = costMemo[from];
+      }
+    }
+
+    return ret;
+  }
+
   final class Simulator {
     string name;
     int[][] graph;
@@ -248,6 +287,11 @@ void problem() {
         accNodeCount[n][i + 1] = accNodeCount[n][i] + (n == r ? 1 : 0);
       }
 
+      int[][] startIndiciesPerSignal = new int[][](N, 0);
+      foreach(si, n; signals.enumerate(0)) foreach(i; max(0, si - LB + 1)..min(LA - LB + 1, si + 1)) {
+        startIndiciesPerSignal[n] ~= i;
+      }
+
       signalUseCount = new int[](LA);
 
       int[] visitable = (-1).repeat(LB).array;
@@ -258,7 +302,7 @@ void problem() {
           int sigLeft;
           int best;
 
-          foreach(sl; 0..LA - LB + 1) {
+          foreach(sl; startIndiciesPerSignal[t]) {
             int satisfied;
             auto used = new int[](0).redBlackTree;
             for(int ri = ti; satisfied < LB && ri < route.length; ri++) {
@@ -309,12 +353,43 @@ void problem() {
   }
 
   long[] costsNormal = 1L.repeat(N).array;
+  long[][] allCosts = calcDistances(graphNormal, costsNormal);
+  int[][] graphMST2 = new int[][](N, 0); {
+    long bestDistSum = long.max;
+    int center;
+    foreach(n; 0..N) {
+      if (bestDistSum.chmin(T.map!(t => allCosts[n][t]).sum)) {
+        center = n;
+      }
+    }
+
+    UnionFind uf = UnionFind(N);
+    bool[] visited = new bool[](N);
+    for(auto queue = DList!int(center); !queue.empty;) {
+      auto cur = queue.front();
+      queue.removeFront();
+      if (visited[cur]) continue;
+      visited[cur] = true;
+
+      foreach(next; graphNormal[cur]) {
+        if (visited[next]) continue;
+        
+        queue.insertBack(next);
+        if (!uf.same(cur, next)) {
+          uf.unite(cur, next);
+          graphMST2[cur] ~= next;
+          graphMST2[next] ~= cur;
+        }
+      }
+    }
+  }
+
   long[] costsWeighted = (10L ^^ 15).repeat(N).array; {
     // 訪問先から n 歩周囲のマスに対してコストを低減していく
     foreach(t; T) {
       bool[] visited = new bool[](N);
       auto queue = [t].redBlackTree;
-      for(long x = 5; x <= 6; x++) {
+      for(long x = 4; x <= 5; x++) {
         auto nodes = queue.array;
         queue.clear;
         foreach(node; nodes) {
@@ -330,11 +405,21 @@ void problem() {
       }
     }
   }
+
+
+  auto bitArray = BitArray();
+  foreach(i; 0..10^^5) bitArray ~= [false, true].choice;
+
+  // auto sim = new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted);
+  // foreach(t; 0..100) {
+  //   sim.simulate();
+  // }
   
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
     new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
     new Simulator("MST Graph", graphMST, costsNormal).simulate(),
+    new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
   ];
 
   auto best = ans.minElement;
