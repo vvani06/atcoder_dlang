@@ -140,15 +140,11 @@ void problem() {
     }
 
     int[] signals;
-    int[long][] indiciesForSignalHash;
-    int[] indiciesForSignal;
+    int[][] signalsArray;
     HashValue[] insertedSignal;
 
     void provisionSignal() {
       signals.length = 0;
-      indiciesForSignalHash = new int[long][](LB + 1);
-      indiciesForSignal = new int[](N);
-
       long[][] hashes = new long[][](LB + 1, route.length);
       int[long][] hashCount = new int[long][](LB + 1);
       int[long][] hashIndex = new int[long][](LB + 1);
@@ -184,8 +180,8 @@ void problem() {
           }
 
           foreach(n; uniqueNodes) used[n] = true;
-          indiciesForSignalHash[l][hv.hash] = signals.length.to!int;
           signals ~= uniqueNodes.array;
+          signalsArray ~= uniqueNodes.array;
           added = true;
           hashTree.removeKey(hv);
           insertedSignal ~= hv;
@@ -194,16 +190,8 @@ void problem() {
         if (!added) break;
       }
 
-      // hashTree.deb;
       signals ~= 0.repeat(LA).array;
       signals = signals[0..LA];
-
-      indiciesForSignal[] = -1;
-      foreach(i, s; signals.enumerate(0)) {
-        if (indiciesForSignal[s] != -1) continue;
-
-        indiciesForSignal[s] = i;
-      }
     }
 
     void provisionSignal2() {
@@ -408,15 +396,6 @@ void problem() {
       }
     }
   }
-
-
-  auto bitArray = BitArray();
-  foreach(i; 0..10^^5) bitArray ~= [false, true].choice;
-
-  // auto sim = new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted);
-  // foreach(t; 0..100) {
-  //   sim.simulate();
-  // }
   
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
