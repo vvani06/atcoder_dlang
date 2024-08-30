@@ -19,22 +19,6 @@ void problem() {
   int[] T = scan!int(TN);
   int[][] XY = scan!int(2 * N).chunks(2).array;
 
-  struct HashValue {
-    int count, length, index;
-    long hash;
-
-    inout long[] cmpValues() {
-      return [count * length^^5, count, length, hash];
-    }
-
-    inout int opCmp(inout HashValue other) {
-      return cmp(
-        cmpValues(),
-        other.cmpValues(),
-      );
-    }
-  }
-
   long[][] calcDistances(int[][] graph, long[] nodeCosts) {
     long[][] ret = new long[][](N, N);
     int[][] nexts = new int[][](N, N);
@@ -88,6 +72,8 @@ void problem() {
 
       provisionRoute();
       provisionSignal();
+
+      signals = (signals ~ 0.repeat(LA).array)[0..LA];
     }
 
     void provisionRoute() {
@@ -160,6 +146,8 @@ void problem() {
       foreach(kv; scorePerHash.byKeyValue.array.sort!"a.value > b.value") {
         BitArray duplicated = used & kv.key;
         if (duplicated.count > allowDuplicationSize) continue;
+        if (kv.key.count - duplicated.count == 0) continue;
+        if (kv.key.count > 1 && kv.key.count - duplicated.count < kv.key.count / 3) continue;
 
         allowDuplicationSize -= duplicated.count;
         used |= kv.key;
@@ -314,7 +302,7 @@ void problem() {
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
     new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
-    new Simulator("MST Graph", graphMST, costsNormal).simulate(),
+    // new Simulator("MST Graph", graphMST, costsNormal).simulate(),
     new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
   ];
 
