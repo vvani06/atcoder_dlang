@@ -87,13 +87,7 @@ void problem() {
       nodeCosts = costs.dup;
 
       provisionRoute();
-      // provisionSignal2();
-
-      if (LA * (24 - LB) >= 14_000) {
-        provisionSignal2();
-      } else {
-        provisionSignal();
-      }
+      provisionSignal();
     }
 
     void provisionRoute() {
@@ -140,116 +134,36 @@ void problem() {
     }
 
     int[] signals;
-    int[][] signalsArray;
-    HashValue[] insertedSignal;
-
     void provisionSignal() {
-      signals.length = 0;
-      long[][] hashes = new long[][](LB + 1, route.length);
-      int[long][] hashCount = new int[long][](LB + 1);
-      int[long][] hashIndex = new int[long][](LB + 1);
-      auto hashTree = new HashValue[](0).redBlackTree!"a > b";
-      
-      foreach(l; 1..LB + 1) {
-        foreach(i; 0..route.length) {
-          auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
-          long hash;
-          foreach(n; uniqueNodes) hash ^= n.hashOf(seed);
-          hashes[l][i] = hash;
-          hashCount[l][hash]++;
-          hashIndex[l].require(hash, i.to!int);
-        }
-        
-        foreach(hash; hashCount[l].keys) {
-          hashTree.insert(HashValue(hashCount[l][hash], l, hashIndex[l][hash], hash));
+      const long resolution = LB;
+      long[] sizes = iota(LB, 0, -1).map!(s => (s * resolution + resolution - 1) / resolution).array;
+
+      BitArray initBA = BitArray(false.repeat(N).array);
+      long[BitArray] scorePerHash;
+      foreach(size; sizes) {
+        foreach(i; iota(0, route.length.to!int - size, size)) {
+          BitArray ba = initBA.dup;
+          foreach(j; i..i + size) ba[route[j]] = true;
+          scorePerHash[ba] += size^^9;
         }
       }
 
-      for(int turn; true; turn++) {
-        bool added;
-        bool[] used = new bool[](N);
-        foreach(hv; hashTree.array) {
-          auto i = hv.index;
-          auto l = hv.length;
-          if (signals.length + l > LA) continue;
-
-          auto uniqueNodes = route[i..min($, i + l)].dup.sort.uniq;
-          if (uniqueNodes.any!(n => used[n])) {
-            if (l == 1) hashTree.removeKey(hv);
-            continue;
-          }
-
-          foreach(n; uniqueNodes) used[n] = true;
-          signals ~= uniqueNodes.array;
-          signalsArray ~= uniqueNodes.array;
-          added = true;
-          hashTree.removeKey(hv);
-          insertedSignal ~= hv;
-        }
-
-        if (!added) break;
+      int[] uniqueRoute = route.dup.sort.uniq.array;
+      foreach(r; uniqueRoute) {
+        BitArray ba = initBA.dup;
+        ba[r] = true;
+        scorePerHash[ba] = 1;
       }
 
-      signals ~= 0.repeat(LA).array;
-      signals = signals[0..LA];
-    }
+      BitArray used = initBA.dup;
+      int allowDuplicationSize = LA - uniqueRoute.length.to!int;
+      foreach(kv; scorePerHash.byKeyValue.array.sort!"a.value > b.value") {
+        BitArray duplicated = used & kv.key;
+        if (duplicated.count > allowDuplicationSize) continue;
 
-    void provisionSignal2() {
-      bool[] covered = new bool[](route.length);
-      int[] efficientSignals;
-
-      while(efficientSignals.length < LA) {
-        int[long][] hashCount = new int[long][](LB + 1);
-        int[][long][] hashIndex = new int[][long][](LB + 1);
-
-        foreach(i; 0..route.length.to!int) {
-          if (covered[i]) continue;
-
-          long hash = route[i].hashOf(seed);
-          auto used = new int[](0).redBlackTree;
-
-          int l = 1;
-          foreach(x; i + 1..min(route.length.to!int, i + LB)) {
-            if (covered[x]) break;
-            l++;
-
-            int r = route[x];
-            if (r in used) continue;
-
-            hash ^= r.hashOf(seed);
-            hashCount[l][hash]++;
-            hashIndex[l][hash] ~= i;
-          }
-        }
-        
-        HashValue best;
-        foreach(l; 0..LB + 1) foreach(hash; hashCount[l].keys) {
-          best = max(best, HashValue(hashCount[l][hash], l, hashIndex[l][hash][0], hash));
-        }
-
-        if (best.length > 0) {
-          auto bestIndex = hashIndex[best.length][best.hash][0];
-          efficientSignals ~= route[bestIndex..bestIndex + best.length];
-          foreach(hi; hashIndex[best.length][best.hash]) foreach(i, node; route[hi..hi + best.length]) {
-            covered[hi + i] = true;
-          }
-        } else {
-          break;
-        }
-      }
-
-      auto requiredNodesBase = route.redBlackTree;
-      foreach(toRemove; 0..efficientSignals.length.to!int) {
-        auto requiredNodes = requiredNodesBase.dup;
-        foreach(node; efficientSignals[0..$ - toRemove]) {
-          requiredNodes.removeKey(node);
-        }
-
-        auto requireNodesArray = requiredNodes.array;
-        if (requireNodesArray.length + efficientSignals.length - toRemove <= LA) {
-          signals = (requireNodesArray ~ efficientSignals ~ 0.repeat(LA).array)[0..LA];
-          break;
-        }
+        allowDuplicationSize -= duplicated.count;
+        used |= kv.key;
+        signals ~= N.iota.filter!(n => kv.key[n]).array;
       }
     }
 
