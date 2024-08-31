@@ -209,7 +209,6 @@ void problem() {
 
     int[] signalUseCount;
     Ans simulate() {
-      int score;
       string ans = format("%(%d %) \n", signals);
 
       int[][] accNodeCount = new int[][](N, LA + 1);
@@ -226,6 +225,7 @@ void problem() {
 
       int[] visitable = (-1).repeat(LB).array;
       int offsetB;
+      int score;
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
           int sigSize = LB;
@@ -264,85 +264,70 @@ void problem() {
     }
 
     Ans simulate2() {
-      int routeSize = route.length.to!int;
-
+      signalUseCount = new int[](LA);
       BitArray initBA = BitArray(false.repeat(N).array);
       BitArray[] signalsAsBitArray;
-      BitArray[][] signalsAsBitArrayFromFirst = new BitArray[][](N, 0);
-      foreach(i; 0..LA - LB) {
+      BitArray[][] signalsBitArrayBase = new BitArray[][](N, 0);
+      foreach(i; 0..LA - 1) {
         BitArray ba = initBA.dup;
-        foreach(j; i..i + LB) ba[signals[j]] = true;
+        foreach(s; signals[i..min($, i + LB)]) ba[s] = true;
 
         signalsAsBitArray ~= ba;
-        foreach(j; i..i + LB) signalsAsBitArrayFromFirst[signals[j]] ~= ba;
+        foreach(s; signals[i..min($, i + LB)]) signalsBitArrayBase[s] ~= ba;
       }
-      foreach(n; 0..N) signalsAsBitArrayFromFirst[n] = signalsAsBitArrayFromFirst[n].sort.uniq.array;
+      foreach(n; 0..N) signalsBitArrayBase[n] = signalsBitArrayBase[n].sort.uniq.array;
 
       int[BitArray] signalBitArrayIndex;
       foreach(i, ba; signalsAsBitArray.enumerate(0)) signalBitArrayIndex.require(ba, i);
+      
+      int routeSize = route.length.to!int;
+      alias Cursor = Tuple!(int, "index", int, "cost", int, "from", int, "signalIndex");
+      Cursor[] memo = (routeSize + 1).iota.map!(i => Cursor(i, int.max, -1, 0)).array;
+      memo[0] = Cursor(0, 0, 0, 0);
 
-      alias Signalize = Tuple!(int, "index", int, "size", int, "signalIndex");
-      auto signalHeap = new Signalize[](0).heapify!"a.size < b.size";
+      for(auto queue = [memo[0]].heapify!"a.cost > b.cost"; !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (cur.cost != memo[cur.index].cost) continue;
 
-      foreach(rl; 0..routeSize) {
-        BitArray cur = initBA.dup;
-        cur[route[rl]] = true;
-
-        int rr = rl;
-        while(signalsAsBitArrayFromFirst[route[rl]].any!(sba => (cur & sba) == cur)) {
-          auto sab = signalsAsBitArrayFromFirst[route[rl]][signalsAsBitArrayFromFirst[route[rl]].countUntil!(sba => (cur & sba) == cur)];
-          signalHeap.insert(Signalize(rl, rr - rl + 1, signalBitArrayIndex[sab]));
-          if (++rr >= routeSize) break;
-
-          cur[route[rr]] = true;
+        BitArray ba = initBA.dup;
+        int base = route[cur.index];
+        ba[base] = true;
+        auto signals = signalsBitArrayBase[base];
+        int to = cur.index + 1;
+        while(signals.any!(sba => (ba & sba) == ba)) {
+          if (memo[to].cost > cur.cost + 1) {
+            auto sba = signals[signals.countUntil!(sba => (ba & sba) == ba)];
+            memo[to] = Cursor(to, cur.cost + 1, cur.index, signalBitArrayIndex[sba]);
+            if (to < routeSize) queue.insert(memo[to]);
+          }
+          
+          if (to >= routeSize) break;
+          ba[route[to]] = true;
+          to++;
         }
       }
 
-      // BitArray cur = initBA.dup;
-      // int rl = 0;
-      // int[] nodeCount = new int[](N);
-      // for(int rr = 0; rr < routeSize; rr++) {
-      //   nodeCount[route[rr]]++;
-      //   cur[route[rr]] = true;
-
-      //   while(signalsAsBitArrayFromFirst[route[rl]].all!(sba => (cur & sba) != cur)) {
-      //     nodeCount[route[rl]]--;
-      //     if (nodeCount[route[rl]] == 0) cur[route[rl]] = false;
-      //     rl++;
-      //     if (rl > rr) continue;
-      //   }
-      //   if (rl > rr) continue;
-
-      //   auto sab = signalsAsBitArrayFromFirst[route[rl]][signalsAsBitArrayFromFirst[route[rl]].countUntil!(sba => (cur & sba) == cur)];
-      //   signalHeap.insert(Signalize(rl, rr - rl + 1, signalBitArrayIndex[sab]));
-      // }
+      // memo.map!(a => tuple(a.index, a.index == routeSize ? -1 : route[a.index], a.cost, a.from)).each!deb;
       
-      auto visited = new bool[](routeSize);
-      int added;
       int[] signalIndexPerRoute = (-1).repeat(routeSize).array;
-      foreach(signal; signalHeap) {
-        auto from = signal.index;
-        auto to = from + signal.size;
-        if (visited[from..to].canFind(true)) continue;
-
-        visited[from..to] = true;
-        signalIndexPerRoute[from] = signal.signalIndex;
-        // signal.deb;
-        added++;
+      int trail = routeSize;
+      while(memo[trail].from != trail) {
+        auto m = memo[trail];
+        trail = m.from;
+        signalIndexPerRoute[trail] = m.signalIndex;
       }
-
-      visited.count(false).deb;
 
       string ans = format("%(%d %) \n", signals);
       foreach(i; 0..routeSize) {
         if (signalIndexPerRoute[i] != -1) {
-          ans ~= format("s %d %d %d \n", LB, signalIndexPerRoute[i], 0);
+          auto size = min(LB, LA - signalIndexPerRoute[i]);
+          ans ~= format("s %d %d %d \n", size, signalIndexPerRoute[i], 0);
+          foreach(x; 0..size) signalUseCount[signalIndexPerRoute[i] + x]++;
         }
         ans ~= format("m %d \n", route[i]);
       }
-
-      [[added]].deb;
-      return Ans(this, added, ans);
+      return Ans(this, memo[routeSize].cost, ans);
     }
   }
 
@@ -420,11 +405,9 @@ void problem() {
     }
   }
 
-  // new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate2();
-
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
-    // new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
+    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate2(),
     // new Simulator("MST Graph", graphMST, costsNormal).simulate(),
     new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate2(),
   ];
