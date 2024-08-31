@@ -14,7 +14,6 @@ void problem() {
     long[] accB = [0];
     foreach(b; B) accB ~= accB[$ - 1] ^ b.hashOf(seed);
 
-    auto mod = uniform(1001, int.max);
     long[] accAS = [0];
     foreach(a; A) accAS ~= accAS[$ - 1] + a.hashOf(seed);
     long[] accBS = [0];

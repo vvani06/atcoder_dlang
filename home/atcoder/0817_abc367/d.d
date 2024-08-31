@@ -7,7 +7,7 @@ void problem() {
 
   auto solve() {
     int s;
-    auto counts = new int[](M + 1); {
+    auto counts = new int[](M); {
       foreach(a; A[0..N - 1]) {
         s += a;
         s %= M;
@@ -18,7 +18,8 @@ void problem() {
     A ~= A;
     long ans = counts[0];
     long sub;
-    foreach(i; N - 1..N * 2 - 1) {
+    counts.deb;     
+    foreach(i; N - 1..N * 2 - 2) {
       sub += A[i - N + 1];
       sub %= M;
       counts[sub]--;
@@ -27,7 +28,9 @@ void problem() {
       s %= M;
       counts[s]++;
 
-      ans += counts[(M - sub) % M];
+      deb([s, sub], counts);
+
+      ans += counts[sub];
     }
 
     return ans;

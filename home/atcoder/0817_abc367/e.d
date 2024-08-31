@@ -2,25 +2,29 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
+  auto K = scan!long;
+  auto X = scan!int(N);
   auto A = scan!int(N);
 
   auto solve() {
-    long ans;
-    foreach(bi; 0..30) {
-      int bn = 2 ^^ bi;
-      auto cns = A.map!(a => (a & bn) == bn).array;
-
-      // long[] memo = new long[](2);
-      long[] memo = 0L.repeat(2).array;
-      memo[cns[0]]++;
-      foreach(c; cns[1..$]) {
-        if (c) memo.swapAt(false, true);
-        ans += memo[true] * bn;
-        memo[c]++;
-      }
+    auto p = new int[][](60, N + 1);
+    p[0] = 0 ~ X.dup;
+    foreach(lv; 1..60) foreach(i; 1..N + 1) {
+      p[lv][i] = p[lv - 1][p[lv - 1][i]];
     }
 
-    return ans;
+    auto q = (N + 1).iota.array;
+    long k = K;
+    foreach(lv; 0..60) {
+      if (k % 2) {
+        foreach(i; 1..N + 1) {
+          q[i] = p[lv][q[i]];
+        }
+      }
+      k /= 2;
+    }
+
+    return q[1..$].map!(q => A[q - 1]);
   }
 
   outputForAtCoder(&solve);
