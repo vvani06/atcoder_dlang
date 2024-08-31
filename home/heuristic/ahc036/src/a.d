@@ -224,7 +224,6 @@ void problem() {
       signalUseCount = new int[](LA);
 
       int[] visitable = (-1).repeat(LB).array;
-      int offsetB;
       int score;
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
@@ -249,12 +248,9 @@ void problem() {
 
           if (best == 0) assert("no satisfied signals");
 
-          auto offset = offsetB % 2 == 0 ? 0 : LB - sigSize;
-          ans ~= format("s %d %d %d \n", sigSize, sigLeft, offset);
-          offsetB++;
-          visitable[offset..offset + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+          ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
+          visitable[0..0 + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
           score++;
-
           foreach(si; sigLeft..sigLeft + sigSize) signalUseCount[si]++;
         }
 
@@ -407,9 +403,9 @@ void problem() {
 
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
-    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate2(),
+    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
     // new Simulator("MST Graph", graphMST, costsNormal).simulate(),
-    new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate2(),
+    new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
   ];
 
   auto best = ans.minElement;
