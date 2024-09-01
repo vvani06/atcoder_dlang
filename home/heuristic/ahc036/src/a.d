@@ -256,10 +256,14 @@ void problem() {
         startIndiciesPerSignal[n] ~= i;
       }
 
+      int[] signalIndexPerNode = new int[](N);
+      foreach(si, n; signals.enumerate(0)) signalIndexPerNode[n] = si;
+
       signalUseCount = new int[](LA);
 
       int[] visitable = (-1).repeat(LB).array;
       int score;
+      int turn = 1;
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
           int sigSize = LB;
@@ -280,16 +284,44 @@ void problem() {
 
             if (best.chmax(satisfied)) sigLeft = sl;
           }
-
           if (best == 0) assert("no satisfied signals");
 
-          ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
-          visitable[0..0 + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+          int[int] uselessRange;
+          int pre = -100;
+          int con, partialSize, partialIndex;
+          foreach(bi; 0..LB) {
+            if (!route[ti..min($, ti + LB)].canFind(visitable[bi])) {
+              if (pre == bi - 1) {
+                con++;
+                if (partialSize.chmax(con + 1)) partialIndex = bi - con;
+                uselessRange[bi - con]++;
+              } else {
+                uselessRange[bi] = 1;
+                con = 0;
+              }
+              pre = bi;
+            }
+          }
+          deb([turn, t], [best, partialSize, partialIndex]);
+
+          if (best == 1 && best <= partialSize) {
+            sigLeft = signalIndexPerNode[t];
+            sigSize = best;
+            ans ~= format("s %d %d %d \n", sigSize, sigLeft, partialIndex);
+            visitable[partialIndex..partialIndex + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+            "partial apply".deb;
+          } else {
+            ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
+            visitable[0..0 + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
+          }
+
+          turn++;
           score++;
           foreach(si; sigLeft..sigLeft + sigSize) signalUseCount[si]++;
         }
 
         ans ~= format("m %d \n", t);
+        turn++;
       }
       return Ans(this, score, ans);
     }
@@ -307,7 +339,6 @@ void problem() {
         foreach(s; signals[i..min($, i + LB)]) signalsBitArrayBase[s] ~= ba;
       }
       foreach(n; 0..N) signalsBitArrayBase[n] = signalsBitArrayBase[n].sort.uniq.array;
-
       int[BitArray] signalBitArrayIndex;
       foreach(i, ba; signalsAsBitArray.enumerate(0)) signalBitArrayIndex.require(ba, i);
       
@@ -455,6 +486,7 @@ void problem() {
   }
 
   auto ans = [
+    // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
     new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
     new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
     new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
@@ -462,10 +494,12 @@ void problem() {
 
   auto best = ans.minElement;
   writeln(best.output);
+  debug {
+    best.sim.signalUseCount.chunks(20).each!(s => writefln("#%(% 4s%)", s));
+    best.score.deb;
+    best.sim.route.length.deb;
+  }
   writefln("# %s", best.sim.name);
-  best.score.deb;
-  best.sim.signalUseCount.deb;
-  // best.sim.insertedSignal.each!deb;
 }
 
 // ----------------------------------------------
@@ -475,7 +509,7 @@ import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
-void deb(T ...)(T t){ debug { write("#"); writeln(t); }}
+void deb(T ...)(T t){ debug { write("# "); writeln(t); }}
 // void deb(T ...)(T t){ debug {  }}
 T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
