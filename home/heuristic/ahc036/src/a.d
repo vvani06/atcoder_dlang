@@ -203,7 +203,7 @@ void problem() {
         int[] connected;
         if (sides.length >= 1) connected ~= signalsArray[sides[0]];
         connected ~= signalsArray[efficient];
-        if (sides.length == 2) connected ~= signalsArray[sides[1]];
+        if (sides.length >= 2) connected ~= signalsArray[sides[1]];
 
         signals ~= connected.dup;
         connectedSignals ~= connected;
@@ -236,11 +236,6 @@ void problem() {
       foreach(si, n; signals.enumerate(0)) foreach(i; max(0, si - LB + 1)..min(LA - LB + 1, si + 1)) {
         startIndiciesPerSignal[n] ~= i;
       }
-
-      int[] signalIndexPerNode = new int[](N);
-      foreach(si, n; signals.enumerate(0)) signalIndexPerNode[n] = si;
-
-      signalUseCount = new int[](LA);
 
       int[] visitable = (-1).repeat(LB).array;
       int score;
@@ -313,7 +308,6 @@ void problem() {
 
           turn++;
           score++;
-          foreach(si; sigLeft..sigLeft + sigSize) signalUseCount[si]++;
         }
 
         ans ~= format("m %d \n", t);
@@ -460,19 +454,21 @@ void problem() {
     ];
 
     auto best = ans.minElement;
-    while(!elapsed(2700)) {
+    int tryCount;
+    while(!elapsed(2500)) {
       best.chmin(best.sim.repeatSimulate(1));
+      tryCount++;
     }
 
+    tryCount.deb;
     writeln(best.output);
-    writefln("# %s", best.sim.name);
-    writefln("# %s", best.sim.route.length);
     debug {
-      best.sim.signalUseCount.chunks(20).each!(s => writefln("#%(% 4s%)", s));
       best.score.deb;
       best.sim.signalsArray.each!deb;
       // best.sim.aloneNodes.length.deb;
     }
+    writefln("# %s", best.sim.route.length);
+    writefln("# %s", best.sim.name);
   }
 }
 
