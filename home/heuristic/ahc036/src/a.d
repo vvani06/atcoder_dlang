@@ -151,16 +151,15 @@ void problem() {
       foreach(r; uniqueRoute) {
         BitArray ba = initBA.dup;
         ba[r] = true;
-        scorePerHash.require(ba, long.max);
+        scorePerHash[ba] = 1;
       }
 
       BitArray used = initBA.dup;
-      const div = LA >= 1100 && LB >= 10 ? 4 : 3;
       int allowDuplicationSize = LA - uniqueRoute.length.to!int;
       foreach(kv; scorePerHash.byKeyValue.array.sort!"a.value > b.value") {
         BitArray duplicated = used & kv.key;
         if (duplicated.count > allowDuplicationSize) continue;
-        if (kv.key.count - duplicated.count < kv.key.count / div) continue;
+        if (kv.key.count - duplicated.count < kv.key.count / 3) continue;
 
         allowDuplicationSize -= duplicated.count;
         used |= kv.key;
@@ -255,7 +254,11 @@ void problem() {
         startIndiciesPerSignal[n] ~= i;
       }
 
+      int[] signalIndexPerNode = new int[](N);
+      foreach(si, n; signals.enumerate(0)) signalIndexPerNode[n] = si;
+
       signalUseCount = new int[](LA);
+
       int[] visitable = (-1).repeat(LB).array;
       int score;
       int turn = 1;
@@ -334,6 +337,72 @@ void problem() {
         turn++;
       }
       return Ans(this, score, ans);
+    }
+
+    Ans simulate2() {
+      signalUseCount = new int[](LA);
+      BitArray initBA = BitArray(false.repeat(N).array);
+      BitArray[] signalsAsBitArray;
+      BitArray[][] signalsBitArrayBase = new BitArray[][](N, 0);
+      foreach(i; 0..LA - 1) {
+        BitArray ba = initBA.dup;
+        foreach(s; signals[i..min($, i + LB)]) ba[s] = true;
+
+        signalsAsBitArray ~= ba;
+        foreach(s; signals[i..min($, i + LB)]) signalsBitArrayBase[s] ~= ba;
+      }
+      foreach(n; 0..N) signalsBitArrayBase[n] = signalsBitArrayBase[n].sort.uniq.array;
+      int[BitArray] signalBitArrayIndex;
+      foreach(i, ba; signalsAsBitArray.enumerate(0)) signalBitArrayIndex.require(ba, i);
+      
+      int routeSize = route.length.to!int;
+      alias Cursor = Tuple!(int, "index", int, "cost", int, "from", int, "signalIndex");
+      Cursor[] memo = (routeSize + 1).iota.map!(i => Cursor(i, int.max, -1, 0)).array;
+      memo[0] = Cursor(0, 0, 0, 0);
+
+      for(auto queue = [memo[0]].heapify!"a.cost > b.cost"; !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (cur.cost != memo[cur.index].cost) continue;
+
+        BitArray ba = initBA.dup;
+        int base = route[cur.index];
+        ba[base] = true;
+        auto curSignals = signalsBitArrayBase[base];
+        int to = cur.index + 1;
+        while(curSignals.any!(sba => (ba & sba) == ba)) {
+          if (memo[to].cost > cur.cost + 1) {
+            auto sba = curSignals[curSignals.countUntil!(sba => (ba & sba) == ba)];
+            memo[to] = Cursor(to, cur.cost + 1, cur.index, signalBitArrayIndex[sba]);
+            if (to < routeSize) queue.insert(memo[to]);
+          }
+          
+          if (to >= routeSize) break;
+          ba[route[to]] = true;
+          to++;
+        }
+      }
+
+      // memo.map!(a => tuple(a.index, a.index == routeSize ? -1 : route[a.index], a.cost, a.from)).each!deb;
+      
+      int[] signalIndexPerRoute = (-1).repeat(routeSize).array;
+      int trail = routeSize;
+      while(memo[trail].from != trail) {
+        auto m = memo[trail];
+        trail = m.from;
+        signalIndexPerRoute[trail] = m.signalIndex;
+      }
+
+      string ans = format("%(%d %) \n", signals);
+      foreach(i; 0..routeSize) {
+        if (signalIndexPerRoute[i] != -1) {
+          auto size = min(LB, LA - signalIndexPerRoute[i]);
+          ans ~= format("s %d %d %d \n", size, signalIndexPerRoute[i], 0);
+          foreach(x; 0..size) signalUseCount[signalIndexPerRoute[i] + x]++;
+        }
+        ans ~= format("m %d \n", route[i]);
+      }
+      return Ans(this, memo[routeSize].cost, ans);
     }
   }
 
@@ -450,6 +519,7 @@ void problem() {
     }
     auto maxi = costsWeighted2.maxElement;
     foreach(i; 0..N) costsWeighted2[i] = maxi - costsWeighted2[i];
+    costsWeighted2.deb;
   }
 
   auto ans = [
