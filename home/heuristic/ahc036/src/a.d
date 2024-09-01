@@ -270,19 +270,23 @@ void problem() {
           int sigLeft;
           int best;
 
-          foreach(sl; startIndiciesPerSignal[t]) {
+          foreach(size; 1..LB + 1) foreach(sl; startIndiciesPerSignal[t]) {
             int satisfied;
             auto used = new int[](0).redBlackTree;
-            for(int ri = ti; satisfied < LB && ri < route.length; ri++) {
+            for(int ri = ti; satisfied < size && ri < route.length; ri++) {
               auto r = route[ri];
               if (r in used) continue;
-              if (accNodeCount[r][sl + LB] - accNodeCount[r][sl] == 0) break;
+              if (accNodeCount[r][sl + size] - accNodeCount[r][sl] == 0) break;
 
               used.insert(r);
               satisfied++;
             }
 
-            if (best.chmax(satisfied)) sigLeft = sl;
+            if (best < satisfied || (best == satisfied && sigSize > size)) {
+              sigLeft = sl;
+              sigSize = size;
+              best = satisfied;
+            }
           }
           if (best == 0) assert("no satisfied signals");
 
@@ -302,15 +306,26 @@ void problem() {
               pre = bi;
             }
           }
-          deb([turn, t], [best, partialSize, partialIndex]);
 
-          if (best == 1 && best <= partialSize) {
-            sigLeft = signalIndexPerNode[t];
-            sigSize = best;
+          foreach(kv; uselessRange.byKeyValue.array.sort!"a.value < b.value") {
+            auto index = kv.key;
+            auto size = kv.value;
+            if (size >= sigSize) {
+              partialIndex = index;
+              partialSize = size;
+              break;
+            }
+          }
+
+          deb([turn, t], [best, sigSize, sigLeft], [partialSize, partialIndex]);
+
+          if (sigSize <= partialSize) {
+            // sigSize = min(partialSize, LA - partialIndex);
             ans ~= format("s %d %d %d \n", sigSize, sigLeft, partialIndex);
             visitable[partialIndex..partialIndex + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
             "partial apply".deb;
           } else {
+            sigSize = min(LB, LA - sigLeft);
             ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
             visitable[0..0 + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
           }
