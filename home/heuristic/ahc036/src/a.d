@@ -124,6 +124,8 @@ void problem() {
 
     int[] signals;
     int[][] signalsArray;
+    int[] aloneNodes;
+
     void provisionSignal() {
       const long resolution = LB;
       long[] sizes = iota(LB, 0, -1).map!(s => (s * resolution + resolution - 1) / resolution).array;
@@ -151,7 +153,10 @@ void problem() {
       foreach(r; uniqueRoute) {
         BitArray ba = initBA.dup;
         ba[r] = true;
-        scorePerHash[ba] = 1;
+        if (!(ba in scorePerHash)) {
+          scorePerHash[ba] = 1;
+          aloneNodes ~= r;
+        }
       }
 
       BitArray used = initBA.dup;
@@ -170,9 +175,15 @@ void problem() {
     void sortSignals() {
       // signals = signalsArray.joiner.array;
       // return;
+
+      BitArray initBA = BitArray(false.repeat(N).array);
+      BitArray toBitArray(int[] sig) {
+        BitArray ba = initBA.dup;
+        foreach(s; sig) ba[s] = true;
+        return ba;
+      }
       
       long[BitArray] routesAsBitArray;
-      BitArray initBA = BitArray(false.repeat(N).array);
 
       foreach(size; [2].map!(s => (LB * s + 1) / 2).array) {
         foreach(i; iota(0, route.length.to!int - size, size)) {
@@ -184,47 +195,72 @@ void problem() {
 
       signalsArray.sort!"a.length < b.length";
       auto rbt = signalsArray.length.to!int.iota.redBlackTree;
+      auto alones = signalsArray.filter!"a.length == 1".joiner.redBlackTree;
 
-      for(int i = 1; i < signalsArray.length.to!int - 100; i++) {
-        signals ~= signalsArray[i];
-        rbt.removeKey(i);
-      }
-
-      BitArray toBitArray(int[] sig) {
-        BitArray ba = initBA.dup;
-        foreach(s; sig) ba[s] = true;
-        return ba;
-      }
-
-      BitArray[] preSet = new BitArray[](signalsArray.length);
-      BitArray[] sufSet = new BitArray[](signalsArray.length);
-      foreach(i, s; signalsArray) {
-        preSet[i] = toBitArray(s[0..($ + 1) / 2]);
-        sufSet[i] = toBitArray(s[$ / 2..$]);
-      }
-      
-      for(auto cur = 0; !rbt.empty;) {
-        rbt.removeKey(cur);
-        auto curSig = signalsArray[cur];
-        signals ~= curSig;
-
-        if (rbt.empty) break;
-
-        long bestScore = -1;
-        int bestNextIndex;
-        foreach(nextIndex; rbt) {
-          auto connected = sufSet[cur] | preSet[nextIndex];
-          long tryScore;
-          foreach(set, score; routesAsBitArray) {
-            if ((set & connected) != set) continue;
-             
-            tryScore += score^^2;
+      int removeAlone(int alone) {
+        alones.removeKey(alone);
+        foreach(i; 0..signalsArray.length.to!int) {
+          if (alone == signalsArray[i][0]) {
+            rbt.removeKey(i);
+            return i;
           }
-
-          if (bestScore.chmax(tryScore)) bestNextIndex = nextIndex;
         }
-        cur = bestNextIndex;
+
+        return -1;
       }
+
+      while(!rbt.empty) {
+        auto efficient = rbt.back;
+        rbt.removeBack;
+
+        int[] sides;
+        foreach(alone; alones.dup) {
+          if (graph[alone].any!(neighbor => signalsArray[efficient].canFind(neighbor))) {
+            sides ~= removeAlone(alone);
+            if (sides.length >= 2) break;
+          }
+        }
+
+        if (sides.length >= 1) signals ~= signalsArray[sides[0]];
+        signals ~= signalsArray[efficient];
+        if (sides.length == 2) signals ~= signalsArray[sides[1]];
+      }
+
+      return;
+      // for(int i = 1; i < signalsArray.length.to!int - 100; i++) {
+      //   signals ~= signalsArray[i];
+      //   rbt.removeKey(i);
+      // }
+
+      // BitArray[] preSet = new BitArray[](signalsArray.length);
+      // BitArray[] sufSet = new BitArray[](signalsArray.length);
+      // foreach(i, s; signalsArray) {
+      //   preSet[i] = toBitArray(s[0..($ + 1) / 2]);
+      //   sufSet[i] = toBitArray(s[$ / 2..$]);
+      // }
+      
+      // for(auto cur = 0; !rbt.empty;) {
+      //   rbt.removeKey(cur);
+      //   auto curSig = signalsArray[cur];
+      //   signals ~= curSig;
+
+      //   if (rbt.empty) break;
+
+      //   long bestScore = -1;
+      //   int bestNextIndex;
+      //   foreach(nextIndex; rbt) {
+      //     auto connected = sufSet[cur] | preSet[nextIndex];
+      //     long tryScore;
+      //     foreach(set, score; routesAsBitArray) {
+      //       if ((set & connected) != set) continue;
+             
+      //       tryScore += score^^2;
+      //     }
+
+      //     if (bestScore.chmax(tryScore)) bestNextIndex = nextIndex;
+      //   }
+      //   cur = bestNextIndex;
+      // }
     }
 
     struct Ans {
@@ -338,206 +374,143 @@ void problem() {
       }
       return Ans(this, score, ans);
     }
+  }
 
-    Ans simulate2() {
-      signalUseCount = new int[](LA);
-      BitArray initBA = BitArray(false.repeat(N).array);
-      BitArray[] signalsAsBitArray;
-      BitArray[][] signalsBitArrayBase = new BitArray[][](N, 0);
-      foreach(i; 0..LA - 1) {
-        BitArray ba = initBA.dup;
-        foreach(s; signals[i..min($, i + LB)]) ba[s] = true;
+  { // create ans
+    int[][] graphNormal = new int[][](N, 0);
+    foreach(uv; UV) {
+      graphNormal[uv[0]] ~= uv[1];
+      graphNormal[uv[1]] ~= uv[0];
+    }
 
-        signalsAsBitArray ~= ba;
-        foreach(s; signals[i..min($, i + LB)]) signalsBitArrayBase[s] ~= ba;
+    long[] costsNormal = 1L.repeat(N).array;
+    long[][] allCosts = calcDistances(graphNormal, costsNormal);
+    int[][] graphMST2 = new int[][](N, 0); {
+      long bestDistSum = long.max;
+      int center;
+      int[] centers;
+      foreach(n; T) {
+        if (bestDistSum.chmin(T.map!(t => allCosts[n][t]).sum)) {
+          center = n;
+        }
       }
-      foreach(n; 0..N) signalsBitArrayBase[n] = signalsBitArrayBase[n].sort.uniq.array;
-      int[BitArray] signalBitArrayIndex;
-      foreach(i, ba; signalsAsBitArray.enumerate(0)) signalBitArrayIndex.require(ba, i);
-      
-      int routeSize = route.length.to!int;
-      alias Cursor = Tuple!(int, "index", int, "cost", int, "from", int, "signalIndex");
-      Cursor[] memo = (routeSize + 1).iota.map!(i => Cursor(i, int.max, -1, 0)).array;
-      memo[0] = Cursor(0, 0, 0, 0);
 
-      for(auto queue = [memo[0]].heapify!"a.cost > b.cost"; !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront;
-        if (cur.cost != memo[cur.index].cost) continue;
+      centers ~= center;
+      UnionFind uf = UnionFind(N);
+      bool[] visited = new bool[](N);
+      for(auto queue = DList!int([center]); !queue.empty;) {
+        auto cur = queue.front();
+        queue.removeFront();
+        if (visited[cur]) continue;
+        visited[cur] = true;
 
-        BitArray ba = initBA.dup;
-        int base = route[cur.index];
-        ba[base] = true;
-        auto curSignals = signalsBitArrayBase[base];
-        int to = cur.index + 1;
-        while(curSignals.any!(sba => (ba & sba) == ba)) {
-          if (memo[to].cost > cur.cost + 1) {
-            auto sba = curSignals[curSignals.countUntil!(sba => (ba & sba) == ba)];
-            memo[to] = Cursor(to, cur.cost + 1, cur.index, signalBitArrayIndex[sba]);
-            if (to < routeSize) queue.insert(memo[to]);
-          }
+        foreach(next; graphNormal[cur]) {
+          if (visited[next]) continue;
           
-          if (to >= routeSize) break;
-          ba[route[to]] = true;
-          to++;
-        }
-      }
-
-      // memo.map!(a => tuple(a.index, a.index == routeSize ? -1 : route[a.index], a.cost, a.from)).each!deb;
-      
-      int[] signalIndexPerRoute = (-1).repeat(routeSize).array;
-      int trail = routeSize;
-      while(memo[trail].from != trail) {
-        auto m = memo[trail];
-        trail = m.from;
-        signalIndexPerRoute[trail] = m.signalIndex;
-      }
-
-      string ans = format("%(%d %) \n", signals);
-      foreach(i; 0..routeSize) {
-        if (signalIndexPerRoute[i] != -1) {
-          auto size = min(LB, LA - signalIndexPerRoute[i]);
-          ans ~= format("s %d %d %d \n", size, signalIndexPerRoute[i], 0);
-          foreach(x; 0..size) signalUseCount[signalIndexPerRoute[i] + x]++;
-        }
-        ans ~= format("m %d \n", route[i]);
-      }
-      return Ans(this, memo[routeSize].cost, ans);
-    }
-  }
-
-  int[][] graphNormal = new int[][](N, 0);
-  foreach(uv; UV) {
-    graphNormal[uv[0]] ~= uv[1];
-    graphNormal[uv[1]] ~= uv[0];
-  }
-
-  long[] costsNormal = 1L.repeat(N).array;
-  long[][] allCosts = calcDistances(graphNormal, costsNormal);
-  int[][] graphMST2 = new int[][](N, 0); {
-    long bestDistSum = long.max;
-    int center;
-    int[] centers;
-    foreach(n; T) {
-      if (bestDistSum.chmin(T.map!(t => allCosts[n][t]).sum)) {
-        center = n;
-      }
-    }
-
-    centers ~= center;
-    UnionFind uf = UnionFind(N);
-    bool[] visited = new bool[](N);
-    for(auto queue = DList!int([center]); !queue.empty;) {
-      auto cur = queue.front();
-      queue.removeFront();
-      if (visited[cur]) continue;
-      visited[cur] = true;
-
-      foreach(next; graphNormal[cur]) {
-        if (visited[next]) continue;
-        
-        queue.insertBack(next);
-        if (!uf.same(cur, next)) {
-          uf.unite(cur, next);
-          graphMST2[cur] ~= next;
-          graphMST2[next] ~= cur;
-        }
-      }
-    }
-  }
-
-  long[] costsWeighted = (10L ^^ 15).repeat(N).array; {
-    // 訪問先から n 歩周囲のマスに対してコストを低減していく
-    foreach(t; T) {
-      bool[] visited = new bool[](N);
-      auto queue = [t].redBlackTree;
-      for(long x = 4; x <= 5; x++) {
-        auto nodes = queue.array;
-        queue.clear;
-        foreach(node; nodes) {
-          visited[node] = true;
-          costsWeighted[node] = (costsWeighted[node] * (x - 1)) / x;
-        
-          foreach(next; graphNormal[node]) {
-            if (visited[next]) continue;
-
-            queue.insert(next);
+          queue.insertBack(next);
+          if (!uf.same(cur, next)) {
+            uf.unite(cur, next);
+            graphMST2[cur] ~= next;
+            graphMST2[next] ~= cur;
           }
         }
       }
     }
-  }
 
-  int[][] graphMST3 = new int[][](N, 0); {
-    long bestDistSum = long.max;
-    int[] centers;
-    foreach(c1; 0..N - 1) foreach(c2; c1 + 1..N) {
-      if (bestDistSum.chmin(T.map!(t => min(allCosts[c1][t], allCosts[c2][t])).sum)) {
-        centers = [c1, c2];
-      }
-    }
+    long[] costsWeighted = (10L ^^ 15).repeat(N).array; {
+      // 訪問先から n 歩周囲のマスに対してコストを低減していく
+      foreach(t; T) {
+        bool[] visited = new bool[](N);
+        auto queue = [t].redBlackTree;
+        for(long x = 4; x <= 5; x++) {
+          auto nodes = queue.array;
+          queue.clear;
+          foreach(node; nodes) {
+            visited[node] = true;
+            costsWeighted[node] = (costsWeighted[node] * (x - 1)) / x;
+          
+            foreach(next; graphNormal[node]) {
+              if (visited[next]) continue;
 
-    UnionFind uf = UnionFind(N);
-    bool[] visited = new bool[](N);
-    for(auto queue = DList!int(centers); !queue.empty;) {
-      auto cur = queue.front();
-      queue.removeFront();
-      if (visited[cur]) continue;
-      visited[cur] = true;
-
-      foreach(next; graphNormal[cur]) {
-        if (visited[next]) continue;
-        
-        queue.insertBack(next);
-        if (!uf.same(cur, next)) {
-          uf.unite(cur, next);
-          graphMST3[cur] ~= next;
-          graphMST3[next] ~= cur;
-        }
-      }
-    }
-  }
-
-  long[] costsWeighted2 = new long[](N); {
-    foreach(t; T) {
-      bool[] visited = new bool[](N);
-      auto queue = [t].redBlackTree;
-      for(long x = 4; x >= 1; x--) {
-        auto nodes = queue.array;
-        queue.clear;
-        foreach(node; nodes) {
-          visited[node] = true;
-          costsWeighted2[node] += x ^^ 2;
-        
-          foreach(next; graphNormal[node]) {
-            if (visited[next]) continue;
-
-            queue.insert(next);
+              queue.insert(next);
+            }
           }
         }
       }
     }
-    auto maxi = costsWeighted2.maxElement;
-    foreach(i; 0..N) costsWeighted2[i] = maxi - costsWeighted2[i];
-    costsWeighted2.deb;
-  }
 
-  auto ans = [
-    // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
-    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted2).simulate(),
-    new Simulator("Normal Graph + Exponential Weighted Cost", graphNormal, costsWeighted).simulate(),
-    new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
-    new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
-  ];
+    int[][] graphMST3 = new int[][](N, 0); {
+      long bestDistSum = long.max;
+      int[] centers;
+      foreach(c1; 0..N - 1) foreach(c2; c1 + 1..N) {
+        if (bestDistSum.chmin(T.map!(t => min(allCosts[c1][t], allCosts[c2][t])).sum)) {
+          centers = [c1, c2];
+        }
+      }
 
-  auto best = ans.minElement;
-  writeln(best.output);
-  debug {
-    best.sim.signalUseCount.chunks(20).each!(s => writefln("#%(% 4s%)", s));
-    best.score.deb;
-    best.sim.route.length.deb;
+      UnionFind uf = UnionFind(N);
+      bool[] visited = new bool[](N);
+      for(auto queue = DList!int(centers); !queue.empty;) {
+        auto cur = queue.front();
+        queue.removeFront();
+        if (visited[cur]) continue;
+        visited[cur] = true;
+
+        foreach(next; graphNormal[cur]) {
+          if (visited[next]) continue;
+          
+          queue.insertBack(next);
+          if (!uf.same(cur, next)) {
+            uf.unite(cur, next);
+            graphMST3[cur] ~= next;
+            graphMST3[next] ~= cur;
+          }
+        }
+      }
+    }
+
+    long[] costsWeighted2 = new long[](N); {
+      foreach(t; T) {
+        bool[] visited = new bool[](N);
+        auto queue = [t].redBlackTree;
+        for(long x = 4; x >= 1; x--) {
+          auto nodes = queue.array;
+          queue.clear;
+          foreach(node; nodes) {
+            visited[node] = true;
+            costsWeighted2[node] += x ^^ 2;
+          
+            foreach(next; graphNormal[node]) {
+              if (visited[next]) continue;
+
+              queue.insert(next);
+            }
+          }
+        }
+      }
+      auto maxi = costsWeighted2.maxElement;
+      foreach(i; 0..N) costsWeighted2[i] = maxi - costsWeighted2[i];
+    }
+
+    auto ans = [
+      // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
+      new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted2).simulate(),
+      new Simulator("Normal Graph + Exponential Weighted Cost", graphNormal, costsWeighted).simulate(),
+      new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
+      new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
+    ];
+
+    auto best = ans.minElement;
+    writeln(best.output);
+    writefln("# %s", best.sim.name);
+    writefln("# %s", best.sim.route.length);
+    debug {
+      best.sim.signalUseCount.chunks(20).each!(s => writefln("#%(% 4s%)", s));
+      best.score.deb;
+      best.sim.signalsArray.each!deb;
+      // best.sim.aloneNodes.length.deb;
+    }
   }
-  writefln("# %s", best.sim.name);
 }
 
 // ----------------------------------------------
