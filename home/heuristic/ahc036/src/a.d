@@ -138,7 +138,6 @@ void problem() {
         }
       }
 
-
       int[] uniqueRoute; {
         bool[] used = new bool[](N);
         foreach(r; route) {
@@ -160,7 +159,6 @@ void problem() {
       foreach(kv; scorePerHash.byKeyValue.array.sort!"a.value > b.value") {
         BitArray duplicated = used & kv.key;
         if (duplicated.count > allowDuplicationSize) continue;
-        if (kv.key.count - duplicated.count == 0) continue;
         if (kv.key.count - duplicated.count < kv.key.count / 3) continue;
 
         allowDuplicationSize -= duplicated.count;
@@ -283,47 +281,47 @@ void problem() {
             }
 
             if (best < satisfied || (best == satisfied && sigSize > size)) {
+              best = satisfied;
               sigLeft = sl;
               sigSize = size;
-              best = satisfied;
             }
           }
-          if (best == 0) assert("no satisfied signals");
 
-          int[int] uselessRange;
-          int pre = -100;
-          int con, partialSize, partialIndex;
-          foreach(bi; 0..LB) {
-            if (!route[ti..min($, ti + LB)].canFind(visitable[bi])) {
-              if (pre == bi - 1) {
-                con++;
-                if (partialSize.chmax(con + 1)) partialIndex = bi - con;
-                uselessRange[bi - con]++;
-              } else {
-                uselessRange[bi] = 1;
-                con = 0;
+          int[int] uselessRange; {
+            int pre = -100;
+            int con;
+            foreach(bi; 0..LB) {
+              if (!route[ti..min($, ti + LB)].canFind(visitable[bi])) {
+                if (pre == bi - 1) {
+                  con++;
+                  uselessRange[bi - con]++;
+                } else {
+                  uselessRange[bi] = 1;
+                  con = 0;
+                }
+                pre = bi;
               }
-              pre = bi;
             }
           }
 
-          foreach(kv; uselessRange.byKeyValue.array.sort!"a.value < b.value") {
-            auto index = kv.key;
-            auto size = kv.value;
-            if (size >= sigSize) {
-              partialIndex = index;
-              partialSize = size;
-              break;
+          int partialSize, partialIndex; {
+            foreach(kv; uselessRange.byKeyValue.array.sort!"a.value < b.value") {
+              auto index = kv.key;
+              auto size = kv.value;
+              if (size >= sigSize) {
+                partialIndex = index;
+                partialSize = size;
+                break;
+              }
             }
           }
 
-          deb([turn, t], [best, sigSize, sigLeft], [partialSize, partialIndex]);
+          // deb([turn, t], [best, sigSize, sigLeft], [partialSize, partialIndex]);
 
           if (sigSize <= partialSize) {
             // sigSize = min(partialSize, LA - partialIndex);
             ans ~= format("s %d %d %d \n", sigSize, sigLeft, partialIndex);
             visitable[partialIndex..partialIndex + sigSize] = signals[sigLeft..sigLeft + sigSize].dup;
-            "partial apply".deb;
           } else {
             sigSize = min(LB, LA - sigLeft);
             ans ~= format("s %d %d %d \n", sigSize, sigLeft, 0);
@@ -500,9 +498,34 @@ void problem() {
     }
   }
 
+  long[] costsWeighted2 = new long[](N); {
+    foreach(t; T) {
+      bool[] visited = new bool[](N);
+      auto queue = [t].redBlackTree;
+      for(long x = 4; x >= 1; x--) {
+        auto nodes = queue.array;
+        queue.clear;
+        foreach(node; nodes) {
+          visited[node] = true;
+          costsWeighted2[node] += x ^^ 2;
+        
+          foreach(next; graphNormal[node]) {
+            if (visited[next]) continue;
+
+            queue.insert(next);
+          }
+        }
+      }
+    }
+    auto maxi = costsWeighted2.maxElement;
+    foreach(i; 0..N) costsWeighted2[i] = maxi - costsWeighted2[i];
+    costsWeighted2.deb;
+  }
+
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
-    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
+    new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted2).simulate(),
+    new Simulator("Normal Graph + Exponential Weighted Cost", graphNormal, costsWeighted).simulate(),
     new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
     new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
   ];
