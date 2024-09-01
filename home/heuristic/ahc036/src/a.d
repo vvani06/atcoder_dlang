@@ -240,6 +240,19 @@ void problem() {
       int[] visitable = (-1).repeat(LB).array;
       int score;
       int turn = 1;
+
+      int[] befores = new int[](route.length); {
+        befores[] = 100_000;
+        int[int] bef;
+
+        foreach(i, r; route.enumerate(0)) {
+          if (r in bef) {
+            befores[i] = i - bef[r];
+          }
+          bef[r] = i;
+        }
+      }
+
       foreach(ti, t; route.enumerate(0)) {
         if (!visitable.canFind(t)) {
           int sigSize = LB;
@@ -248,13 +261,11 @@ void problem() {
 
           foreach(size; 1..LB + 1) foreach(sl; startIndiciesPerSignal[t]) {
             int satisfied;
-            auto used = new int[](0).redBlackTree;
             for(int ri = ti; satisfied < size && ri < route.length; ri++) {
               auto r = route[ri];
-              if (r in used) continue;
+              if (befores[ri] <= ri - ti) continue;
               if (accNodeCount[r][sl + size] - accNodeCount[r][sl] == 0) break;
 
-              used.insert(r);
               satisfied++;
             }
 
@@ -455,7 +466,7 @@ void problem() {
 
     auto best = ans.minElement;
     int tryCount;
-    while(!elapsed(2500)) {
+    while(!elapsed(2650)) {
       best.chmin(best.sim.repeatSimulate(1));
       tryCount++;
     }
