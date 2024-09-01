@@ -172,6 +172,7 @@ void problem() {
       }
     }
 
+    int[][] connectedSignals;
     void sortSignals() {
       BitArray initBA = BitArray(false.repeat(N).array);
       BitArray toBitArray(int[] sig) {
@@ -199,9 +200,13 @@ void problem() {
           if (sides.length >= 2) break;
         }
 
-        if (sides.length >= 1) signals ~= signalsArray[sides[0]];
-        signals ~= signalsArray[efficient];
-        if (sides.length == 2) signals ~= signalsArray[sides[1]];
+        int[] connected;
+        if (sides.length >= 1) connected ~= signalsArray[sides[0]];
+        connected ~= signalsArray[efficient];
+        if (sides.length == 2) connected ~= signalsArray[sides[1]];
+
+        signals ~= connected.dup;
+        connectedSignals ~= connected;
       }
     }
 
@@ -315,6 +320,18 @@ void problem() {
         turn++;
       }
       return Ans(this, score, ans);
+    }
+
+    Ans repeatSimulate(int tryCount) {
+      Ans best;
+
+      foreach(_; 0..tryCount) {
+        signals = connectedSignals.randomShuffle(RND).joiner.array;
+        auto ans = simulate();
+
+        if (best.chmax(ans)) {}
+      }
+      return best;
     }
   }
 
@@ -443,6 +460,10 @@ void problem() {
     ];
 
     auto best = ans.minElement;
+    while(!elapsed(2700)) {
+      best.chmin(best.sim.repeatSimulate(1));
+    }
+
     writeln(best.output);
     writefln("# %s", best.sim.name);
     writefln("# %s", best.sim.route.length);
