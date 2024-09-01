@@ -173,94 +173,36 @@ void problem() {
     }
 
     void sortSignals() {
-      // signals = signalsArray.joiner.array;
-      // return;
-
       BitArray initBA = BitArray(false.repeat(N).array);
       BitArray toBitArray(int[] sig) {
         BitArray ba = initBA.dup;
         foreach(s; sig) ba[s] = true;
         return ba;
       }
-      
-      long[BitArray] routesAsBitArray;
-
-      foreach(size; [2].map!(s => (LB * s + 1) / 2).array) {
-        foreach(i; iota(0, route.length.to!int - size, size)) {
-          BitArray ba = initBA.dup;
-          foreach(j; i..i + size) ba[route[j]] = true;
-          routesAsBitArray[ba] += size;
-        }
-      }
 
       signalsArray.sort!"a.length < b.length";
       auto rbt = signalsArray.length.to!int.iota.redBlackTree;
-      auto alones = signalsArray.filter!"a.length == 1".joiner.redBlackTree;
-
-      int removeAlone(int alone) {
-        alones.removeKey(alone);
-        foreach(i; 0..signalsArray.length.to!int) {
-          if (alone == signalsArray[i][0]) {
-            rbt.removeKey(i);
-            return i;
-          }
-        }
-
-        return -1;
-      }
-
       while(!rbt.empty) {
         auto efficient = rbt.back;
         rbt.removeBack;
 
         int[] sides;
-        foreach(alone; alones.dup) {
-          if (graph[alone].any!(neighbor => signalsArray[efficient].canFind(neighbor))) {
-            sides ~= removeAlone(alone);
-            if (sides.length >= 2) break;
+        foreach(small; rbt.array) {
+          foreach(alone; signalsArray[small]) {
+            if (graph[alone].any!(neighbor => signalsArray[efficient].canFind(neighbor))) {
+              sides ~= small;
+              rbt.removeKey(small);
+              break;
+            }
           }
+
+          if (sides.length >= 2) break;
         }
 
         if (sides.length >= 1) signals ~= signalsArray[sides[0]];
         signals ~= signalsArray[efficient];
         if (sides.length == 2) signals ~= signalsArray[sides[1]];
       }
-
-      return;
-      // for(int i = 1; i < signalsArray.length.to!int - 100; i++) {
-      //   signals ~= signalsArray[i];
-      //   rbt.removeKey(i);
-      // }
-
-      // BitArray[] preSet = new BitArray[](signalsArray.length);
-      // BitArray[] sufSet = new BitArray[](signalsArray.length);
-      // foreach(i, s; signalsArray) {
-      //   preSet[i] = toBitArray(s[0..($ + 1) / 2]);
-      //   sufSet[i] = toBitArray(s[$ / 2..$]);
-      // }
-      
-      // for(auto cur = 0; !rbt.empty;) {
-      //   rbt.removeKey(cur);
-      //   auto curSig = signalsArray[cur];
-      //   signals ~= curSig;
-
-      //   if (rbt.empty) break;
-
-      //   long bestScore = -1;
-      //   int bestNextIndex;
-      //   foreach(nextIndex; rbt) {
-      //     auto connected = sufSet[cur] | preSet[nextIndex];
-      //     long tryScore;
-      //     foreach(set, score; routesAsBitArray) {
-      //       if ((set & connected) != set) continue;
-             
-      //       tryScore += score^^2;
-      //     }
-
-      //     if (bestScore.chmax(tryScore)) bestNextIndex = nextIndex;
-      //   }
-      //   cur = bestNextIndex;
-      // }
     }
 
     struct Ans {
