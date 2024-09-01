@@ -157,48 +157,63 @@ void problem() {
     }
 
     void sortSignals() {
-      // long[BitArray] routesAsBitArray;
-      // BitArray initBA = BitArray(false.repeat(N).array);
-
-      // foreach(size; [2].map!(s => (LB * s + 1) / 2).array) {
-      //   foreach(i; iota(0, route.length.to!int - size, size)) {
-      //     BitArray ba = initBA.dup;
-      //     foreach(j; i..i + size) ba[route[j]] = true;
-      //     routesAsBitArray[ba] += size;
-      //   }
-      // }
-
-      // signalsArray.sort!"a.length < b.length";
-      // auto rbt = signalsArray.redBlackTree;
-
-      // BitArray toBitArray(int[] sig) {
-      //   BitArray ba = initBA;
-      //   foreach(s; sig) ba[s] = true;
-      //   return ba;
-      // }
-      
-      // for(auto cur = signalsArray[0]; !rbt.empty;) {
-      //   rbt.removeKey(cur);
-      //   signals ~= cur;
-
-      //   if (rbt.empty) break;
-
-      //   long bestScore = -1;
-      //   int[] bestNext;
-      //   foreach(next; rbt) {
-      //     auto connected = toBitArray(cur) | toBitArray(next);
-      //     long tryScore;
-      //     foreach(set, score; routesAsBitArray) {
-      //       if ((set & connected) != set) continue;
-             
-      //       tryScore += score^^2;
-      //     }
-
-      //     if (bestScore.chmax(tryScore)) bestNext = next;
-      //   }
-      //   cur = bestNext;
-      // }
       signals = signalsArray.joiner.array;
+      return;
+
+      long[BitArray] routesAsBitArray;
+      BitArray initBA = BitArray(false.repeat(N).array);
+
+      foreach(size; [2].map!(s => (LB * s + 1) / 2).array) {
+        foreach(i; iota(0, route.length.to!int - size, size)) {
+          BitArray ba = initBA.dup;
+          foreach(j; i..i + size) ba[route[j]] = true;
+          routesAsBitArray[ba] += size;
+        }
+      }
+
+      signalsArray.sort!"a.length < b.length";
+      auto rbt = signalsArray.length.to!int.iota.redBlackTree;
+
+      for(int i = 1; signalsArray[i].length <= 2; i++) {
+        signals ~= signalsArray[i];
+        rbt.removeKey(i);
+      }
+
+      BitArray toBitArray(int[] sig) {
+        BitArray ba = initBA;
+        foreach(s; sig) ba[s] = true;
+        return ba;
+      }
+
+      BitArray[] preSet = new BitArray[](signalsArray.length);
+      BitArray[] sufSet = new BitArray[](signalsArray.length);
+      foreach(i, s; signalsArray) {
+        preSet[i] = toBitArray(s[0..($ + 1) / 2]);
+        sufSet[i] = toBitArray(s[$ / 2..$]);
+      }
+      
+      for(auto cur = 0; !rbt.empty;) {
+        rbt.removeKey(cur);
+        auto curSig = signalsArray[cur];
+        signals ~= curSig;
+
+        if (rbt.empty) break;
+
+        long bestScore = -1;
+        int bestNextIndex;
+        foreach(nextIndex; rbt) {
+          auto connected = sufSet[cur] | preSet[nextIndex];
+          long tryScore;
+          foreach(set, score; routesAsBitArray) {
+            if ((set & connected) != set) continue;
+             
+            tryScore += score^^2;
+          }
+
+          if (bestScore.chmax(tryScore)) bestNextIndex = nextIndex;
+        }
+        cur = bestNextIndex;
+      }
     }
 
     struct Ans {
@@ -408,42 +423,42 @@ void problem() {
     }
   }
 
-  int[][] graphMST3 = new int[][](N, 0); {
-    long bestDistSum = long.max;
-    int[] centers;
-    foreach(c1; 0..N - 1) foreach(c2; c1 + 1..N) {
-      if (bestDistSum.chmin(T.map!(t => min(allCosts[c1][t], allCosts[c2][t])).sum)) {
-        centers = [c1, c2];
-      }
-    }
+  // int[][] graphMST3 = new int[][](N, 0); {
+  //   long bestDistSum = long.max;
+  //   int[] centers;
+  //   foreach(c1; 0..N - 1) foreach(c2; c1 + 1..N) {
+  //     if (bestDistSum.chmin(T.map!(t => min(allCosts[c1][t], allCosts[c2][t])).sum)) {
+  //       centers = [c1, c2];
+  //     }
+  //   }
 
-    UnionFind uf = UnionFind(N);
-    bool[] visited = new bool[](N);
-    for(auto queue = DList!int(centers); !queue.empty;) {
-      auto cur = queue.front();
-      queue.removeFront();
-      if (visited[cur]) continue;
-      visited[cur] = true;
+  //   UnionFind uf = UnionFind(N);
+  //   bool[] visited = new bool[](N);
+  //   for(auto queue = DList!int(centers); !queue.empty;) {
+  //     auto cur = queue.front();
+  //     queue.removeFront();
+  //     if (visited[cur]) continue;
+  //     visited[cur] = true;
 
-      foreach(next; graphNormal[cur]) {
-        if (visited[next]) continue;
+  //     foreach(next; graphNormal[cur]) {
+  //       if (visited[next]) continue;
         
-        queue.insertBack(next);
-        if (!uf.same(cur, next)) {
-          uf.unite(cur, next);
-          graphMST3[cur] ~= next;
-          graphMST3[next] ~= cur;
-        }
-      }
-    }
-  }
+  //       queue.insertBack(next);
+  //       if (!uf.same(cur, next)) {
+  //         uf.unite(cur, next);
+  //         graphMST3[cur] ~= next;
+  //         graphMST3[next] ~= cur;
+  //       }
+  //     }
+  //   }
+  // }
 
   auto ans = [
     // new Simulator("Normal Graph + Plain Cost", graphNormal, costsNormal).simulate(),
     new Simulator("Normal Graph + Weighted Cost", graphNormal, costsWeighted).simulate(),
     // new Simulator("MST Graph", graphMST, costsNormal).simulate(),
     new Simulator("MST Graph from Center", graphMST2, costsNormal).simulate(),
-    new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
+    // new Simulator("MST Graph from Two Centers", graphMST3, costsNormal).simulate(),
   ];
 
   auto best = ans.minElement;
