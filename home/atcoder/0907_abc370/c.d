@@ -5,27 +5,23 @@ void problem() {
   auto T = scan.array;
 
   auto solve() {
-    int[] later, faster; {
-      int i;
-      foreach(s, t; zip(S, T)) {
-        if (s > t) later ~= i;
-        if (s < t) faster ~= i;
-        i++;
-      }
-    }
-
     string[] ans;
-    foreach(i; later) {
-      S[i] = T[i];
-      ans ~= S.to!string;
-    }
-    foreach(i; faster.retro) {
-      S[i] = T[i];
+    
+    while(S != T) {
+      dchar[][] replaced;
+      foreach(i, s, t; zip(S.length.iota, S, T)) {
+        if (s != t) {
+          replaced ~= S.dup;
+          replaced[$ - 1][i] = t;
+        }
+      }
+
+      S = replaced.minElement;
       ans ~= S.to!string;
     }
 
     ans.length.writeln;
-    foreach(s; ans) s.writeln;
+    ans.each!writeln;
   }
 
   outputForAtCoder(&solve);
@@ -77,31 +73,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}

@@ -2,73 +2,27 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!long(3 * M).chunks(3).array;
-  auto NQ = scan!int;
+  auto K = scan!long;
+  auto A = scan!long(N).array;
 
   auto solve() {
-    struct Edge {
-      long from, to, cost;
-    }
+    long[] acc = 0L ~ A.cumulativeFold!"a + b".array;
+    MInt9[] memo = new MInt9[](N + 1);
+    memo[0] = MInt9(1);
 
-    Edge[][] graph = new Edge[][](N, 0);
-    foreach(ref e; E) {
-      e[0]--; e[1]--;
-      graph[e[0]] ~= Edge(e[0], e[1], e[2]);
-      graph[e[1]] ~= Edge(e[1], e[0], e[2]);
-    }
+    acc.deb;
+    foreach(r, a; A.enumerate(1)) {
 
-    long[][] costs = new long[][](N, N);
-    foreach(ref c; costs) c[] = long.max / 3;
-    foreach(from; 0..N) {
-      long[] c = new long[](N);
-      c[] = long.max / 3;
-      c[from] = 0;
+      acc[0..r].map!(x => x - a).deb;
+      foreach(l; 0..r) {
+        if (acc[r] - acc[l] == K) continue;
 
-      for(auto queue = [Edge(from, from, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront;
-        if (c[cur.from] != cur.cost) continue;
-
-        foreach(edge; graph[cur.from]) {
-          long cost = cur.cost + edge.cost;
-          if (c[edge.to].chmin(cost)) {
-            queue.insert(Edge(edge.to, edge.from, cost));
-          }
-        }
+        memo[r] += memo[l];
       }
-      costs[from] = c;
     }
-    // costs.each!deb;
 
-    foreach(_; 0..NQ) {
-      auto K = scan!int;
-      auto B = scan!int(K);
-
-      long ans = long.max;
-      foreach(perm; B.map!(b => E[b - 1]).array.permutations) {
-        long[long] memo, pre;
-        memo[0] = 0;
-
-        foreach(edge; perm) {
-          pre = memo.dup;
-          memo.clear;
-          foreach(from, cost; pre) foreach(nexts; [edge[0..2], edge[0..2].retro.array]) {
-            auto via = nexts[0];
-            auto to = nexts[1];
-            
-            memo.require(to, long.max / 3);
-            memo[to].chmin(cost + costs[from][via] + edge[2]);
-          }
-        }
-        
-        foreach(from, cost; memo) {
-          ans = min(ans, cost + costs[from][N - 1]);
-        }
-      }
-
-      ans.writeln;
-    }
+    memo.deb;
+    return memo.back;
   }
 
   outputForAtCoder(&solve);
