@@ -20,6 +20,16 @@ void problem() {
       return min(a, b);
     }
 
+    long sum() {
+      return a + b;
+    }
+
+    long dist(Soda other) {
+      if (other.a < a || other.b < b) return long.max;
+
+      return other.a - a + other.b - b;
+    }
+
     inout opCmp(Soda other) {
       return cmp(
         [a, b],
@@ -43,7 +53,7 @@ void problem() {
   bool[Soda] stock;
   stock[Soda(0, 0)] = true;
   auto pre = Soda(0, 0);
-  foreach(mid; requirements.map!(s => s.smaller()).array.sort.uniq) {
+  foreach(mid; requirements.map!"a.smaller".array.sort.uniq) {
     auto soda = Soda(mid, mid);
     if (soda in stock) continue;
     
@@ -52,10 +62,17 @@ void problem() {
     pre = soda;
   }
   
-  foreach(req; requirements) {
+  foreach(req; requirements.sort!"a.sum < b.sum") {
+    long best = long.max;
+    Soda bestFrom;
+    foreach(from; stock.keys) {
+      if (best.chmin(from.dist(req))) {
+        bestFrom = from;
+      }
+    }
+
     stock[req] = true;
-    auto mid = Soda(req.smaller, req.smaller);
-    ans ~= CreateSoda(mid, req);
+    ans ~= CreateSoda(bestFrom, req);
   }
 
   writeln(ans.length);
