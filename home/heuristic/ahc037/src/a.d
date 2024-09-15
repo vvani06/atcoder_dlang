@@ -38,6 +38,21 @@ void problem() {
     }
   }
 
+  Soda[] requirements = AB.map!(ab => Soda(ab[0], ab[1])).array;
+  Soda[] nodes = [Soda(0, 0)] ~ requirements.sort!"a.sum < b.sum".array;
+  int[][] graph = new int[][](N ^^ 2, 0);
+  
+  foreach(to, req; nodes[1..$].enumerate(1)) {
+    long best = long.max;
+    long fromBest;
+    foreach(i, from; nodes) {
+      if (to == i) continue;
+      if (best.chmin(from.dist(req))) fromBest = i;
+    }
+    
+    graph[fromBest] ~= to;
+  }
+
   struct CreateSoda {
     Soda from;
     Soda to;
@@ -47,32 +62,15 @@ void problem() {
     }
   }
 
-  Soda[] requirements = AB.map!(ab => Soda(ab[0], ab[1])).array;
   CreateSoda[] ans;
+  for(auto queue = DList!int(0); !queue.empty;) {
+    auto cur = queue.front;
+    queue.removeFront;
 
-  bool[Soda] stock;
-  stock[Soda(0, 0)] = true;
-  auto pre = Soda(0, 0);
-  foreach(mid; requirements.map!"a.smaller".array.sort.uniq) {
-    auto soda = Soda(mid, mid);
-    if (soda in stock) continue;
-    
-    stock[soda] = true;
-    ans ~= CreateSoda(pre, soda);
-    pre = soda;
-  }
-  
-  foreach(req; requirements.sort!"a.sum < b.sum") {
-    long best = long.max;
-    Soda bestFrom;
-    foreach(from; stock.keys) {
-      if (best.chmin(from.dist(req))) {
-        bestFrom = from;
-      }
+    foreach(next; graph[cur]) {
+      ans ~= CreateSoda(nodes[cur], nodes[next]);
+      queue.insertBack(next);
     }
-
-    stock[req] = true;
-    ans ~= CreateSoda(bestFrom, req);
   }
 
   writeln(ans.length);

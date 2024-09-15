@@ -9,7 +9,7 @@ rm score run_times
 rm out/*
 rm time/*
 
-TOTAL_CASES=50
+TOTAL_CASES=150
 PARALLEL_SIZE=10
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 
