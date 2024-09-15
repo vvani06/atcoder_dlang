@@ -9,6 +9,7 @@ void problem() {
   }
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
+  enum long INF = long.max / 3;
 
   int N = scan!int;
   long[][] AB = scan!long(2 * N).chunks(2).array;
@@ -32,7 +33,7 @@ void problem() {
     }
 
     long dist(ref Soda other) {
-      if (other.a < a || other.b < b) return long.max;
+      if (other.a < a || other.b < b) return INF;
 
       return other.a - a + other.b - b;
     }
@@ -60,25 +61,9 @@ void problem() {
   Soda[] requirements = AB.map!(ab => Soda(ab[0], ab[1])).array;
   Soda[] nodes = [Soda(0, 0)] ~ requirements.sort!"a.sum < b.sum".array;
   int[Soda] nodeIndexPerSoda = [Soda(0, 0): 0];
-  int[][] graph = new int[][](N ^^ 2, 0);
-  long[] costs = new long[](N ^^ 2);
-  auto evaluates = new Eval[](0).redBlackTree;
-  
+
   foreach(to, req; nodes[1..$].enumerate(1)) {
-    long distBest = long.max;
-    int fromBest;
-    foreach(i, from; nodes) {
-      if (to == i) continue;
-      if (distBest.chmin(from.dist(req))) fromBest = i.to!int;
-    }
-    
-    graph[fromBest] ~= to;
     nodeIndexPerSoda[req] = to;
-    auto eval = Eval(fromBest, costs[fromBest]);
-    evaluates.removeKey(eval);
-    costs[fromBest] += distBest;
-    eval.cost += distBest;
-    evaluates.insert(eval);
   }
 
   long calcCost(int from, int to) {
@@ -88,8 +73,60 @@ void problem() {
     );
   }
 
+  UnionFind uf = UnionFind(N + 1);
+  enum long groupThreashould = 5L * 10L^^7;
+  foreach(i; 1..N) foreach(j; i + 1..N + 1) {
+    if (calcCost(i, j) <= groupThreashould) {
+      uf.unite(i, j);
+    }
+  }
+
+  int rest = 4 * N;
   int newNodeIndex = N + 1;
-  foreach(_; 0..4 * N) {
+  {
+    int[][] mems = new int[][](N + 1, 0);
+    foreach(i; 1..N + 1) {
+      mems[uf.root(i)] ~= i;
+    }
+
+    foreach(r; 1..N + 1) {
+      if (mems[r].length <= 1) continue;
+
+      Soda via = nodes[mems[r][0]];
+      foreach(next; mems[r][1..$]) via = via.viaPoint(nodes[next]);
+
+      if (via in nodeIndexPerSoda) continue;
+
+      nodes ~= via;
+      nodeIndexPerSoda[via] = newNodeIndex;
+      rest--;
+      newNodeIndex++;
+    }
+  }
+
+  int[][] graph = new int[][](N ^^ 2, 0);
+  long[] costs = new long[](N ^^ 2);
+  auto evaluates = new Eval[](0).redBlackTree;
+  {
+    foreach(to, req; nodes[1..$].enumerate(1)) {
+      long distBest = INF;
+      int fromBest;
+      
+      foreach(i, from; nodes) {
+        if (to == i) continue;
+        if (distBest.chmin(from.dist(req))) fromBest = i.to!int;
+      }
+
+      graph[fromBest] ~= to;
+      auto eval = Eval(fromBest, costs[fromBest]);
+      evaluates.removeKey(eval);
+      costs[fromBest] += distBest;
+      eval.cost += distBest;
+      evaluates.insert(eval);
+    }
+  }
+
+  foreach(_; 0..rest) {
     if (evaluates.empty) break;
     auto worst = evaluates.back;
     evaluates.removeBack;
@@ -148,9 +185,12 @@ void problem() {
     }
 
     CreateSoda[] ans;
+    // bool[] visited = new bool[](N ^^ 2);
     for(auto queue = DList!int(0); !queue.empty;) {
       auto cur = queue.front;
       queue.removeFront;
+      // if (visited[cur]) continue;
+      // visited[cur] = true;
 
       foreach(next; graph[cur]) {
         ans ~= CreateSoda(nodes[cur], nodes[next]);
@@ -196,3 +236,50 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
+struct UnionFind {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+}
