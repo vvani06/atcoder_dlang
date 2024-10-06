@@ -38,6 +38,10 @@ void problem() {
       return other.a - a + other.b - b;
     }
 
+    long pureDist(ref Soda other) {
+      return abs(other.a - a) + abs(other.b - b);
+    }
+
     inout opCmp(ref Soda other) {
       return cmp(
         [a, b],
@@ -78,6 +82,7 @@ void problem() {
   foreach(i; 1..N) foreach(j; i + 1..N + 1) {
     if (calcCost(i, j) <= groupThreashould) {
       uf.unite(i, j);
+      // [i, j].deb;
     }
   }
 
@@ -97,6 +102,7 @@ void problem() {
 
       if (via in nodeIndexPerSoda) continue;
 
+      // via.deb;
       nodes ~= via;
       nodeIndexPerSoda[via] = newNodeIndex;
       rest--;
@@ -104,10 +110,153 @@ void problem() {
     }
   }
 
-  int[][] graph = new int[][](N ^^ 2, 0);
-  long[] costs = new long[](N ^^ 2);
+  auto graph = new int[][](N * 10, 0).map!(a => a.redBlackTree).array;
+  long[] costs = new long[](N * 10);
+  int[] froms = new int[](N * 10);
   auto evaluates = new Eval[](0).redBlackTree;
-  {
+
+  foreach(__; 0..1) {
+    {
+      foreach(to, req; nodes[1..$].enumerate(1)) {
+        long distBest = INF;
+        int fromBest;
+        
+        foreach(i, from; nodes) {
+          if (to == i) continue;
+          if (distBest.chmin(from.dist(req))) fromBest = i.to!int;
+        }
+
+        graph[fromBest].insert(to);
+        froms[to] = fromBest;
+        auto eval = Eval(fromBest, costs[fromBest]);
+        evaluates.removeKey(eval);
+        costs[fromBest] += distBest;
+        eval.cost += distBest;
+        evaluates.insert(eval);
+      }
+    }
+
+    foreach(_; 0..rest) {
+      if (evaluates.empty) break;
+      auto worst = evaluates.back;
+      evaluates.removeBack;
+      auto from = worst.node;
+
+      auto nexts = graph[from].array;
+      auto nextSize = nexts.length.to!int;
+
+      long bestImprove = 0;
+      int[] bestPair;
+      foreach(i; 0..nextSize - 1) {
+        auto destA = nexts[i];
+        long baseCost = calcCost(from, destA);
+        foreach(j; i + 1..nextSize) {
+          auto destB = nexts[j];
+          long cost = baseCost + calcCost(from, destB);
+
+          auto via = nodes[destA].viaPoint(nodes[destB]);
+          long viaCost = via.dist(nodes[destA]) + via.dist(nodes[destB]) + nodes[from].dist(via);
+          long improve = cost - viaCost;
+
+          if (bestImprove.chmax(improve)) {
+            bestPair = [destA, destB];
+          }
+        }
+      }
+
+      if (bestPair.empty) continue;
+
+      // deb(bestImprove, bestPair);
+      worst.cost -= bestImprove;
+      evaluates.insert(worst);
+      graph[from].removeKey(bestPair);
+      auto destA = bestPair[0];
+      auto destB = bestPair[1];
+
+      auto via = nodes[destA].viaPoint(nodes[destB]);
+      int newIndex;
+      if (via in nodeIndexPerSoda) {
+        newIndex = nodeIndexPerSoda[via];
+      } else {
+        newIndex = newNodeIndex++;
+      }
+
+      graph[from].insert(newIndex);
+      graph[newIndex].insert(bestPair);
+      froms[newIndex] = from;
+      froms[destA] = newIndex;
+      froms[destB] = newIndex;
+      nodes ~= via;
+      rest--;
+    }
+
+    alias Pair = Tuple!(long, "cost", int, "a", int, "b");
+    auto pairHeap = new Pair[](0).heapify!"a.cost < b.cost";
+    {
+      foreach(i; 1..N) {
+        long minDist = INF;
+        int minNode;
+        foreach(j; 1..N + 1) {
+          if (i == j) continue;
+          if (minDist.chmin(nodes[i].pureDist(nodes[j]))) {
+            minNode = j;
+          }
+        }
+
+        auto j = minNode;
+        if (froms[i] != froms[j]) {
+          long cost = calcCost(froms[i], i) + calcCost(froms[j], j);
+          pairHeap.insert(Pair(cost, i, j));
+        }
+      }
+      
+      foreach(_; 0..rest) {
+        if (pairHeap.empty) break;
+
+        auto pair = pairHeap.front;
+        pairHeap.removeFront;
+        if (froms[pair.a] == froms[pair.b]) continue;
+
+        auto via = nodes[pair.a].viaPoint(nodes[pair.b]);
+        // [nodes[pair.a], nodes[pair.b], via].deb;
+        if (via == nodes[pair.a] || via == nodes[pair.b]) continue;
+
+        int fromBest;
+        long baseCost = via.dist(nodes[pair.a]) + via.dist(nodes[pair.b]);
+        long bastCost = INF;
+        foreach(i, from; nodes) {
+          if (bastCost.chmin(baseCost + from.dist(via))) fromBest = i.to!int;
+        }
+
+        if (bastCost < pair.cost) {
+          int newIndex;
+          if (via in nodeIndexPerSoda) {
+            newIndex = nodeIndexPerSoda[via];
+          } else {
+            newIndex = newNodeIndex++;
+          }
+
+          auto from = fromBest;
+          // [pair.a, pair.b, newIndex, from].deb;
+
+          graph[from].insert(newIndex);
+          graph[froms[pair.a]].removeKey(pair.a);
+          graph[froms[pair.b]].removeKey(pair.b);
+
+          graph[newIndex].insert([pair.a, pair.b]);
+          froms[newIndex] = from;
+          froms[pair.a] = newIndex;
+          froms[pair.b] = newIndex;
+          nodes ~= via;
+          rest--;
+        }
+      }
+    }
+  }
+
+  { // output --------------------------------------------------------
+
+    graph = new int[][](N * 10, 0).map!(a => a.redBlackTree).array;
     foreach(to, req; nodes[1..$].enumerate(1)) {
       long distBest = INF;
       int fromBest;
@@ -116,65 +265,9 @@ void problem() {
         if (to == i) continue;
         if (distBest.chmin(from.dist(req))) fromBest = i.to!int;
       }
-
-      graph[fromBest] ~= to;
-      auto eval = Eval(fromBest, costs[fromBest]);
-      evaluates.removeKey(eval);
-      costs[fromBest] += distBest;
-      eval.cost += distBest;
-      evaluates.insert(eval);
-    }
-  }
-
-  foreach(_; 0..rest) {
-    if (evaluates.empty) break;
-    auto worst = evaluates.back;
-    evaluates.removeBack;
-    auto from = worst.node;
-    auto nextSize = graph[from].length.to!int;
-
-    long bestImprove = 0;
-    int[] bestPair;
-    foreach(i; 0..nextSize - 1) {
-      auto destA = graph[from][i];
-      long baseCost = calcCost(from, destA);
-      foreach(j; i + 1..nextSize) {
-        auto destB = graph[from][j];
-        long cost = baseCost + calcCost(from, destB);
-
-        auto via = nodes[destA].viaPoint(nodes[destB]);
-        long viaCost = via.dist(nodes[destA]) + via.dist(nodes[destB]) + nodes[from].dist(via);
-        long improve = cost - viaCost;
-
-        if (bestImprove.chmax(improve)) {
-          bestPair = [i, j];
-        }
-      }
+      graph[fromBest].insert(to);
     }
 
-    if (bestPair.empty) continue;
-
-    // deb(bestImprove, bestPair);
-    worst.cost -= bestImprove;
-    evaluates.insert(worst);
-    auto destA = graph[from][bestPair[0]];
-    auto destB = graph[from][bestPair[1]];
-    graph[from] = graph[from][0..bestPair[1]] ~ graph[from][bestPair[1] + 1..$];
-    graph[from] = graph[from][0..bestPair[0]] ~ graph[from][bestPair[0] + 1..$];
-
-    auto via = nodes[destA].viaPoint(nodes[destB]);
-    int newIndex;
-    if (via in nodeIndexPerSoda) {
-      newIndex = nodeIndexPerSoda[via];
-    } else {
-      newIndex = newNodeIndex++;
-    }
-    if (!graph[from].canFind(newIndex)) graph[from] ~= newIndex;
-    graph[newIndex] ~= [destA, destB];
-    nodes ~= via;
-  }
-
-  { // output --------------------------------------------------------
     struct CreateSoda {
       Soda from;
       Soda to;
@@ -185,12 +278,9 @@ void problem() {
     }
 
     CreateSoda[] ans;
-    // bool[] visited = new bool[](N ^^ 2);
     for(auto queue = DList!int(0); !queue.empty;) {
       auto cur = queue.front;
       queue.removeFront;
-      // if (visited[cur]) continue;
-      // visited[cur] = true;
 
       foreach(next; graph[cur]) {
         ans ~= CreateSoda(nodes[cur], nodes[next]);
