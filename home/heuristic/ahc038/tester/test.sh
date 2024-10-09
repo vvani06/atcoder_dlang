@@ -9,8 +9,8 @@ rm score run_times
 rm out/*
 rm time/*
 
-TOTAL_CASES=150
-PARALLEL_SIZE=10
+TOTAL_CASES=50
+PARALLEL_SIZE=5
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 
 for cycle in `eval echo {0..$CYCLE}`; do
