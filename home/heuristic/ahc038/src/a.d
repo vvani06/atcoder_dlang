@@ -64,6 +64,11 @@ void problem() {
     }
   }
 
+  struct Ans {
+    int score;
+    string[] ans;
+  }
+
   struct Order {
     Coord from, to;
     int rotationTimes;
@@ -241,12 +246,21 @@ void problem() {
   }
   writefln("%s %s", cur.r, cur.c);
 
-  foreach(order; orders) {
-    // if (order.rotationTimes == 0) continue;
+  orders = orders.map!(order => order.nearest(armSizes)).array;
+  bool[Order] ordersMap;
+  foreach(order; orders) ordersMap[order] = true;
 
-    order.deb;
-    order = order.nearest(armSizes);
-    order.deb;
+  while(!ordersMap.empty) {
+    Order order; {
+      int minDist = int.max;
+      foreach(Order t; ordersMap.keys) {
+        if (minDist.chmin(cur.dist(t.rotationBase))) {
+          order = t;
+        }
+      }
+    }
+
+    ordersMap.remove(order);
 
     Coord moveTo = order.rotationBase;
     while(moveTo.r != cur.r) {
