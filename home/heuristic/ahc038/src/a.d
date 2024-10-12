@@ -20,9 +20,9 @@ void problem() {
   foreach(r; 0..N) foreach(c; 0..N) if (S[r][c] == T[r][c]) S[r][c] = T[r][c] = false;
 
   struct Coord {
-    int r, c;
+    int r, c, dir;
 
-    int dist(inout Coord other) {
+    int dist(Coord other) {
       return abs(r - other.r) + abs(c - other.c);
     }
 
@@ -30,7 +30,7 @@ void problem() {
       return abs(r) + abs(c);
     }
 
-    Coord rotate(inout Coord base) {
+    Coord rotate(Coord base) {
       auto dr = r - base.r;
       auto dc = c - base.c;
       return Coord(base.r + dc, base.c - dr);
@@ -57,6 +57,20 @@ void problem() {
 
     bool equals(Coord other) {
       return r == other.r && c == other.c;
+    }
+
+    Coord[] armed(int d) {
+      return [
+        Coord(r, c + d, 0),
+        Coord(r + d, c, 1),
+        Coord(r, c - d, 2),
+        Coord(r - d, c, 3),
+      ].filter!(coord => coord.isValid()).array;
+    }
+
+
+    T of(T)(ref T[][] t) {
+      return t[r][c];
     }
   }
 
@@ -105,7 +119,7 @@ void problem() {
   }
   // dropScore.each!deb;
 
-  int[] armsCandidates;
+  int[] armsCandidates = new int[](0);
   int[] armSizeScore = new int[](N + 1);
   {
     foreach(from; toPick) {
@@ -121,11 +135,12 @@ void problem() {
       }
     }
     
-    armSizeScore.deb;
-    int[] arms;
+    // armSizeScore.deb;
+    int[] arms = new int[](0);
     foreach(_; 0..V - 1) {
       arms ~= armSizeScore.maxIndex.to!int;
-      armSizeScore[armSizeScore.maxIndex] *= 0.7;
+      armSizeScore[armSizeScore.maxIndex] *= 7;
+      armSizeScore[armSizeScore.maxIndex] /= 10;
     }
     armsCandidates = arms.sort.array;
   }
@@ -135,7 +150,7 @@ void problem() {
   int bestStartScore;
   foreach(r; 0..N) foreach(c; 0..N) {
     foreach(d, count; armsCandidates.group) {
-      int[] adds;
+      int[] adds = new int[](0);
       foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
         auto coord = Coord(r + d*dr, c + d*dc);
         if (!coord.isValid()) continue;
@@ -143,15 +158,15 @@ void problem() {
         adds ~= (coord in toPick) ? 1 : 0;
       }
 
-      gridScore[r][c] += adds.sort!"a > b"[0..count].sum;
+      gridScore[r][c] += adds.sort!"a > b"[0..min($, count)].sum;
     }
     if (bestStartScore.chmax(gridScore[r][c])) {
       bestStartCoord = Coord(r, c);
     }
   }
 
-  gridScore.each!deb;
-  bestStartCoord.deb;
+  // gridScore.each!deb;
+  // bestStartCoord.deb;
 
   final class Order {
     Coord from, to;
@@ -315,54 +330,169 @@ void problem() {
     return ret;
   }
 
-  class Robot {
+  class PickDrop {
+    int armSize;
+    Coord coord;
+
+    this(int armSize, Coord coord, int dir) {
+      this.armSize = armSize;
+      this.coord = Coord(coord.r, coord.c, dir);
+    }
+
+    int dir() {
+      return coord.dir;
+    }
+
+    Coord dest() {
+      int dr = dir == 1 ? armSize : dir == 3 ? -armSize : 0;
+      int dc = dir == 0 ? armSize : dir == 2 ? -armSize : 0;
+      return Coord(coord.r + dr, coord.c + dc);
+    }
+
+    override string toString() {
+      return "PickDrop: (%2d, %2d) => [%2d * %d] => (%2d, %2d)".format(
+        coord.r, coord.c,
+        armSize, coord.dir,
+        dest.r, dest.c,
+      );
+    }
+  }
+
+  final class Robot {
     Coord root;
 
     Arm[] arms;
-    Order[] orderByArm;
+    PickDrop[] orderByArm;
     int currentOrderArmIndex;
 
-    this(Coord start, int[] armSizes) {
+    bool[][] pickGrid, dropGrid;
+
+    this(Coord start, int[] armSizes, bool[][] pg, bool[][] dg) {
       root = start;
+      pickGrid = pg.map!"a.dup".array;
+      dropGrid = dg.map!"a.dup".array;
       currentOrderArmIndex = -1;
 
       foreach(i, s; armSizes.enumerate(1)) {
         arms ~= new Arm(this, i, s, 0);
+        orderByArm ~= null;
+        arms[i - 1].deb;
       }
-      orderByArm = new Order[](arms.length);
-      arms.each!deb;
     }
 
-    void takeOrders(ref bool[Order] orders) {
-      foreach(Order order; orders.keys.sort!((a, b) => root.dist(a.pickFrom) < root.dist(b.pickFrom))) {
-        foreach(i, arm; arms.enumerate(0)) {
-          if (orderByArm[i]) continue;
+    PickDrop search(int armSize, bool drop = false) {
+      bool[31][31] visited;
+      for(auto queue = DList!Coord([root]); !queue.empty;) {
+        auto cur = queue.front();
+        queue.removeFront();
 
-          auto armSize = order.armSize();
-          if (arm.size != armSize) continue;
+        if (visited[cur.r][cur.c]) continue;
+        visited[cur.r][cur.c] = true;
 
+        foreach(dest; cur.armed(armSize)) {
+          if (!drop && pickGrid[dest.r][dest.c]) return new PickDrop(armSize, cur, dest.dir);
+          if (drop && dropGrid[dest.r][dest.c]) return new PickDrop(armSize, cur, dest.dir);
+        }
+
+        foreach(ar; cur.armed(1)) {
+          if (visited[ar.r][ar.c]) continue;
+
+          queue.insertBack(ar);
+        }
+      }
+
+      return null;
+    }
+
+    PickDrop research(int armIndex) {
+      if (orderByArm[armIndex] is null) return null;
+
+      auto armSize = arms[armIndex].size;
+      auto target = orderByArm[armIndex].dest();
+      bool[31][31] visited;
+      for(auto queue = DList!Coord([root]); !queue.empty;) {
+        auto cur = queue.front();
+        queue.removeFront();
+
+        if (visited[cur.r][cur.c]) continue;
+        visited[cur.r][cur.c] = true;
+
+        foreach(dest; cur.armed(armSize)) {
+          if (dest.equals(target)) return new PickDrop(armSize, cur, dest.dir);
+        }
+
+        foreach(ar; cur.armed(1)) {
+          if (visited[ar.r][ar.c]) continue;
+
+          queue.insertBack(ar);
+        }
+      }
+
+      return null;
+    }
+
+    void takeOrders() {
+      foreach(i, arm; arms.enumerate(0)) {
+        if (orderByArm[i]) {
+          orderByArm[i] = research(i);
+          continue;
+        }
+        
+        PickDrop order = search(arm.size, false);
+        PickDrop testDrop = search(arm.size, true);
+        if (order && testDrop) {
+          pickGrid[order.dest.r][order.dest.c] = false;
           orderByArm[i] = order;
-          orders.remove(order);
-          break;
         }
       }
 
-      if (currentOrderArmIndex == -1) {
-        int minDist = int.max;
-        foreach(i, arm, order; zip(arms.length.to!int.iota, arms, orderByArm)) {
-          if (order is null) continue;
+      int nearest = int.max;
+      currentOrderArmIndex = -1;
+      int[][Coord] counts;
+      foreach(i, order; orderByArm.enumerate(0)) {
+        if (order is null) continue;
 
-          if (!arm.picked) {
-            if (minDist.chmin(root.dist(order.pickFrom))) {
-              currentOrderArmIndex = i;
-            }
-          } else {
-            if (minDist.chmin(root.dist(order.dropFrom))) {
-              currentOrderArmIndex = i;
-            }
-          }
+        counts[order.coord] ~= i;
+        if (nearest.chmin(root.dist(order.coord))) currentOrderArmIndex = i;
+      }
+
+      int bestSize;
+      foreach(k; counts.keys.sort!((a, b) => root.dist(a) < root.dist(b))) {
+        auto v = counts[k];
+        if (bestSize.chmax(v.length.to!int)) {
+          currentOrderArmIndex = v[0];
         }
       }
+      
+      // foreach(Order order; orders.keys.sort!((a, b) => root.dist(a.pickFrom) < root.dist(b.pickFrom))) {
+      //   foreach(i, arm; arms.enumerate(0)) {
+      //     if (orderByArm[i]) continue;
+
+      //     auto armSize = order.armSize();
+      //     if (arm.size != armSize) continue;
+
+      //     orderByArm[i] = order;
+      //     orders.remove(order);
+      //     break;
+      //   }
+      // }
+
+      // if (currentOrderArmIndex == -1) {
+      //   int minDist = int.max;
+      //   foreach(i, arm, order; zip(arms.length.to!int.iota, arms, orderByArm)) {
+      //     if (order is null) continue;
+
+      //     if (!arm.picked) {
+      //       if (minDist.chmin(root.dist(order.pickFrom))) {
+      //         currentOrderArmIndex = i;
+      //       }
+      //     } else {
+      //       if (minDist.chmin(root.dist(order.dropFrom))) {
+      //         currentOrderArmIndex = i;
+      //       }
+      //     }
+      //   }
+      // }
     }
 
     string[] initialize() {
@@ -403,10 +533,10 @@ void problem() {
         if (order is null) continue;
 
         if (!arm.picked) {
-          auto deltaDir = (order.pickDir() + 4 - arm.dir) % 4;
+          auto deltaDir = (order.dir + 4 - arm.dir) % 4;
           if (deltaDir != 0) rotate(arm, deltaDir != 3);
         } else {
-          auto deltaDir = (order.dropDir() + 4 - arm.dir) % 4;
+          auto deltaDir = (order.dir + 4 - arm.dir) % 4;
           if (deltaDir != 0) rotate(arm, deltaDir != 3);
         }
       }
@@ -416,16 +546,9 @@ void problem() {
       foreach(arm, order; zip(arms, orderByArm)) {
         if (order is null) continue;
 
-        if (!arm.picked) {
-          if (arm.coord.equals(order.from)) {
-            toggle(arm);
-            toggled = true;
-          }
-        } else {
-          if (arm.coord.equals(order.to)) {
-            toggle(arm);
-            toggled = true;
-          }
+        if (root.equals(order.coord) && arm.dir == order.dir) {
+          toggle(arm);
+          toggled = true;
         }
       }
 
@@ -434,34 +557,32 @@ void problem() {
         {
           auto arm = arms[currentOrderArmIndex];
           auto order = orderByArm[currentOrderArmIndex];
-          auto dest = arm.picked ? order.dropFrom : order.pickFrom;
+          auto dest = order.coord;
           move(root, dest);
         }
 
         foreach(arm, order; zip(arms, orderByArm)) {
           if (order is null) continue;
 
-          if (!arm.picked) {
-            if (arm.coord.equals(order.from)) {
-              toggle(arm);
-            }
-          } else {
-            if (arm.coord.equals(order.to)) {
-              toggle(arm);
-            }
+          if (root.equals(order.coord) && arm.dir == order.dir) {
+            toggle(arm);
           }
         }
       }
 
-      foreach(i, arm, order; zip(arms.length.iota, arms, orderByArm)) {
-        if (order is null) continue;
+      foreach(i, arm; arms.enumerate(0)) {
+        if (orderByArm[i] is null) continue;
 
         if (ret[V + arm.id] == 'P') {
-          if (arm.picked) {
+          if (!arm.picked) {
+            auto drop = search(arm.size, true);
+            orderByArm[i] = drop;
+            dropGrid[drop.dest.r][drop.dest.c] = false;
+          } else {
             orderByArm[i] = null;
           }
+
           arm.picked ^= true;
-          if (i == currentOrderArmIndex) currentOrderArmIndex = -1;
         }
       }
 
@@ -498,7 +619,7 @@ void problem() {
       override string toString() {
         return format(
           "Arm: #%2d (%2d, %2d) dir: %d, size: %2d, %s",
-          id, coord().r, coord().c, dir, size, picked ? "PICKED" : "-",
+          id, coord().r, coord().c, dir, size, picked ? "P" : "-",
         );
       }
     }
@@ -516,21 +637,21 @@ void problem() {
   armSizes.insert(armsCandidates);
 
   orders = orders.map!(order => order.nearest(armSizes)).array;
-  Robot robot = new Robot(bestStartCoord, armSizes.array);
-
-  bool[Order] ordersMap;
-  foreach(order; orders) ordersMap[order] = true;
-  robot.takeOrders(ordersMap);
-
-  robot.orderByArm.each!deb;
+  Robot robot = new Robot(bestStartCoord, armSizes.array, S, T);
+  robot.takeOrders();
 
   foreach(s; robot.initialize()) writeln(s);
-  foreach(_; 0..10^^5) {
+  foreach(turn; 1..10^^5) {
+    // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+
     auto moves = robot.simulate();
     if (moves.all!"a == '.'") break;
 
+    // [turn].deb;
+    // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+
     writeln(moves);
-    robot.takeOrders(ordersMap);
+    robot.takeOrders();
   }
 }
 
