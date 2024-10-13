@@ -90,84 +90,6 @@ void problem() {
     }
   }
 
-  enum int SCORE_MAX = 512;
-  int[][] dropScore = new int[][](N, N);
-  foreach(coord; toDrop) {
-    bool[][] visited = new bool[][](N, N);
-
-    bool[Coord] nexts = [coord: true];
-    int step = 0;
-    while(!nexts.empty) {
-      auto keys = nexts.keys;
-      nexts.clear;
-
-      foreach(c; keys) {
-        dropScore[c.r][c.c] += SCORE_MAX / (4^^step);
-        visited[c.r][c.c] = true;
-
-        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-          auto n = Coord(c.r + dr, c.c + dc);
-          if (!n.isValid || visited[n.r][n.c]) continue;
-
-          nexts[n] = true;
-        }
-      }
-      step++;
-
-      if (SCORE_MAX / (8^^step) == 0) break;
-    }
-  }
-  // dropScore.each!deb;
-
-  int[] armsCandidates = new int[](0);
-  int[] armSizeScore = new int[](N + 1);
-  {
-    foreach(from; toPick) {
-      foreach(d; 1..N + 1) {
-        int maxScore;
-        foreach(dr, dc; zip([-2, -1, 0, 1, 2, 1, 0, -1], [0, -1, -2, -1, 0, 1, 2, 1])) {
-          auto rotated = Coord(from.r + d*dr, from.c + d*dc);
-          if (!rotated.isValid()) continue;
-
-          maxScore.chmax(dropScore[rotated.r][rotated.c]);
-        }
-        armSizeScore[d] += maxScore;
-      }
-    }
-    
-    // armSizeScore.deb;
-    int[] arms = new int[](0);
-    foreach(_; 0..V - 1) {
-      arms ~= armSizeScore.maxIndex.to!int;
-      armSizeScore[armSizeScore.maxIndex] *= 7;
-      armSizeScore[armSizeScore.maxIndex] /= 10;
-    }
-    armsCandidates = arms.sort.array;
-  }
-
-  int[][] gridScore = new int[][](N, N);
-  Coord bestStartCoord;
-  int bestStartScore;
-  foreach(r; 0..N) foreach(c; 0..N) {
-    foreach(d, count; armsCandidates.group) {
-      int[] adds = new int[](0);
-      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-        auto coord = Coord(r + d*dr, c + d*dc);
-        if (!coord.isValid()) continue;
-
-        adds ~= (coord in toPick) ? 1 : 0;
-      }
-
-      gridScore[r][c] += adds.sort!"a > b"[0..min($, count)].sum;
-    }
-    if (bestStartScore.chmax(gridScore[r][c])) {
-      bestStartCoord = Coord(r, c);
-    }
-  }
-
-  // gridScore.each!deb;
-  // bestStartCoord.deb;
-
   final class Order {
     Coord from, to;
     int rotationTimes;
@@ -333,10 +255,12 @@ void problem() {
   class PickDrop {
     int armSize;
     Coord coord;
+    int cost;
 
-    this(int armSize, Coord coord, int dir) {
+    this(int armSize, Coord coord, int dir, int cost) {
       this.armSize = armSize;
       this.coord = Coord(coord.r, coord.c, dir);
+      this.cost = cost;
     }
 
     int dir() {
@@ -350,10 +274,11 @@ void problem() {
     }
 
     override string toString() {
-      return "PickDrop: (%2d, %2d) => [%2d * %d] => (%2d, %2d)".format(
+      return "PickDrop { (%2d, %2d) => [%2d * %d] => (%2d, %2d) | Cost: %2d } ".format(
         coord.r, coord.c,
         armSize, coord.dir,
         dest.r, dest.c,
+        cost,
       );
     }
   }
@@ -382,6 +307,9 @@ void problem() {
 
     PickDrop search(int armSize, bool drop = false) {
       bool[31][31] visited;
+      int[31][31] costs;
+      costs[root.r][root.c] = 1;
+      
       for(auto queue = DList!Coord([root]); !queue.empty;) {
         auto cur = queue.front();
         queue.removeFront();
@@ -390,18 +318,55 @@ void problem() {
         visited[cur.r][cur.c] = true;
 
         foreach(dest; cur.armed(armSize)) {
-          if (!drop && pickGrid[dest.r][dest.c]) return new PickDrop(armSize, cur, dest.dir);
-          if (drop && dropGrid[dest.r][dest.c]) return new PickDrop(armSize, cur, dest.dir);
+          if ((!drop && pickGrid[dest.r][dest.c]) || (drop && dropGrid[dest.r][dest.c])) {
+            return new PickDrop(armSize, cur, dest.dir, costs[cur.r][cur.c]);
+          }
         }
 
         foreach(ar; cur.armed(1)) {
           if (visited[ar.r][ar.c]) continue;
 
           queue.insertBack(ar);
+          costs[ar.r][ar.c] = costs[cur.r][cur.c] + 1;
         }
       }
 
       return null;
+    }
+
+    PickDrop[] searchN(int limit, int armSize, bool drop = false) {
+      PickDrop[] ret;
+      bool[31][31] visited;
+      int[31][31] costs;
+      costs[root.r][root.c] = 1;
+
+      for(auto queue = DList!Coord([root]); !queue.empty;) {
+        auto cur = queue.front();
+        queue.removeFront();
+
+        if (visited[cur.r][cur.c]) continue;
+        visited[cur.r][cur.c] = true;
+
+        foreach(dest; cur.armed(armSize)) {
+          if (visited[dest.r][dest.c]) continue;
+          
+          if ((!drop && pickGrid[dest.r][dest.c]) || (drop && dropGrid[dest.r][dest.c])) {
+            ret ~= new PickDrop(armSize, cur, dest.dir, costs[cur.r][cur.c]);
+            visited[dest.r][dest.c] = true;
+          }
+        }
+
+        if (ret.length >= limit) break;
+
+        foreach(ar; cur.armed(1)) {
+          if (visited[ar.r][ar.c]) continue;
+
+          queue.insertBack(ar);
+          costs[ar.r][ar.c] = costs[cur.r][cur.c] + 1;
+        }
+      }
+
+      return ret;
     }
 
     PickDrop research(int armIndex) {
@@ -410,6 +375,9 @@ void problem() {
       auto armSize = arms[armIndex].size;
       auto target = orderByArm[armIndex].dest();
       bool[31][31] visited;
+      int[31][31] costs;
+      costs[root.r][root.c] = 1;
+
       for(auto queue = DList!Coord([root]); !queue.empty;) {
         auto cur = queue.front();
         queue.removeFront();
@@ -418,13 +386,14 @@ void problem() {
         visited[cur.r][cur.c] = true;
 
         foreach(dest; cur.armed(armSize)) {
-          if (dest.equals(target)) return new PickDrop(armSize, cur, dest.dir);
+          if (dest.equals(target)) return new PickDrop(armSize, cur, dest.dir, costs[cur.r][cur.c]);
         }
 
         foreach(ar; cur.armed(1)) {
           if (visited[ar.r][ar.c]) continue;
 
           queue.insertBack(ar);
+          costs[ar.r][ar.c] = costs[cur.r][cur.c] + 1;
         }
       }
 
@@ -432,6 +401,7 @@ void problem() {
     }
 
     void takeOrders() {
+      /+
       foreach(i, arm; arms.enumerate(0)) {
         if (orderByArm[i]) {
           orderByArm[i] = research(i);
@@ -443,6 +413,29 @@ void problem() {
         if (order && testDrop) {
           pickGrid[order.dest.r][order.dest.c] = false;
           orderByArm[i] = order;
+        }
+      }
+      +/
+
+      auto freeArmCount = orderByArm.count!(order => order is null).to!int;
+      PickDrop[] ordersCandidate = new PickDrop[](0);
+      foreach_reverse(i, arm; arms.enumerate(0)) {
+        if (orderByArm[i]) {
+          orderByArm[i] = research(i);
+          continue;
+        }
+        
+        ordersCandidate ~= searchN(freeArmCount, arm.size, false);
+      }
+
+      foreach(order; ordersCandidate.multiSort!("a.cost < b.cost", "a.armSize > b.armSize")) {
+        foreach(i, arm; arms.enumerate(0)) {
+          if (orderByArm[i] || arm.size != order.armSize) continue;
+          if (!pickGrid[order.dest.r][order.dest.c]) continue;
+
+          pickGrid[order.dest.r][order.dest.c] = false;
+          orderByArm[i] = order;
+          break;
         }
       }
 
@@ -463,36 +456,6 @@ void problem() {
           currentOrderArmIndex = v[0];
         }
       }
-      
-      // foreach(Order order; orders.keys.sort!((a, b) => root.dist(a.pickFrom) < root.dist(b.pickFrom))) {
-      //   foreach(i, arm; arms.enumerate(0)) {
-      //     if (orderByArm[i]) continue;
-
-      //     auto armSize = order.armSize();
-      //     if (arm.size != armSize) continue;
-
-      //     orderByArm[i] = order;
-      //     orders.remove(order);
-      //     break;
-      //   }
-      // }
-
-      // if (currentOrderArmIndex == -1) {
-      //   int minDist = int.max;
-      //   foreach(i, arm, order; zip(arms.length.to!int.iota, arms, orderByArm)) {
-      //     if (order is null) continue;
-
-      //     if (!arm.picked) {
-      //       if (minDist.chmin(root.dist(order.pickFrom))) {
-      //         currentOrderArmIndex = i;
-      //       }
-      //     } else {
-      //       if (minDist.chmin(root.dist(order.dropFrom))) {
-      //         currentOrderArmIndex = i;
-      //       }
-      //     }
-      //   }
-      // }
     }
 
     string[] initialize() {
@@ -625,34 +588,141 @@ void problem() {
     }
   }
 
-  Order[] orders = createOrders(toPick.array, toDrop.array);
-  auto armSizes = new int[](0).redBlackTree!true; {
-    auto orderArmSizes = orders.map!"a.armSize".filter!"a > 0".array.sort;
-    foreach(i; 0..V - 1) {
-      auto armSize = orderArmSizes[min($ - 1, (i * orderArmSizes.length) / V)];
-      armSizes.insert(armSize);
+  Robot[] robots;
+  string[][] anss;
+
+  { // pattern 1 - 最初に拾える数だけで貪欲に
+    Coord bestStartCoord;
+    int[] armsCandidates = new int[](0);
+    {
+      long maxCandidateSize;
+      foreach(r; 0..N) foreach(c; 0..N) {
+        int[] candidates;
+        foreach_reverse(d; 1..N / 2 + 1) {
+          foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            auto coord = Coord(r + d*dr, c + d*dc);
+            if (!coord.isValid()) continue;
+
+            if (coord.of(S)) {
+              candidates ~= d;
+            }
+          }
+        }
+
+        if (maxCandidateSize.chmax(candidates.length)) {
+          armsCandidates = candidates;
+          bestStartCoord = Coord(r, c);
+        }
+      }
+      armsCandidates ~= armsCandidates.mean.to!int.repeat(V).array;
+      armsCandidates = armsCandidates[0..V - 1].sort.array;
     }
+
+    robots ~= new Robot(bestStartCoord, armsCandidates, S, T);
   }
-  armSizes.clear();
-  armSizes.insert(armsCandidates);
 
-  orders = orders.map!(order => order.nearest(armSizes)).array;
-  Robot robot = new Robot(bestStartCoord, armSizes.array, S, T);
-  robot.takeOrders();
+  { // pattern 2 - アーム超ごとのスコア算出をもとに貪欲に
+    enum int SCORE_MAX = 512;
+    int[][] dropScore = new int[][](N, N);
+    foreach(coord; toDrop) {
+      bool[][] visited = new bool[][](N, N);
 
-  foreach(s; robot.initialize()) writeln(s);
-  foreach(turn; 1..10^^5) {
-    // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+      bool[Coord] nexts = [coord: true];
+      int step = 0;
+      while(!nexts.empty) {
+        auto keys = nexts.keys;
+        nexts.clear;
 
-    auto moves = robot.simulate();
-    if (moves.all!"a == '.'") break;
+        foreach(c; keys) {
+          dropScore[c.r][c.c] += SCORE_MAX / (4^^step);
+          visited[c.r][c.c] = true;
 
-    // [turn].deb;
-    // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+          foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            auto n = Coord(c.r + dr, c.c + dc);
+            if (!n.isValid || visited[n.r][n.c]) continue;
 
-    writeln(moves);
+            nexts[n] = true;
+          }
+        }
+        step++;
+
+        if (SCORE_MAX / (8^^step) == 0) break;
+      }
+    }
+
+    int[] armsCandidates = new int[](0);
+    int[] armSizeScore = new int[](N + 1);
+    {
+      foreach(from; toPick) {
+        foreach(d; 1..N + 1) {
+          int maxScore;
+          foreach(dr, dc; zip([-2, -1, 0, 1, 2, 1, 0, -1], [0, -1, -2, -1, 0, 1, 2, 1])) {
+            auto rotated = Coord(from.r + d*dr, from.c + d*dc);
+            if (!rotated.isValid()) continue;
+
+            maxScore.chmax(dropScore[rotated.r][rotated.c]);
+          }
+          armSizeScore[d] += maxScore;
+        }
+      }
+      
+      // armSizeScore.deb;
+      int[] arms = new int[](0);
+      foreach(_; 0..V - 1) {
+        arms ~= armSizeScore.maxIndex.to!int;
+        armSizeScore[armSizeScore.maxIndex] *= 7;
+        armSizeScore[armSizeScore.maxIndex] /= 10;
+      }
+      armsCandidates = arms.sort.array;
+    }
+
+    int[][] gridScore = new int[][](N, N);
+    Coord bestStartCoord;
+    int bestStartScore;
+    foreach(r; 0..N) foreach(c; 0..N) {
+      foreach(d, count; armsCandidates.group) {
+        int[] adds = new int[](0);
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          auto coord = Coord(r + d*dr, c + d*dc);
+          if (!coord.isValid()) continue;
+
+          adds ~= (coord in toPick) ? 1 : 0;
+        }
+
+        gridScore[r][c] += adds.sort!"a > b"[0..min($, count)].sum;
+      }
+      if (bestStartScore.chmax(gridScore[r][c])) {
+        bestStartCoord = Coord(r, c);
+      }
+    }
+    robots ~= new Robot(bestStartCoord, armsCandidates, S, T);
+  }
+
+  string[] ans;
+  long best = long.max;
+  foreach(i, robot; robots.enumerate(0)) {
+    string[] output;
+    output ~= robot.initialize();
+
     robot.takeOrders();
+    foreach(turn; 1..10^^5) {
+      // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+
+      auto moves = robot.simulate();
+      if (moves.all!"a == '.'") break;
+
+      // [turn].deb;
+      // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+
+      output ~= moves;
+      robot.takeOrders();
+    }
+
+    long penalty = robot.dropGrid.joiner.count(true) * 10^^5;
+    if (best.chmin(output.length + penalty)) ans = output;
   }
+
+  foreach(row; ans) writeln(row);
 }
 
 // ----------------------------------------------
