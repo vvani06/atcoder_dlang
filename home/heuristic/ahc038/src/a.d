@@ -402,7 +402,6 @@ void problem() {
         int[Coord] coordCounts;
         foreach(ref order; ordersCandidate) {
           coordCounts[order.dest]++;
-          // order.cost += search(order.armSize, true).cost;
         }
 
         [root].deb;
@@ -451,7 +450,7 @@ void problem() {
         foreach(i, order; orderByArm.enumerate(0)) {
           if (!order) continue;
           
-          if (best.chmin(root.dist(order.coord) * (arms[i].picked ? 2 : 1))) {
+          if (best.chmin(root.dist(order.coord) + (arms[i].picked ? (20 - V) / 5 : 0))) {
             bestIndex = i;
           } 
         }
@@ -459,7 +458,6 @@ void problem() {
         auto currentCost = currentOrderArmIndex == -1 || orderByArm[currentOrderArmIndex] is null ? int.max : root.dist(orderByArm[currentOrderArmIndex].coord);
         if (currentCost > best) currentOrderArmIndex = bestIndex;
       }
-      [currentOrderArmIndex].deb;
     }
 
     string[] initialize() {
@@ -649,7 +647,7 @@ void problem() {
     int[] armSizeScore = new int[](N + 1);
     {
       foreach(from; toPick) {
-        foreach(d; 1..N / 2 + 1) {
+        foreach(d; 1..N / 2 + 2) {
           int maxScore;
           foreach(dr, dc; zip([-2, -1, 0, 1, 2, 1, 0, -1], [0, -1, -2, -1, 0, 1, 2, 1])) {
             auto rotated = Coord(from.r + d*dr, from.c + d*dc);
@@ -741,7 +739,7 @@ void problem() {
       int[] arms = new int[](0);
       foreach(_; 0..V - 1) {
         arms ~= armSizeScore.maxIndex.to!int;
-        armSizeScore[armSizeScore.maxIndex] *= 7;
+        armSizeScore[armSizeScore.maxIndex] *= 5;
         armSizeScore[armSizeScore.maxIndex] /= 10;
       }
       armsCandidates = arms.sort.array;
