@@ -305,9 +305,19 @@ void problem() {
       }
     }
 
+    bool[31][31] visited;
+    bool[31][31] queued;
+    int[31][31] costs;
+    void provisionSearch() {
+      foreach(i; 0..31) {
+        visited[i][] = false;
+        queued[i][] = false;
+        costs[i][] = 0;
+      }
+    }
+
     PickDrop search(int armSize, bool drop = false) {
-      bool[31][31] visited;
-      int[31][31] costs;
+      provisionSearch();
       costs[root.r][root.c] = 1;
       
       for(auto queue = DList!Coord([root]); !queue.empty;) {
@@ -335,9 +345,8 @@ void problem() {
     }
 
     PickDrop[] searchN(int limit, int armSize, bool drop = false) {
+      provisionSearch();
       PickDrop[] ret;
-      bool[31][31] visited;
-      int[31][31] costs;
       costs[root.r][root.c] = 1;
 
       for(auto queue = DList!Coord([root]); !queue.empty;) {
@@ -348,11 +357,11 @@ void problem() {
         visited[cur.r][cur.c] = true;
 
         foreach(dest; cur.armed(armSize)) {
-          if (visited[dest.r][dest.c]) continue;
+          if (queued[dest.r][dest.c]) continue;
           
           if ((!drop && pickGrid[dest.r][dest.c]) || (drop && dropGrid[dest.r][dest.c])) {
             ret ~= new PickDrop(armSize, cur, dest.dir, costs[cur.r][cur.c]);
-            visited[dest.r][dest.c] = true;
+            queued[dest.r][dest.c] = true;
           }
         }
 
@@ -369,93 +378,87 @@ void problem() {
       return ret;
     }
 
-    PickDrop research(int armIndex) {
-      if (orderByArm[armIndex] is null) return null;
-
-      auto armSize = arms[armIndex].size;
-      auto target = orderByArm[armIndex].dest();
-      bool[31][31] visited;
-      int[31][31] costs;
-      costs[root.r][root.c] = 1;
-
-      for(auto queue = DList!Coord([root]); !queue.empty;) {
-        auto cur = queue.front();
-        queue.removeFront();
-
-        if (visited[cur.r][cur.c]) continue;
-        visited[cur.r][cur.c] = true;
-
-        foreach(dest; cur.armed(armSize)) {
-          if (dest.equals(target)) return new PickDrop(armSize, cur, dest.dir, costs[cur.r][cur.c]);
-        }
-
-        foreach(ar; cur.armed(1)) {
-          if (visited[ar.r][ar.c]) continue;
-
-          queue.insertBack(ar);
-          costs[ar.r][ar.c] = costs[cur.r][cur.c] + 1;
-        }
-      }
-
-      return null;
-    }
-
     void takeOrders() {
-      /+
       foreach(i, arm; arms.enumerate(0)) {
-        if (orderByArm[i]) {
-          orderByArm[i] = research(i);
-          continue;
-        }
-        
-        PickDrop order = search(arm.size, false);
-        PickDrop testDrop = search(arm.size, true);
-        if (order && testDrop) {
-          pickGrid[order.dest.r][order.dest.c] = false;
-          orderByArm[i] = order;
+        if (i == currentOrderArmIndex || !orderByArm[i] || root.equals(orderByArm[i].coord)) continue;
+
+        auto dest = orderByArm[i].dest;
+        orderByArm[i] = null;
+        if (!arm.picked) {
+          pickGrid[dest.r][dest.c] = true;
+        } else {
+          dropGrid[dest.r][dest.c] = true;
         }
       }
-      +/
 
-      auto freeArmCount = orderByArm.count!(order => order is null).to!int;
-      PickDrop[] ordersCandidate = new PickDrop[](0);
-      foreach_reverse(i, arm; arms.enumerate(0)) {
-        if (orderByArm[i]) {
-          orderByArm[i] = research(i);
-          continue;
-        }
-        
-        ordersCandidate ~= searchN(freeArmCount, arm.size, false);
-      }
-
-      foreach(order; ordersCandidate.multiSort!("a.cost < b.cost", "a.armSize > b.armSize")) {
+      { // find pick points
+        PickDrop[] ordersCandidate = new PickDrop[](0);
         foreach(i, arm; arms.enumerate(0)) {
-          if (orderByArm[i] || arm.size != order.armSize) continue;
+          if (!orderByArm[i] && !arm.picked) {
+            ordersCandidate ~= searchN(V, arm.size, false);
+          }
+        }
+
+        int[Coord] coordCounts;
+        foreach(order; ordersCandidate) {
+          coordCounts[order.dest]++;
+        }
+
+        foreach(order; ordersCandidate.multiSort!("a.cost < b.cost", (a, b) => (coordCounts[a.dest] < coordCounts[b.dest]))) {
           if (!pickGrid[order.dest.r][order.dest.c]) continue;
 
-          pickGrid[order.dest.r][order.dest.c] = false;
-          orderByArm[i] = order;
-          break;
+          foreach(i, arm; arms.enumerate(0)) {
+            if (arm.picked || orderByArm[i] || arm.size != order.armSize) continue;
+
+            pickGrid[order.dest.r][order.dest.c] = false;
+            orderByArm[i] = order;
+            break;
+          }
         }
       }
 
-      int nearest = int.max;
-      currentOrderArmIndex = -1;
-      int[][Coord] counts;
-      foreach(i, order; orderByArm.enumerate(0)) {
-        if (order is null) continue;
+      { // find drop points
+        PickDrop[] ordersCandidate = new PickDrop[](0);
+        foreach(i, arm; arms.enumerate(0)) {
+          if (!orderByArm[i] && arm.picked) {
+            ordersCandidate ~= searchN(V, arm.size, true);
+          }
+        }
 
-        counts[order.coord] ~= i;
-        if (nearest.chmin(root.dist(order.coord))) currentOrderArmIndex = i;
-      }
+        int[Coord] coordCounts;
+        foreach(order; ordersCandidate) {
+          coordCounts[order.dest]++;
+        }
 
-      int bestSize;
-      foreach(k; counts.keys.sort!((a, b) => root.dist(a) < root.dist(b))) {
-        auto v = counts[k];
-        if (bestSize.chmax(v.length.to!int)) {
-          currentOrderArmIndex = v[0];
+        foreach(order; ordersCandidate.multiSort!("a.cost < b.cost", (a, b) => (coordCounts[a.dest] < coordCounts[b.dest]))) {
+          if (!dropGrid[order.dest.r][order.dest.c]) continue;
+
+          foreach(i, arm; arms.enumerate(0)) {
+            if (!arm.picked || orderByArm[i] || arm.size != order.armSize) continue;
+
+            dropGrid[order.dest.r][order.dest.c] = false;
+            orderByArm[i] = order;
+            break;
+          }
         }
       }
+
+      {
+        int best = int.max;
+        int bestIndex = -1;
+
+        foreach(i, order; orderByArm.enumerate(0)) {
+          if (!order) continue;
+          
+          if (best.chmin(order.cost)) {
+            bestIndex = i;
+          } 
+        }
+
+        auto currentCost = currentOrderArmIndex == -1 || orderByArm[currentOrderArmIndex] is null ? int.max : orderByArm[currentOrderArmIndex].cost;
+        if (currentCost > best + 1) currentOrderArmIndex = bestIndex;
+      }
+      [currentOrderArmIndex].deb;
     }
 
     string[] initialize() {
@@ -518,7 +521,6 @@ void problem() {
       // これまでに Pick/Drop できるやつがない場合だけ移動して、移動後のPick/Dropをやる
       if (!toggled && currentOrderArmIndex >= 0) {
         {
-          auto arm = arms[currentOrderArmIndex];
           auto order = orderByArm[currentOrderArmIndex];
           auto dest = order.coord;
           move(root, dest);
@@ -537,14 +539,7 @@ void problem() {
         if (orderByArm[i] is null) continue;
 
         if (ret[V + arm.id] == 'P') {
-          if (!arm.picked) {
-            auto drop = search(arm.size, true);
-            orderByArm[i] = drop;
-            dropGrid[drop.dest.r][drop.dest.c] = false;
-          } else {
-            orderByArm[i] = null;
-          }
-
+          orderByArm[i] = null;
           arm.picked ^= true;
         }
       }
@@ -620,7 +615,6 @@ void problem() {
 
     robots ~= new Robot(bestStartCoord, armsCandidates, S, T);
   }
-
   { // pattern 2 - アーム超ごとのスコア算出をもとに貪欲に
     enum int SCORE_MAX = 512;
     int[][] dropScore = new int[][](N, N);
@@ -705,17 +699,24 @@ void problem() {
     output ~= robot.initialize();
 
     robot.takeOrders();
-    foreach(turn; 1..10^^5) {
+    foreach(turn; 1..2000) {
       // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
 
       auto moves = robot.simulate();
       if (moves.all!"a == '.'") break;
 
-      // [turn].deb;
+      [turn, robot.pickGrid.joiner.count(true), robot.dropGrid.joiner.count(true)].deb;
       // zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
 
       output ~= moves;
       robot.takeOrders();
+
+      zip(robot.arms, robot.orderByArm).each!(r => deb(r[0], " / ", r[1]));
+      bool working;
+      foreach(arm, order; zip(robot.arms, robot.orderByArm)) {
+        if (arm.picked || order !is null) working = true;
+      }
+      if (!working) break;
     }
 
     long penalty = robot.dropGrid.joiner.count(true) * 10^^5;
