@@ -400,10 +400,12 @@ void problem() {
         }
 
         int[Coord] coordCounts;
-        foreach(order; ordersCandidate) {
+        foreach(ref order; ordersCandidate) {
           coordCounts[order.dest]++;
+          // order.cost += search(order.armSize, true).cost;
         }
 
+        [root].deb;
         foreach(order; ordersCandidate.multiSort!("a.cost < b.cost", (a, b) => (coordCounts[a.dest] < coordCounts[b.dest]))) {
           if (!pickGrid[order.dest.r][order.dest.c]) continue;
 
@@ -446,17 +448,16 @@ void problem() {
       {
         int best = int.max;
         int bestIndex = -1;
-
         foreach(i, order; orderByArm.enumerate(0)) {
           if (!order) continue;
           
-          if (best.chmin(order.cost)) {
+          if (best.chmin(root.dist(order.coord) * (arms[i].picked ? 2 : 1))) {
             bestIndex = i;
           } 
         }
 
-        auto currentCost = currentOrderArmIndex == -1 || orderByArm[currentOrderArmIndex] is null ? int.max : orderByArm[currentOrderArmIndex].cost;
-        if (currentCost > best + 1) currentOrderArmIndex = bestIndex;
+        auto currentCost = currentOrderArmIndex == -1 || orderByArm[currentOrderArmIndex] is null ? int.max : root.dist(orderByArm[currentOrderArmIndex].coord);
+        if (currentCost > best) currentOrderArmIndex = bestIndex;
       }
       [currentOrderArmIndex].deb;
     }
@@ -648,7 +649,83 @@ void problem() {
     int[] armSizeScore = new int[](N + 1);
     {
       foreach(from; toPick) {
-        foreach(d; 1..N + 1) {
+        foreach(d; 1..N / 2 + 1) {
+          int maxScore;
+          foreach(dr, dc; zip([-2, -1, 0, 1, 2, 1, 0, -1], [0, -1, -2, -1, 0, 1, 2, 1])) {
+            auto rotated = Coord(from.r + d*dr, from.c + d*dc);
+            if (!rotated.isValid()) continue;
+
+            maxScore.chmax(dropScore[rotated.r][rotated.c]);
+          }
+          armSizeScore[d] += maxScore * d;
+        }
+      }
+      
+      // armSizeScore.deb;
+      int[] arms = new int[](0);
+      foreach(_; 0..V - 1) {
+        arms ~= armSizeScore.maxIndex.to!int;
+        armSizeScore[armSizeScore.maxIndex] *= 5;
+        armSizeScore[armSizeScore.maxIndex] /= 10;
+      }
+      armsCandidates = arms.sort.array;
+    }
+
+    int[][] gridScore = new int[][](N, N);
+    Coord bestStartCoord;
+    int bestStartScore;
+    foreach(r; 0..N) foreach(c; 0..N) {
+      foreach(d, count; armsCandidates.group) {
+        int[] adds = new int[](0);
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          auto coord = Coord(r + d*dr, c + d*dc);
+          if (!coord.isValid()) continue;
+
+          adds ~= (coord in toPick) ? 1 : 0;
+        }
+
+        gridScore[r][c] += adds.sort!"a > b"[0..min($, count)].sum;
+      }
+      if (bestStartScore.chmax(gridScore[r][c])) {
+        bestStartCoord = Coord(r, c);
+      }
+    }
+    robots ~= new Robot(bestStartCoord, armsCandidates, S, T);
+  }
+  { // pattern 3 - アーム超ごとのスコア算出をもとに貪欲に2
+    enum int SCORE_MAX = 512;
+    int[][] dropScore = new int[][](N, N);
+    foreach(coord; toDrop) {
+      bool[][] visited = new bool[][](N, N);
+
+      bool[Coord] nexts = [coord: true];
+      int step = 0;
+      while(!nexts.empty) {
+        auto keys = nexts.keys;
+        nexts.clear;
+
+        foreach(c; keys) {
+          dropScore[c.r][c.c] += SCORE_MAX / (4^^step);
+          visited[c.r][c.c] = true;
+
+          foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+            auto n = Coord(c.r + dr, c.c + dc);
+            if (!n.isValid || visited[n.r][n.c]) continue;
+
+            nexts[n] = true;
+          }
+        }
+        step++;
+
+        if (SCORE_MAX / (8^^step) == 0) break;
+      }
+    }
+
+    int[] armsCandidates = new int[](0);
+    int[] armSizeScore = new int[](N + 1);
+    {
+      foreach(from; toPick) {
+        foreach(d; 1..N / 2 + 1) {
           int maxScore;
           foreach(dr, dc; zip([-2, -1, 0, 1, 2, 1, 0, -1], [0, -1, -2, -1, 0, 1, 2, 1])) {
             auto rotated = Coord(from.r + d*dr, from.c + d*dc);
