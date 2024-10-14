@@ -12,7 +12,6 @@ void problem() {
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
   enum long INF = long.max / 3;
-  enum DIR_DELTA = zip([0, 1, 0, -1], [1, 0, -1, 0]);
 
   int N = scan!int;
   int M = scan!int;
@@ -93,6 +92,168 @@ void problem() {
     }
   }
 
+  final class Order {
+    Coord from, to;
+    int rotationTimes;
+    Coord pickFrom;
+    
+    Coord dropFrom;
+
+    this(Coord from, Coord to, int rotationTimes, Coord pickFrom) {
+      this.from = from;
+      this.to = to;
+      this.rotationTimes = rotationTimes;
+      this.pickFrom = pickFrom;
+
+      auto rotated = fromRotated();
+      dropFrom = Coord(pickFrom.r + to.r - rotated.r, pickFrom.c + to.c - rotated.c);
+    }
+
+    int armSize() {
+      return from.dist(pickFrom);
+    }
+
+    bool rotateRight() {
+      if (rotationTimes != 1) return true;
+
+      auto r = from.rotate(pickFrom);
+      auto l = r.rotate(pickFrom).rotate(pickFrom);
+      return r.dist(to) <= l.dist(to);
+    }
+
+    int cost() {
+      if (rotationTimes == 0) {
+        return from.dist(to);
+      }
+
+      auto r = from.rotate(pickFrom);
+      if (rotationTimes == 2) {
+        return rotationTimes + r.rotate(pickFrom).dist(to);
+      }
+
+      auto l = r.rotate(pickFrom).rotate(pickFrom);
+      return rotationTimes + min(r.dist(to), l.dist(to));
+    }
+
+    Coord fromRotated() {
+      auto r = from;
+      if (rotateRight()) {
+        foreach(_; 0..rotationTimes) r = r.rotate(pickFrom);
+      } else {
+        foreach(_; 0..3) r = r.rotate(pickFrom);
+      }
+      return r;
+    }
+
+    int pickDir() {
+      auto dr = pickFrom.r == from.r ? 0 : pickFrom.r < from.r ? 1 : -1;
+      auto dc = pickFrom.c == from.c ? 0 : pickFrom.c < from.c ? 1 : -1;
+
+      if (dc == 1) return 0;
+      if (dr == 1) return 1;
+      if (dc == -1) return 2;
+      if (dr == -1) return 3;
+      return 0;
+    }
+
+    int dropDir() {
+      auto ret = pickDir();
+      if (rotationTimes == 0) return ret;
+
+      if (rotateRight) {
+        ret += rotationTimes;
+      } else {
+        ret += 3;
+      }
+      return ret % 4;
+    }
+
+    override string toString() {
+      return format(
+        "Order: (%2d, %2d) => (%2d, %2d) via (%2d, %2d) * %d " ~
+        "@ [arm:%2d, cost:%2d]",
+        from.r, from.c, to.r, to.c,
+        pickFrom.r, pickFrom.c, rotationTimes,
+        armSize(), cost(),
+      );
+    }
+
+    Order nearest(T)(T armSizes) {
+      auto arm = armSize();
+      if (arm in armSizes) return this;
+
+      if (armSize == 0) {
+        arm = armSizes.front + 1;
+        if (pickFrom.c < N / 2) pickFrom.c++; else pickFrom.c--;
+      }
+
+      auto dr = pickFrom.r == from.r ? 0 : pickFrom.r < from.r ? -1 : 1;
+      auto dc = pickFrom.c == from.c ? 0 : pickFrom.c < from.c ? -1 : 1;
+      foreach(d; 1..N) {
+        foreach(a; [arm - d]) {
+          Coord coord = Coord(from.r + dr*a, from.c + dc*a);
+          if (!coord.isValid()) continue;
+
+          // auto toRoot = Coord(to.r - dr*a, to.c - dc*a);
+          // if (!toRoot.isValid()) continue;
+          // [from, to, toRoot].deb;
+
+          if (a in armSizes) {
+            return new Order(from, to, rotationTimes, coord);
+          }
+        }
+      }
+
+      return this;
+    }
+  }
+
+  Order[] createOrders(Coord[] src, Coord[] dest) {
+    Order[] ret;
+    auto toDrop = dest.redBlackTree;
+    foreach(from; src.randomShuffle) {
+      Coord[Coord][3] df;
+      df[0][from] = from;
+      foreach(dr, dc; zip([0, -1, 0, 1], [-1, 0, 1, 0])) {
+        foreach(d; 0..N + 1) {
+          auto base = Coord(from.r + d*dr, from.c + d*dc);
+          if (!base.isValid()) break;
+
+          auto r = from.rotate(base);
+          df[1][r] = base;
+          r = r.rotate(base);
+          df[2][r] = base;
+          r = r.rotate(base);
+          df[1][r] = base;
+        }
+      }
+
+      int minDist = int.max;
+      int minD;
+      Coord minBase, minTo;
+      foreach(d; 0..3) foreach(rotated, base; df[d]) {
+        foreach(to; toDrop) {
+          auto dist = rotated.dist(to) + d;
+
+          auto toRoot = Coord(base.r + to.r - rotated.r, base.c + to.c - rotated.c);
+          if (!toRoot.isValid()) continue;
+
+          if (minDist.chmin(dist)) {
+            minD = d;
+            minBase = base;
+            minTo = to;
+          }
+        }
+      }
+
+      // minDist.deb;
+      // [from, minBase, minTo].deb;
+      ret ~= new Order(from, minTo, minD, minBase);
+      toDrop.removeKey(minTo);
+    }
+    return ret;
+  }
+
   class PickDrop {
     int armSize;
     Coord coord;
@@ -142,6 +303,7 @@ void problem() {
       foreach(i, s; armSizes.enumerate(1)) {
         arms ~= new Arm(this, i, s, 0);
         orderByArm ~= null;
+        arms[i - 1].deb;
       }
     }
 
@@ -423,6 +585,8 @@ void problem() {
   }
 
   Robot[] robots;
+  string[][] anss;
+
   { // pattern 1 - 最初に拾える数だけで貪欲に
     Coord bestStartCoord;
     int[] armsCandidates = new int[](0);
@@ -607,258 +771,6 @@ void problem() {
 
   string[] ans;
   long best = long.max;
-  {
-    static struct Coord2 {
-      int r, c;
-
-      Coord2 opBinary(string op: "+")(Coord2 other) const {
-        return Coord2(r + other.r, c + other.c);
-      }
-      Coord2 opBinary(string op: "-")(Coord2 other) const {
-        return Coord2(r - other.r, c - other.c);
-      }
-      Coord2 opBinary(string op: "*")(int d) const {
-        return Coord2(r * d, c * d);
-      }
-      auto opOpAssign(string op)(Coord2 t) {
-        return mixin ("this = this " ~ op ~ " t");
-      }
-      static Coord2 arm(int size, int dir) {
-        return Coord2(DIR_DELTA[dir][0] * size, DIR_DELTA[dir][1] * size);
-      }
-      bool invalid(int N) {
-        return min(r, c) < 0 || max(r, c) >= N;
-      }
-      T of(T)(T[][] t) const {
-        return t[r][c];
-      }
-    }
-
-    int distanceDirs(int[] d1, int[] d2) {
-      return zip(d1, d2).map!(a => a[0] == a[1] ? 0 : (a[0] + a[1]) % 2 == 0 ? 2 : 1).maxElement;
-    }
-
-    char[] calcRotate(int[] d1, int[] d2) {
-      return zip(d1, d2).map!(a => a[0] == a[1] ? '.' : (a[1] + 4 - a[0]) % 4 == 3 ? 'L' : 'R').array;
-    }
-
-    int[] rotate(int[] d1, char[] r) {
-      return zip(d1, r).map!(a => (a[1] == 'L' ? a[0] + 3 : a[1] == 'R' ? a[0] + 1 : a[0]) % 4).array;
-    }
-
-    foreach(r; 0..N) foreach(c; 0..N) if (S[r][c] == T[r][c]) S[r][c] = T[r][c] = false;
-
-    int armScale = min(V - 1, N >= 18 ? 5 : 4);
-    int[] armSizes = iota(armScale - 1, -1, -1).map!"2 ^^ a".array;
-    int armLimit = 2^^armScale + 1;
-
-    class Arm {
-      int id;
-      int scale;
-      int[] dirs;
-
-      int[][Coord2] templateArmDirs;
-      Coord2[] templateArmCoords;
-
-      this(int id, int scale) {
-        this.id = id;
-        this.scale = scale;
-        this.dirs = new int[](scale);
-        foreach(dirs; basePacks(4, scale)) {
-          Coord2 coord;
-          int dir;
-          foreach(i, d; dirs.enumerate(0)) {
-            dir = (dir + d) % 4;
-            auto armSize = 2^^(scale - 1 - i);
-            coord += Coord2.arm(armSize, dir);
-          }
-          this.templateArmDirs[coord] = dirs;
-          this.templateArmCoords ~= coord;
-        }
-        this.templateArmCoords.sort!((a, b) => abs(a.r) * 5 + abs(a.c) > abs(b.r) * 5 + abs(b.c));
-      }
-    }
-    
-    class Robot2 {
-      Coord2 root;
-      Arm[] arms;
-
-      this() {
-        root = Coord2(0, 0);
-        arms = new Arm[](0);
-      }
-
-      int moveRotationL(int armId) {
-        int ret = 1;
-        foreach(i, arm; arms.enumerate(0)) {
-          if (i == armId) break;
-
-          ret += arm.scale;
-        }
-        return ret;
-      }
-
-      int moveRotationR(int armId) {
-        return moveRotationL(armId) + arms[armId].scale;
-      }
-
-      int movePick(int armId) {
-        int ret = moveRotationR(arms.length.to!int - 1);
-        foreach(i, arm; arms.enumerate(0)) {
-          ret += arm.scale;
-          if (i == armId) break;
-        }
-        return ret;
-      }
-
-      string[] initialize() {
-        int v = 1;
-        foreach(arm; arms) v += arm.scale;
-        
-        string[] ret;
-        ret ~= "%s".format(v);
-
-        int offset;
-        foreach(arm; arms) {
-          foreach(j; 0..arm.scale) {
-            ret ~= "%s %s".format(j == 0 ? 0 : offset + j, 2^^(arm.scale - 1 - j));
-          }
-          offset += arm.scale;
-        }
-        ret ~= "%s %s".format(root.r, root.c);
-        return ret;
-      }
-
-      char[] moveTemplate() {
-        return '.'.repeat(2 * V).array;
-      }
-    }
-
-    Coord2 root = Coord2(N / 2, min(N / 2, armLimit - N / 2));
-    Robot2 robot = new Robot2(); {
-      robot.root = root;
-      int armId;
-      for(int v = V - 1; v > 0;) {
-        auto scale = min(armScale, v);
-        v -= scale;
-
-        robot.arms ~= new Arm(armId++, scale);
-      }
-    }
-    foreach(a; robot.initialize) ans ~= a;
-
-    // foreach(i, arm; robot.arms.enumerate(0)) {
-    //   [robot.moveRotationL(i),robot.moveRotationR(i),robot.movePick(i)].deb;
-    // }
-    // robot.initialize().each!deb;
-
-    auto pickGrid = S.map!"a.dup".array;
-    auto dropGrid = T.map!"a.dup".array;
-    alias Order = Tuple!(int, "armId", int, "pickDirDist", Coord2, "pickCoord", int, "dropDirDist", Coord2, "dropCoord");
-    int lastParity;
-    int rest = pickGrid.joiner.count(true).to!int;
-
-    while(rest > 0) {
-      foreach(parity; zip([0, 0, 1, 1], [0, 1, 0, 1])) {
-        foreach(_; 0..1000) {
-          Order[] orders;
-          
-          auto pickRoot = root + Coord2(-parity[0], 0);
-          auto dropRoot = root + Coord2(-parity[1], 0);
-
-          foreach_reverse(armId, arm; robot.arms.enumerate(0)) {
-            Coord2 pickCoord;
-            int pickDirDist = int.max;
-            foreach(armCoord; arm.templateArmCoords) {
-              auto coord = pickRoot + armCoord;
-              if (coord.invalid(N) || !coord.of(pickGrid)) continue;
-
-              auto pickDir = arm.templateArmDirs[armCoord];
-              if (pickDirDist.chmin(distanceDirs(arm.dirs, pickDir))) {
-                pickCoord = armCoord;
-              }
-            }
-            if (pickDirDist == int.max) continue;
-
-            Coord2 dropCoord;
-            int dropDirDist = int.max;
-            foreach(armCoord; arm.templateArmCoords) {
-              auto coord = dropRoot + armCoord;
-              if (coord.invalid(N) || !coord.of(dropGrid)) continue;
-
-              auto dropDir = arm.templateArmDirs[armCoord];
-              auto pickDir = arm.templateArmDirs[pickCoord];
-              if (dropDirDist.chmin(distanceDirs(pickDir, dropDir))) {
-                dropCoord = armCoord;
-              }
-            }
-            if (dropDirDist == int.max) continue;
-
-            auto pc = pickRoot + pickCoord;
-            pickGrid[pc.r][pc.c] = false;
-            auto dc = dropRoot + dropCoord;
-            dropGrid[dc.r][dc.c] = false;
-            orders ~= Order(armId, pickDirDist, pickCoord, dropDirDist, dropCoord);
-          }
-
-          if (orders.empty) break;
-
-          char[][] moves = 4.iota.map!(_ => robot.moveTemplate.dup).array;
-          int maxDrop;
-          foreach(order; orders) {
-            auto arm = robot.arms[order.armId];
-            auto ml = robot.moveRotationL(order.armId);
-            auto mr = robot.moveRotationR(order.armId);
-            auto mp = robot.movePick(order.armId);
-
-            int pickMove = max(1, order.pickDirDist);
-            foreach(i; 0..pickMove) {
-              auto rot = calcRotate(arm.dirs, arm.templateArmDirs[order.pickCoord]);
-              arm.dirs = rotate(arm.dirs, rot);
-              moves[i][ml .. mr] = rot;
-            }
-            moves[pickMove - 1][mp] = 'P';
-
-            int dropMove = max(1, order.dropDirDist);
-            foreach(i; pickMove..pickMove + dropMove) {
-              auto rot = calcRotate(arm.dirs, arm.templateArmDirs[order.dropCoord]);
-              arm.dirs = rotate(arm.dirs, rot);
-              moves[i][ml .. mr] = rot;
-            }
-            maxDrop = max(maxDrop, pickMove + dropMove - 1);
-          }
-
-          foreach(order; orders) {
-            auto mp = robot.movePick(order.armId);
-            moves[maxDrop][mp] = 'P';
-          }
-
-          if (lastParity != parity[0]) {
-            moves[0][0] = lastParity == 0 ? 'U' : 'D';
-          }
-          if (parity[0] != parity[1]) {
-            moves[maxDrop][0] = parity[0] == 0 ? 'U' : 'D';
-          }
-          lastParity = parity[1];
-          rest -= orders.length.to!int;
-          foreach(m; moves) {
-            if (m == robot.moveTemplate) break; else ans ~= m.to!string;
-          }
-        }
-      }
-
-      if (rest > 0 && root.c < N - 1) {
-        root += Coord2(0, 1);
-        auto moveRight = robot.moveTemplate.dup;
-        moveRight[0] = 'R';
-        ans ~= moveRight.to!string;
-      } else {
-        break;
-      }
-    }
-    best = ans.length + rest * 10^^5;
-  }
-
   foreach(i, robot; robots.enumerate(0)) {
     string[] output;
     output ~= robot.initialize();
@@ -922,15 +834,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-int[][] basePacks(int base, int size) {
-  auto ret = new int[][](base^^size, size);
-  foreach(i; 0..base^^size) {
-    int x = i;
-    foreach(b; 0..size) {
-      ret[i][b] = x % base;
-      x /= base;
-    }
-  }
-  return ret;
-}
