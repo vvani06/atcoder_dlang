@@ -7,35 +7,46 @@ void problem() {
 
   auto solve() {
     auto tl = T.length.to!int;
-    auto indicies = 128.iota.map!(_ => new int[](0).redBlackTree).array;
-    foreach(i, c; T.enumerate(0)) {
-      indicies[c].insert(i);
+    
+    auto ls = new int[](N);
+    foreach(i, s; S) {
+      foreach(c; s) {
+        if (c == T[ls[i]]) {
+          ls[i]++;
+        }
+
+        if (ls[i] >= tl) break;
+      }
     }
 
-    auto s = S[0];
-    auto sl = s.length.to!int;
-    int l = -1;
-    int prefix;
-    foreach(i; 0..sl) {
-      auto c = s[i];
-      auto uppers = indicies[c].upperBound(l);
-      if (uppers.empty) break;
+    auto rs = new int[](N);
+    foreach(i, s; S) {
+      foreach(c; s.retro) {
+        if (c == T[$ - 1 - rs[i]]) {
+          rs[i]++;
+        }
 
-      l = uppers.front;
-      prefix++;
+        if (rs[i] >= tl) break;
+      }
     }
 
-    int r = sl;
-    int suffix;
-    foreach_reverse(i; 0..sl) {
-      auto c = s[i];
-      auto lowers = indicies[c].lowerBound(r);
-      if (lowers.empty) break;
+    ls.deb;
+    rs.deb;
 
-      r = lowers.back;
-      suffix++;
+    auto rc = new int[](tl + 1);
+    foreach(r; rs) rc[r]++;
+    auto racc = 0 ~ rc.cumulativeFold!"a + b".array;
+    racc.deb;
+
+    long ans;
+    foreach(i; 0..N) {
+      long l = ls[i];
+      long add = racc[$ - 1] - racc[$ - 2 - l];
+      [l, add].deb;
+
+      ans += add;
     }
-    [prefix, suffix].deb;
+    return ans;
   }
 
   outputForAtCoder(&solve);
