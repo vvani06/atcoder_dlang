@@ -3,67 +3,36 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto Q = scan!int;
+  auto H = scan!int(N);
+  auto LR = scan!int(2 * Q).chunks(2);
 
   auto solve() {
-    long[int] dp, pre;
-    long[int] froms;
-
-    string preh;
-    int pret;
-    enum long INF = long.max / 3;
-    foreach(_; 0..Q) {
-      auto h = scan;
-      auto t = scan!int - 1;
-
-      if (preh == h && pret == t) continue;
-
-      if (preh == "") {
-        pre[h == "L" ? 1 : 0] = 0;
-        froms = h == "L" ? [0: 0] : [1: 0];
-      } else if (preh == h) {
-        swap(pre, dp);
-        froms = [pret: 0];
-      } else {
-        pre.clear;
-        swap(froms, dp);
-        pre[pret] = 0;
-      }
-      dp.clear;
-      preh = h;
-      pret = t;
-
-      foreach(from, fc; froms) {
-        foreach(other, oc; pre) {
-          long cost = fc + oc; 
-
-          foreach(to; [t - N, t, t + N]) {
-            if (from < to) {
-              if (from < other && other < to) {
-                int mOther = (to + 1 + N) % N;
-                dp.require(mOther, INF);
-                dp[mOther].chmin(cost + (to - from) + (to - other + 1));
-              } else {
-                dp.require(other, INF);
-                dp[other].chmin(cost + (to - from));
-              }
-            }
-            
-            if (to < from) {
-              if (to < other && other < from) {
-                int mOther = (to - 1 + N) % N;
-                dp.require(mOther, INF);
-                dp[mOther].chmin(cost + (to - from).abs + (to - other - 1).abs);
-              } else {
-                dp.require(other, INF);
-                dp[other].chmin(cost + (to - from).abs);
-              }
-            }
-          }
-        }
-      }
+    alias Query = Tuple!(int, "id" , int, "l", int, "r");
+    Query[][] queries = new Query[][](N, 0);
+    foreach(i, lr; LR.enumerate(0)) {
+      queries[lr[0] - 1] ~= Query(i, lr[0] - 1, lr[1] - 1);
     }
 
-    return dp.values.minElement;
+    int[] ans = new int[](Q);
+    auto segtree = SegTree!("a + b", int)(new int[](N));
+    auto stack = DList!int();
+    foreach_reverse(l; 0..N) {
+      foreach(q; queries[l]) {
+        // deb(q);
+        ans[q.id] = segtree.sum(q.r + 1, N);
+      }
+      // deb([l], iota(0, N).map!(x => segtree.get(x)));
+
+      while(!stack.empty() && H[stack.back()] < H[l]) {
+        segtree.add(stack.back(), -1);
+        stack.removeBack();
+      }
+
+      stack.insertBack(l);
+      segtree.add(l, 1);
+    }
+
+    foreach(s; ans) s.writeln;
   }
 
   outputForAtCoder(&solve);
@@ -72,6 +41,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -114,3 +84,102 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+
+  void add(int index, T value) {
+    update(index, get(index) + value);
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return predFun(leftValue, rightValue);
+  }
+}
+
+long countInvertions(T)(T[] arr) {
+  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
+  long ret;
+  long pre = -1;
+  int[] adds;
+  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
+    auto i = a[0];
+    auto n = a[1];
+    if (pre != n) {
+      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
+      adds.length = 0;
+    }
+    adds ~= i;
+    pre = n;
+    ret += segtree.sum(0, i);
+  }
+  return ret;
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
