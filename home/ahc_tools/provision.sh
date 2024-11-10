@@ -19,6 +19,7 @@ declare -A TOOLS_URLS=(
   ["AHC035"]="https://img.atcoder.jp/ahc035/F5dI2O6U.zip"
   ["AHC036"]="https://img.atcoder.jp/ahc036/e5f02df53f30d36e.zip"
   ["AHC037"]="https://img.atcoder.jp/ahc037/WneGTzJP.zip"
+  ["AHC038"]="https://img.atcoder.jp/ahc038/GhBuR36w.zip"
   ["AHC039"]="https://img.atcoder.jp/ahc039/KNtTkgAy.zip"
 )
 
