@@ -9,82 +9,88 @@ void problem() {
   auto C = scan!int(L);
 
   auto solve() {
-    int[int][] memo;
-    enum int SIM_MAX = 8000;
-    memo.length = SIM_MAX;
-
     auto ALL = N + M + L;
-    auto CARDS = A ~ B ~ C;
-
-    int initState = iota(N, N + M).map!"3^^a".sum + iota(N + M, ALL).map!"2 * 3^^a".sum;
-    memo[0][initState] = 0;
-
-    int[][int][] nexts;
-    nexts.length = SIM_MAX;
+    auto CARDS = 0 ~ A ~ B ~ C;
+    enum ALL_STATES = 3^^13;
 
     int[] cards(int state, int x) {
+      state /= 3;
+
       int[] ret;
       foreach(i; 0..ALL) {
-        if (state % 3 == x) ret ~= i;
+        if (state % 3 == x) ret ~= i + 1;
         state /= 3;
       }
       return ret;
     }
 
-    foreach(i; 0..SIM_MAX) {
-      foreach(from; memo[i].keys) {
-        if (i % 2 == 0) {
-          if (cards(from, 0).empty()) {
-            memo[i][from] = 2;
-          }
+    int initState = 3 * (iota(N, N + M).map!"3^^a".sum + iota(N + M, ALL).map!"2 * 3^^a".sum);
 
-          foreach(drop; cards(from, 0)) {
-            memo[i + 1][from + 2*3^^drop] = 0;
-            nexts[i][from] ~= from + 2*3^^drop;
-
-            foreach(pick; cards(from, 2)) {
-              if (CARDS[pick] >= CARDS[drop]) continue;
-
-              memo[i + 1][from + 2*3^^drop - 2*3^^pick] = 0;
-              nexts[i][from] ~= from + 2*3^^drop - 2*3^^pick;
-            }
-          }
-        } else {
-          if (cards(from, 1).empty()) {
-            memo[i][from] = 1;
-          }
-
-          foreach(drop; cards(from, 1)) {
-            memo[i + 1][from - 3^^drop + 2*3^^drop] = 0;
-            nexts[i][from] ~= from - 3^^drop + 2*3^^drop;
-
-            foreach(pick; cards(from, 2)) {
-              if (CARDS[pick] >= CARDS[drop]) continue;
-
-              memo[i + 1][from - 3^^drop + 3^^pick + 2*3^^drop - 2*3^^pick] = 0;
-              nexts[i][from] ~= from - 3^^drop + 3^^pick + 2*3^^drop - 2*3^^pick;
-            }
-          }
-        }
-      }
-
-      // [0, 1, 2].map!(n => memo[i].values.count(n)).deb;
-      if (memo[i + 1].empty) break;
+    int[][] graph = new int[][](ALL_STATES, 0);
+    int[][] revGraph = new int[][](ALL_STATES, 0);
+    void connect(int from, int to) {
+      graph[from] ~= to;
+      revGraph[to] ~= from;
+      // deb("connect: ", [from, to]);
     }
 
-    foreach_reverse(i; 0..SIM_MAX) {
-      foreach(from; memo[i].keys) {
-        if (memo[i][from] != 0) continue;
+    auto visited = new bool[](ALL_STATES);
+    for(auto queue = DList!int(initState); !queue.empty;) {
+      auto from = queue.front;
+      queue.removeFront;
 
-        if (i % 2 == 0) {
-          memo[i][from] = nexts[i][from].any!(s => memo[i + 1][s] == 1) ? 1 : 2;
-        } else {
-          memo[i][from] = nexts[i][from].all!(s => memo[i + 1][s] == 1) ? 1 : 2;
+      if (visited[from]) continue;
+      visited[from] = true;
+
+      auto player = from % 3;
+      auto next = from - player + (player ^ 1);
+      // [from, player].deb;
+      foreach(drop; cards(from, player)) {
+        auto dropped = next - player*3^^drop + 2*3^^drop;
+        connect(from, dropped);
+        queue.insertBack(dropped);
+
+        foreach(pick; cards(from, 2)) {
+          if (CARDS[pick] >= CARDS[drop]) continue;
+
+          auto picked = dropped + player*3^^pick - 2*3^^pick;
+          connect(from, picked);
+          queue.insertBack(picked);
         }
       }
     }
 
-    return memo[0][initState] == 1 ? "Takahashi" : "Aoki";
+    bool[] win = new bool[](ALL_STATES);
+    int[] rest = new int[](ALL_STATES);
+    auto queue = DList!int();
+    foreach(state, nexts; graph.enumerate(0)) {
+      if (!visited[state]) continue;
+
+      if (nexts.empty()) {
+        win[state] = state % 3 == 1;
+        queue.insertBack(state);
+      } else {
+        rest[state] = nexts.length.to!int;
+      }
+    }
+
+    while(!queue.empty) {
+      auto cur = queue.front;
+      queue.removeFront;
+
+      foreach(next; revGraph[cur]) {
+        rest[next]--;
+        if (rest[next] == 0) queue.insertBack(next);
+      }
+
+      if (cur % 3 == 0) {
+        win[cur] = graph[cur].any!(s => win[s]);
+      } else {
+        win[cur] = graph[cur].all!(s => win[s]);
+      }
+    }
+
+    return win[initState] ? "Takahashi" : "Aoki";
   }
 
   outputForAtCoder(&solve);
@@ -136,102 +142,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
-
-  void add(int index, T value) {
-    update(index, get(index) + value);
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
-
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
-    }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
-  }
-  return ret;
-}
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}

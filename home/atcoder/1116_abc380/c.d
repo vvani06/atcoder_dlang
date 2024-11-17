@@ -2,35 +2,24 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto K = scan!int - 1;
+  auto K = scan!int;
   auto S = scan;
 
   auto solve() {
-    auto zeros = S.group.filter!"a[0] == '0'".array;
-    auto ones = S.group.filter!"a[0] == '1'".array;
+    auto gr = S.group.array;
 
-    ones[K - 1][1] += ones[K][1];
-    ones[K][1] = 0;
-
-    string ans;
-    int i, j;
-    if (S[0] == '1') {
-      ans ~= ones[0][0].repeat(ones[0][1]).to!string;
-      j++;
-    }
-
-    while(zeros.length > i || ones.length > j) {
-      if (zeros.length > i) {
-        ans ~= zeros[i][0].repeat(zeros[i][1]).to!string;
-        i++;
-      }
-      if (ones.length > j) {
-        ans ~= ones[j][0].repeat(ones[j][1]).to!string;
-        j++;
+    int k;
+    foreach(i, g; gr) {
+      if (g[0] == '1') {
+        if (++k == K) {
+          gr[i - 2][1] += gr[i][1];
+          gr[i][1] = 0;
+          break;
+        }
       }
     }
 
-    return ans;
+    return gr.map!(g => g[0].repeat(g[1])).joiner.to!string;
   }
 
   outputForAtCoder(&solve);
