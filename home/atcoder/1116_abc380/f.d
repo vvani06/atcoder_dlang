@@ -10,87 +10,39 @@ void problem() {
 
   auto solve() {
     auto ALL = N + M + L;
-    auto CARDS = 0 ~ A ~ B ~ C;
-    enum ALL_STATES = 3^^13;
+    auto CARDS = A ~ B ~ C;
 
-    int[] cards(int state, int x) {
-      state /= 3;
+    bool[long] memo;
+    long memoKey(int a, int b, int c, int d) { return d + 2*(a + 2L^^16*(b + 2L^^16 * c)); }
+    bool calc(int tak, int aok, int field, int player) {
+      // [tak, aok, field].deb;
+      auto mk = memoKey(tak, aok, field, player);
+      if (mk in memo) return memo[mk];
 
-      int[] ret;
-      foreach(i; 0..ALL) {
-        if (state % 3 == x) ret ~= i + 1;
-        state /= 3;
-      }
-      return ret;
-    }
+      auto isT = player == 0;
+      auto hand = isT ? tak : aok;
+      foreach(drop; 0..ALL) {
+        auto dBit = 2^^drop;
+        if ((hand & dBit) == 0) continue;
 
-    int initState = 3 * (iota(N, N + M).map!"3^^a".sum + iota(N + M, ALL).map!"2 * 3^^a".sum);
+        auto dt = isT ? tak ^ dBit : tak;
+        auto da = isT ? aok : aok ^ dBit;
+        if (calc(dt, da, field ^ dBit, player ^ 1) == isT) return memo[mk] = isT;
 
-    int[][] graph = new int[][](ALL_STATES, 0);
-    int[][] revGraph = new int[][](ALL_STATES, 0);
-    void connect(int from, int to) {
-      graph[from] ~= to;
-      revGraph[to] ~= from;
-      // deb("connect: ", [from, to]);
-    }
+        foreach(pick; 0..ALL) {
+          auto pBit = 2^^pick;
+          if ((field & pBit) == 0 || CARDS[drop] <= CARDS[pick]) continue;
 
-    auto visited = new bool[](ALL_STATES);
-    for(auto queue = DList!int(initState); !queue.empty;) {
-      auto from = queue.front;
-      queue.removeFront;
-
-      if (visited[from]) continue;
-      visited[from] = true;
-
-      auto player = from % 3;
-      auto next = from - player + (player ^ 1);
-      // [from, player].deb;
-      foreach(drop; cards(from, player)) {
-        auto dropped = next - player*3^^drop + 2*3^^drop;
-        connect(from, dropped);
-        queue.insertBack(dropped);
-
-        foreach(pick; cards(from, 2)) {
-          if (CARDS[pick] >= CARDS[drop]) continue;
-
-          auto picked = dropped + player*3^^pick - 2*3^^pick;
-          connect(from, picked);
-          queue.insertBack(picked);
+          auto pt = isT ? dt ^ pBit : dt;
+          auto pa = isT ? da : da ^ pBit;
+          if (calc(pt, pa, field ^ dBit ^ pBit, player ^ 1) == isT) return memo[mk] = isT;
         }
       }
+      
+      return memo[mk] = !isT;
     }
 
-    bool[] win = new bool[](ALL_STATES);
-    int[] rest = new int[](ALL_STATES);
-    auto queue = DList!int();
-    foreach(state, nexts; graph.enumerate(0)) {
-      if (!visited[state]) continue;
-
-      if (nexts.empty()) {
-        win[state] = state % 3 == 1;
-        queue.insertBack(state);
-      } else {
-        rest[state] = nexts.length.to!int;
-      }
-    }
-
-    while(!queue.empty) {
-      auto cur = queue.front;
-      queue.removeFront;
-
-      foreach(next; revGraph[cur]) {
-        rest[next]--;
-        if (rest[next] == 0) queue.insertBack(next);
-      }
-
-      if (cur % 3 == 0) {
-        win[cur] = graph[cur].any!(s => win[s]);
-      } else {
-        win[cur] = graph[cur].all!(s => win[s]);
-      }
-    }
-
-    return win[initState] ? "Takahashi" : "Aoki";
+    return calc(2^^N - 1, (2^^M - 1) << N, (2^^L - 1) << (N + M), 0) ? "Takahashi" : "Aoki";
   }
 
   outputForAtCoder(&solve);
