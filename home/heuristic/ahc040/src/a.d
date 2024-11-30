@@ -29,16 +29,17 @@ void problem() {
         swap(wh[0], wh[1]);
       }
 
-      writefln("%s %s %s %s", i, rotated, "U", largest);
+      largest = i - 1;
+      if (cur > threshold) {
+        largest = -1;
+        nextLargest = -1;
+        nextLargestSize = cur = 0;
+      }
+      
+      writefln("%s %s %s %s", i, rotated, "L", largest);
       cur += wh[1];
       if (nextLargestSize.chmax(wh[0])) {
         nextLargest = i;
-      }
-
-      if (cur > threshold) {
-        largest = nextLargest;
-        nextLargest = -1;
-        nextLargestSize = cur = 0;
       }
     }
     stdout.flush();
