@@ -16,15 +16,13 @@ void problem() {
 
   long[] testPack(long threshold) {
     int largest = -1;
-    int nextLargest = -1;
-    long nextLargestSize;
-    long cur;
+    long cur, curWidth;
 
     N.writeln;
     foreach(i, whb; WH.enumerate(0)) {
       auto wh = whb.dup;
       int rotated;
-      if (wh[0] > wh[1] && nextLargestSize < wh[0]) {
+      if (wh[0] > wh[1] && curWidth < wh[0]) {
         rotated = 1;
         swap(wh[0], wh[1]);
       }
@@ -32,15 +30,12 @@ void problem() {
       largest = i - 1;
       if (cur > threshold) {
         largest = -1;
-        nextLargest = -1;
-        nextLargestSize = cur = 0;
+        curWidth = cur = 0;
       }
       
       writefln("%s %s %s %s", i, rotated, "L", largest);
       cur += wh[1];
-      if (nextLargestSize.chmax(wh[0])) {
-        nextLargest = i;
-      }
+      curWidth = max(curWidth, wh[0]);
     }
     stdout.flush();
     return scan!long(2);
