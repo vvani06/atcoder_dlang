@@ -14,6 +14,27 @@ void problem() {
   int S = scan!int;
   long[][] WH = scan!long(N * 2).chunks(2).array;
 
+  bool isOverWidth(long threshold) {
+    int largest = -1;
+    long ret, cur, curWidth;
+
+    foreach(i, whb; WH.enumerate(0)) {
+      auto wh = whb.dup;
+      if (wh[0] > wh[1] && curWidth < wh[0]) swap(wh[0], wh[1]);
+
+      if (cur > threshold) {
+        ret += curWidth;
+        curWidth = cur = 0;
+      }
+      cur += wh[1];
+      curWidth = max(curWidth, wh[0]);
+    }
+    return threshold >= ret + curWidth;
+  }
+
+  long bestWidth = binarySearch(&isOverWidth, WH.map!"a.maxElement".sum, 0);
+  bestWidth.deb;
+
   long[] testPack(long threshold) {
     int largest = -1;
     long cur, curWidth;
@@ -44,14 +65,22 @@ void problem() {
   long threshold = WH.map!"a.maxElement".sum;
   long bestThreshold;
   long bestScore = long.max;
-  foreach(t; 0..T - 1) {
-    long th = (threshold * (0.01 + 0.005*t)).to!long;
-    long[] wh = testPack(th);
-    if (bestScore.chmin(wh.sum)) {
-      bestThreshold = th;
+  int tried;
+
+  long stepSize = bestWidth / 200;
+  while(tried < T - 1) {
+    foreach(d; [-1, 1]) {
+      if (tried >= T - 1) break;
+
+      long th = bestWidth + d*stepSize*(tried/2);
+      long[] wh = testPack(th);
+      if (bestScore.chmin(wh.sum)) {
+        bestThreshold = th;
+      }
+      tried++;
+      if (tried == 1) break;
     }
   }
-
   testPack(bestThreshold);
 }
 
@@ -86,3 +115,32 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
