@@ -14,50 +14,65 @@ void problem() {
   int S = scan!int;
   long[][] WH = scan!long(N * 2).chunks(2).array;
 
-  bool isOverWidth(long threshold) {
-    int largest = -1;
-    long ret, cur, curWidth;
+  long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
+  baseHeight.deb;
 
-    foreach(i, whb; WH.enumerate(0)) {
-      auto wh = whb.dup;
-      if (wh[0] > wh[1] && curWidth < wh[0]) swap(wh[0], wh[1]);
+  class Rect {
+    int rectId;
+    int rotated;
+    int baseRectId;
 
-      if (cur > threshold) {
-        ret += curWidth;
-        curWidth = cur = 0;
-      }
-      cur += wh[1];
-      curWidth = max(curWidth, wh[0]);
+    this(int id, int r, int b) {
+      rectId = id;
+      rotated = r;
+      baseRectId = b;
     }
-    return threshold >= ret + curWidth;
+
+    long w() { return WH[rectId][rotated]; }
+    long h() { return WH[rectId][1 ^ rotated]; }
+    long min() { return WH[rectId].minElement; }
+
+    int widthLonger() {
+      return rotated;
+    }
+
+    int rotate() { return rotated = rotated ^ 1; }
+
+    string toOutput() {
+      return format("%s %s %s %s", rectId, rotated, "L", baseRectId);
+    }
   }
 
-  long bestWidth = binarySearch(&isOverWidth, WH.map!"a.maxElement".sum, 0);
-  bestWidth.deb;
-
   long[] testPack(long threshold) {
-    int largest = -1;
-    long cur, curWidth;
+    int pre = -1;
 
     N.writeln;
+    Rect[] queue;
+    long width;
+    
+    void resetColumn() {
+      foreach(qr; queue) writeln(qr.toOutput());
+      width = 0;
+      queue.length = 0;  
+    }
+    
     foreach(i, whb; WH.enumerate(0)) {
-      auto wh = whb.dup;
-      int rotated;
-      if (wh[0] > wh[1] && curWidth < wh[0]) {
-        rotated = 1;
-        swap(wh[0], wh[1]);
+      auto rect = new Rect(i, 0, queue.empty ? -1 : queue.back.rectId);
+      width = max(width, rect.min());
+      queue ~= rect;
+
+      long height;
+      foreach(ref qr; queue) {
+        if (abs(qr.w - width) > abs(qr.h - width)) qr.rotate();
+        height += qr.h;
       }
 
-      largest = i - 1;
-      if (cur > threshold) {
-        largest = -1;
-        curWidth = cur = 0;
+      if (height >= threshold) {
+        resetColumn();
       }
-      
-      writefln("%s %s %s %s", i, rotated, "L", largest);
-      cur += wh[1];
-      curWidth = max(curWidth, wh[0]);
     }
+
+    resetColumn();
     stdout.flush();
     return scan!long(2);
   }
@@ -67,12 +82,12 @@ void problem() {
   long bestScore = long.max;
   int tried;
 
-  long stepSize = bestWidth / 200;
+  long stepSize = baseHeight / 200;
   while(tried < T - 1) {
     foreach(d; [-1, 1]) {
       if (tried >= T - 1) break;
 
-      long th = bestWidth + d*stepSize*(tried/2);
+      long th = baseHeight + d*stepSize*(tried/2);
       long[] wh = testPack(th);
       if (bestScore.chmin(wh.sum)) {
         bestThreshold = th;
@@ -115,32 +130,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}
-
