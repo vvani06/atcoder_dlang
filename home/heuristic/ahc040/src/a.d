@@ -31,10 +31,7 @@ void problem() {
     long w() { return WH[rectId][rotated]; }
     long h() { return WH[rectId][1 ^ rotated]; }
     long min() { return WH[rectId].minElement; }
-
-    int widthLonger() {
-      return rotated;
-    }
+    long max() { return WH[rectId].maxElement; }
 
     int rotate() { return rotated = rotated ^ 1; }
 
@@ -82,7 +79,7 @@ void problem() {
   long bestScore = long.max;
   int tried;
 
-  long stepSize = baseHeight / 200;
+  long stepSize = baseHeight * 100 / T / 200;
   while(tried < T - 1) {
     foreach(d; [-1, 1]) {
       if (tried >= T - 1) break;
