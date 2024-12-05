@@ -15,7 +15,7 @@ void problem() {
   long[][] WH = scan!long(N * 2).chunks(2).array;
 
   long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
-  baseHeight.deb;
+  // baseHeight.deb;
 
   class Rect {
     int rectId;
@@ -38,6 +38,41 @@ void problem() {
     string toOutput() {
       return format("%s %s %s %s", rectId, rotated, "L", baseRectId);
     }
+
+    override string toString() {
+      return format("%02d: [% 9s% 9s]", rectId, w(), h());
+    }
+  }
+
+  Tuple!(long, int) bestRotate(Rect[] rects, long targetHeight) {
+    long bestScore = long.max;
+    int bestRotate;
+
+    foreach(rn; 0..2 ^^ rects.length.to!int) {
+      long score, height;
+      auto rnt = rn;
+      foreach(i, ref rect; rects) {
+        auto r = rnt % 2;
+        rnt /= 2;
+
+        rect.rotated = r;
+        height += rect.h();
+        if (i > 0) {
+          score += abs(rects[i - 1].w() - rect.w());
+        }
+      }
+      score += abs(height - targetHeight) * 16;
+      if (bestScore.chmin(score)) bestRotate = rn;
+    }
+
+    auto rn = bestRotate;
+    foreach(i, ref rect; rects.enumerate(0)) {
+      auto r = rn % 2;
+      rn /= 2;
+      rect.rotated = r;
+    }
+
+    return tuple(bestScore, bestRotate);
   }
 
   long[] testPack(long threshold) {
@@ -48,29 +83,68 @@ void problem() {
     long width;
     
     void resetColumn() {
+      // queue.array.each!deb;
       foreach(qr; queue) writeln(qr.toOutput());
       width = 0;
       queue.length = 0;  
     }
-    
-    foreach(i, whb; WH.enumerate(0)) {
-      auto rect = new Rect(i, 0, queue.empty ? -1 : queue.back.rectId);
-      width = max(width, rect.min());
-      queue ~= rect;
 
-      long height;
-      foreach(ref qr; queue) {
-        if (abs(qr.w - width) > abs(qr.h - width)) qr.rotate();
-        height += qr.h;
+    int currentRectIndex;
+    while(currentRectIndex < N) {
+      int nextMin, nextMax; {
+        long mih, mah;
+        foreach(wh; WH[currentRectIndex..$]) {
+          if (mih < threshold) {
+            mih += wh.maxElement;
+            nextMin++;
+          }
+          if (mah < threshold) {
+            mah += wh.minElement;
+            nextMax++;
+          }
+        }
       }
 
-      if (height >= threshold) {
-        resetColumn();
+      Rect[] rects;
+      long bestScore = long.max;
+      int bestRotated;
+      [nextMin + currentRectIndex, nextMax + currentRectIndex].deb;
+
+      foreach(nexts; max(0, nextMin - 1)..min(N - currentRectIndex + 1, nextMax + 1)) {
+        Rect[] testRects;
+        foreach(i, wh; WH[currentRectIndex..currentRectIndex + nexts].enumerate(0)) {
+          testRects ~= new Rect(i + currentRectIndex, 0, testRects.empty ? -1 : testRects.back.rectId);
+        }
+
+        auto tested = bestRotate(testRects, threshold);
+        if (bestScore.chmin(tested[0])) {
+          rects = testRects;
+          bestRotated = tested[1];
+        }
       }
+      queue = rects;
+      currentRectIndex += queue.length.to!int;
+      resetColumn();
+      stdout.flush();
     }
 
-    resetColumn();
-    stdout.flush();
+    
+    // foreach(i, whb; WH.enumerate(0)) {
+    //   auto rect = new Rect(i, 0, queue.empty ? -1 : queue.back.rectId);
+    //   width = max(width, rect.min());
+    //   queue ~= rect;
+
+    //   long height;
+    //   foreach(ref qr; queue) {
+    //     if (abs(qr.w - width) > abs(qr.h - width)) qr.rotate();
+    //     height += qr.h;
+    //   }
+
+    //   if (height >= threshold) {
+    //     resetColumn();
+    //   }
+    // }
+
     return scan!long(2);
   }
 
@@ -81,6 +155,11 @@ void problem() {
 
   long stepSize = baseHeight * 100 / T / 200;
   while(tried < T - 1) {
+    if (elapsed(2500)) {
+      tried++;
+      writeln(0);
+      continue;
+    }
     foreach(d; [-1, 1]) {
       if (tried >= T - 1) break;
 
