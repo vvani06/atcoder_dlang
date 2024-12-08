@@ -104,8 +104,8 @@ void problem() {
         by = base;
       }
 
-      long dw = max(0, min(bx + w(), other.ex()) - max(bx, other.sx));
-      long dh = max(0, min(by + h(), other.ey()) - max(by, other.sy));
+      long dw = max(0, min(bx + w() + S, other.ex()) - max(bx, other.sx));
+      long dh = max(0, min(by + h() + S, other.ey()) - max(by, other.sy));
       // [dw, dh].deb;
       return dw * dh > 0;
     }
@@ -187,8 +187,16 @@ void problem() {
   int count;
   while(!elapsed(2500)) {
     count++;
+
     auto target = uniform(0, N, RND);
-    curRects[target].rotate();
+    // if (count % 2 == 0) {
+      curRects[target].rotate();
+    // } else {
+    //   if (curRects[target].baseRectId == -1) continue;
+
+    //   auto newBase = uniform(0, target);
+    //   curRects[target].baseRectId = newBase;
+    // }
 
     long w, h;
     foreach(i; 0..N) {
@@ -200,8 +208,8 @@ void problem() {
       snapshot = curRects.map!"a.dup".array;
       snapScore = w + h;
       badCount = 0;
-      snapScore.deb;
-    } else if (w + h > snapScore * 1.2 || badCount >= 5) {
+      deb("update #", count, " => ", snapScore);
+    } else if (w + h > snapScore * 1.2 || badCount >= 3) {
       curRects = snapshot.map!"a.dup".array;
       badCount = 0;
     } else {
