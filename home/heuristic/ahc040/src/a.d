@@ -105,7 +105,7 @@ void problem() {
       }
 
       long dw = max(0, min(bx + w(), other.ex()) - max(bx, other.sx));
-      long dh = max(0, min(by + w(), other.ey()) - max(by, other.sy));
+      long dh = max(0, min(by + h(), other.ey()) - max(by, other.sy));
       // [dw, dh].deb;
       return dw * dh > 0;
     }
