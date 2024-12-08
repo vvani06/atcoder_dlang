@@ -133,7 +133,7 @@ void problem() {
         }
       }
       score += abs(height - targetHeight) * 16;
-      if (rects[$ - 1].rectId == N - 1) score -= w * 0;
+      if (rects[$ - 1].rectId == N - 1) score -= w * 4;
       if (bestScore.chmin(score)) bestRotate = rn;
     }
 
@@ -209,7 +209,7 @@ void problem() {
   long bestScore = long.max;
   int tried;
 
-  long stepSize = baseHeight * 100 / T / 200;
+  long stepSize = baseHeight * 100 / T / 400;
   while(tried < T) {
     if (elapsed(2800)) {
       tried++;
