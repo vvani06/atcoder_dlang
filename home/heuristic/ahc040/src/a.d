@@ -18,26 +18,6 @@ void problem() {
     wh[1] = clamp(wh[1], 10^^4, 10^^5);
   }
 
-  long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
-  // baseHeight.deb;
-
-  int rc;
-  while (T > N + 1) {
-    rc++;
-    foreach(i; 0..N) {
-      writeln(1);
-      writefln("%s %s %s %s", i, 0, "U", -1);
-      stdout.flush();
-      auto wh = scan!long(2);
-      foreach(j; 0..2) WH[i][j] += clamp(wh[j], 10^^4, 10^^5);
-    }
-    T -= N;
-  }
-  foreach(i; 0..N) {
-    WH[i][0] /= rc + 1;
-    WH[i][1] /= rc + 1;
-  }
-
   class Rect {
     int rectId;
     int rotated;
@@ -128,6 +108,24 @@ void problem() {
     return [w, h];
   }
 
+  int rc;
+  while (T > N + 3) {
+    rc++;
+    foreach(i; 0..N) {
+      writeln(1);
+      writefln("%s %s %s %s", i, 0, "U", -1);
+      stdout.flush();
+      auto wh = scan!long(2);
+      foreach(j; 0..2) WH[i][j] += clamp(wh[j], 10^^4, 10^^5);
+    }
+    T -= N;
+  }
+  foreach(i; 0..N) {
+    WH[i][0] /= rc + 1;
+    WH[i][1] /= rc + 1;
+  }
+  long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
+
   Rect[] allRects;
   Tuple!(long[], Rect[]) testPack(long threshold, bool dryrun = false) {
     int pre = -1;
@@ -189,14 +187,17 @@ void problem() {
     count++;
 
     auto target = uniform(0, N, RND);
-    // if (count % 2 == 0) {
+    if (count % 5 < 4) {
       curRects[target].rotate();
-    // } else {
-    //   if (curRects[target].baseRectId == -1) continue;
+    } else {
+      if (curRects[target].baseRectId == -1) continue;
 
-    //   auto newBase = uniform(0, target);
-    //   curRects[target].baseRectId = newBase;
-    // }
+      curRects[target].baseRectId = uniform(0, target, RND);
+      curRects[target].rotated = uniform(0, 2, RND);
+      foreach(n; curRects[target + 1..$]) {
+        if (n.baseRectId == target) n.baseRectId--; 
+      }
+    }
 
     long w, h;
     foreach(i; 0..N) {
