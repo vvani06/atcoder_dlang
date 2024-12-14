@@ -1,34 +1,27 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto K = scan!long;
-  alias Edge = Tuple!(int, "from", int, "to", long, "cost");
-  auto E = scan!long(3 * M).chunks(3).map!(e => Edge(e[0].to!int - 1, e[1].to!int - 1, e[2]));
+  auto N = scan!long;
 
   auto solve() {
-    auto graph = new int[][](N, 0);
-    foreach(i, e; E.enumerate(0)) {
-      graph[e.from] ~= i;
-      graph[e.to] ~= i;
-    }
-    
-    long dfs(UnionFind uf, int node, long cost) {
-      if (uf.size(0) == N) return cost;
+    auto erat = Eratosthenes(2 * 10^^6);
 
-      long ret = long.max;
-      foreach(e; graph[node]) {
-        if (uf.same(E[e].from, E[e].to)) continue;
+    bool is9d(int x) {
+      auto factors = erat.factorize(x);
 
-        auto connected =  uf.dup;
-        connected.unite(E[e].from, E[e].to);
-        ret = min(ret, dfs(connected, node + 1, (cost + E[e].cost) % K));
-      }
-      return ret;
+      auto kinds = factors.keys.length;
+      auto counts = factors.values.sum;
+
+      if (kinds == 2 && counts == 2) return true;
+      if (kinds == 1 && counts == 4) return true;
+      return false;
     }
 
-    return dfs(UnionFind(N), 0, 0); 
+    long ans;
+    for(long n = 1; n*n <= N; n++) {
+      if (is9d(n.to!int)) ans++;
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -67,7 +60,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -80,81 +73,44 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
+struct Eratosthenes {
+  bool[] isPrime;
+  int[] rawPrimes;
+  int[] spf;
 
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
+  this(int lim) {
+    isPrime = new bool[](lim + 1);
+    isPrime[2..$] = true;
+    spf = new int[](lim + 1);
+    spf[] = int.max;
+    spf[0..2] = 1;
 
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
+    foreach (i; 2..lim+1) {
+      if (isPrime[i]) {
+        spf[i] = i;
 
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
+        auto x = i*2;
+        while (x <= lim) {
+          isPrime[x] = false;
+          spf[x].chmin(i);
+          x += i;
+        }
+      }
     }
 
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+    foreach(p; 2..lim + 1) {
+      if (isPrime[p]) rawPrimes ~= p;
+    }
   }
 
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
+  auto primes() { return rawPrimes.assumeSorted; }
+
+  int[int] factorize(int x) {
+    int[int] ret;
+    while(x > 1) {
+      ret[spf[x]]++;
+      x /= spf[x];
+    }
+    return ret;
   }
 }
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;

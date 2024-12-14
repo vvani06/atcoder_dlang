@@ -1,34 +1,46 @@
 void main() { runSolver(); }
 
 void problem() {
+  struct Edge { int u, v; long cost; }
   auto N = scan!int;
   auto M = scan!int;
-  auto K = scan!long;
-  alias Edge = Tuple!(int, "from", int, "to", long, "cost");
-  auto E = scan!long(3 * M).chunks(3).map!(e => Edge(e[0].to!int - 1, e[1].to!int - 1, e[2]));
+  auto K = scan!int;
+  auto E = scan!int(3 * M).chunks(3).map!(e => Edge(e[0], e[1], e[2])).array;
+  auto A = scan!int(K);
+  auto B = scan!int(K);
 
   auto solve() {
-    auto graph = new int[][](N, 0);
-    foreach(i, e; E.enumerate(0)) {
-      graph[e.from] ~= i;
-      graph[e.to] ~= i;
-    }
-    
-    long dfs(UnionFind uf, int node, long cost) {
-      if (uf.size(0) == N) return cost;
+    struct ABCount {
+      long a, b;
 
-      long ret = long.max;
-      foreach(e; graph[node]) {
-        if (uf.same(E[e].from, E[e].to)) continue;
-
-        auto connected =  uf.dup;
-        connected.unite(E[e].from, E[e].to);
-        ret = min(ret, dfs(connected, node + 1, (cost + E[e].cost) % K));
+      ABCount merge(ABCount other) {
+        return ABCount(a + other.a, b + other.b);
       }
-      return ret;
+
+      long min() { return [a, b].minElement; }
     }
 
-    return dfs(UnionFind(N), 0, 0); 
+    auto abCounts = new ABCount[](N + 1);
+    foreach(a; A) abCounts[a].a++;
+    foreach(b; B) abCounts[b].b++;
+
+    auto uf = UnionFindWith!ABCount(N + 1, abCounts);
+    long ans;
+    foreach(e; E.sort!"a.cost < b.cost") {
+      auto u = e.u;
+      auto v = e.v;
+      if (uf.same(u, v)) continue;
+
+      uf.unite(u, v);
+      auto ex = uf.extra(u);
+
+      e.deb;
+      ans += e.cost * ex.min;
+      uf.setExtra(u, ABCount(ex.a - ex.min, ex.b - ex.min));
+      uf.extra(u).deb;
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -37,6 +49,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -80,25 +93,17 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-
 struct UnionFindWith(T = UnionFindExtra) {
   int[] roots;
   int[] sizes;
   long[] weights;
   T[] extras;
  
-  this(int size) {
+  this(int size, T[] ex = new T[](0)) {
     roots = size.iota.array;
     sizes = 1.repeat(size).array;
     weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
+    extras = ex.empty ? new T[](size) : ex.dup;
   }
  
   int root(int x) {
@@ -144,15 +149,6 @@ struct UnionFindWith(T = UnionFindExtra) {
     int rootY = root(y);
  
     return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
   }
 }
 

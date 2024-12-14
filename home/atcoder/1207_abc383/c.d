@@ -1,34 +1,39 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto K = scan!long;
-  alias Edge = Tuple!(int, "from", int, "to", long, "cost");
-  auto E = scan!long(3 * M).chunks(3).map!(e => Edge(e[0].to!int - 1, e[1].to!int - 1, e[2]));
+  auto H = scan!int;
+  auto W = scan!int;
+  auto D = scan!int;
+  auto S = scan!string(H);
 
   auto solve() {
-    auto graph = new int[][](N, 0);
-    foreach(i, e; E.enumerate(0)) {
-      graph[e.from] ~= i;
-      graph[e.to] ~= i;
+    struct Coord { int r, c, d; }
+    Coord[] starts;
+    foreach(r; 0..H) foreach(c; 0..W) {
+      if (S[r][c] == 'H') starts ~= Coord(r, c, D);
     }
-    
-    long dfs(UnionFind uf, int node, long cost) {
-      if (uf.size(0) == N) return cost;
 
-      long ret = long.max;
-      foreach(e; graph[node]) {
-        if (uf.same(E[e].from, E[e].to)) continue;
+    int[][] memo = new int[][](H, W);
+    foreach(ref m; memo) m[] = -1;
+    for(auto queue = DList!Coord(starts); !queue.empty;) {
+      auto cur = queue.front;
+      queue.removeFront;
+      
+      if (memo[cur.r][cur.c] != -1) continue;
+      memo[cur.r][cur.c] = cur.d;
 
-        auto connected =  uf.dup;
-        connected.unite(E[e].from, E[e].to);
-        ret = min(ret, dfs(connected, node + 1, (cost + E[e].cost) % K));
+      if (cur.d == 0) continue;
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto r = cur.r + dr;
+        auto c = cur.c + dc;
+        if (min(r, c) < 0 || r >= H || c >= W) continue;
+        if (S[r][c] == '#' || memo[r][c] != -1) continue;
+
+        queue.insertBack(Coord(r, c, cur.d - 1));
       }
-      return ret;
     }
 
-    return dfs(UnionFind(N), 0, 0); 
+    return memo.joiner.count!(m => m >= 0);
   }
 
   outputForAtCoder(&solve);
@@ -67,7 +72,7 @@ string asAnswer(T ...)(T t) {
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
-  else if (is(T == string)) fn().writeln;
+  else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
 void runSolver() {
@@ -79,82 +84,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
-
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
-
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
-    }
-
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
-  }
-}
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;

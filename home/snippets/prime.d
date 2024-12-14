@@ -32,3 +32,46 @@ bool[] enumeratePrimes(long max)
 
   return primes;
 }
+
+struct Eratosthenes {
+  bool[] isPrime;
+  int[] rawPrimes;
+  int[] spf;
+
+  this(int lim) {
+    isPrime = new bool[](lim + 1);
+    isPrime[2..$] = true;
+    spf = new int[](lim + 1);
+    spf[] = int.max;
+    spf[0..2] = 1;
+
+    foreach (i; 2..lim+1) {
+      if (isPrime[i]) {
+        spf[i] = i;
+
+        auto x = i*2;
+        while (x <= lim) {
+          isPrime[x] = false;
+          spf[x].chmin(i);
+          x += i;
+        }
+      }
+    }
+
+    foreach(p; 2..lim + 1) {
+      if (isPrime[p]) rawPrimes ~= p;
+    }
+  }
+
+  auto primes() { return rawPrimes.assumeSorted; }
+
+  int[int] factorize(int x) {
+    int[int] ret;
+    while(x > 1) {
+      ret[spf[x]]++;
+      x /= spf[x];
+    }
+    return ret;
+  }
+}
+
