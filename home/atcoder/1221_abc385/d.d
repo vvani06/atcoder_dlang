@@ -4,6 +4,7 @@ struct Move {
   string d;
   long c;
 }
+alias Coord = Tuple!(long, "x", long, "y");
 
 void problem() {
   auto N = scan!int;
@@ -26,7 +27,8 @@ void problem() {
 
     long ans;
     foreach(move; DC) {
-      // move.deb;
+      Coord[] rem;
+
       if (move.d == "U" || move.d == "D") {
         auto moved = Y;
         if (move.d == "U") moved += move.c; else moved -= move.c;
@@ -34,22 +36,12 @@ void problem() {
         if (X in rPerC) {
           auto low = min(moved, Y);
           auto high = max(moved, Y);
-
-          // [X, low, high].deb;
-          // rPerC[X].dup.deb;
-          long[] rem;
           foreach(t; rPerC[X].upperBound(low - 1)) {
             if (t > high) break;
 
-            // [X, t].deb;
-            rem ~= t;
-            cPerR[t].removeKey(X);
-            ans++;
+            rem ~= Coord(X, t);
           }
-          rPerC[X].removeKey(rem);
-          // rPerC[X].dup.deb;
         }
-
         Y = moved;
       } else {
         auto moved = X;
@@ -58,23 +50,19 @@ void problem() {
         if (Y in cPerR) {
           auto low = min(moved, X);
           auto high = max(moved, X);
-
-          // [Y, low, high].deb;
-          // cPerR[Y].dup.deb;
-          long[] rem;
           foreach(t; cPerR[Y].upperBound(low - 1)) {
             if (t > high) break;
 
-            // [t, Y].deb;
-            rem ~= t;
-            rPerC[t].removeKey(Y);
-            ans++;
+            rem ~= Coord(t, Y);
           }
-          cPerR[Y].removeKey(rem);
-          // cPerR[Y].dup.deb;
         }
-
         X = moved;
+      }
+
+      foreach(r; rem) {
+        cPerR[r.y].removeKey(r.x);
+        rPerC[r.x].removeKey(r.y);
+        ans++;
       }
     }
 
