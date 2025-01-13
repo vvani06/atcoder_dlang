@@ -5,18 +5,18 @@ void problem() {
   auto A = scan!long(N);
 
   auto solve() {
-    auto heads = A[0 .. N / 2].heapify!"a > b";
-    auto tails = A[N / 2 .. $].heapify!"a > b";
+    for (int i, j, d; i < N; i++) {
+      while (j < N && A[i] * 2 > A[j]) j++;
 
-    int ans;
-    foreach(head; heads) {
-      while(!tails.empty && tails.front < head * 2) tails.removeFront;
-      if (tails.empty) break;
+      d = max(d, j - i);
+      [i, d, j].deb;
 
-      ans++;
-      tails.removeFront;
+      if (i + max(d, i + 1) >= N) {
+        return i;
+      }
     }
-    return ans;
+
+    return 0;
   }
 
   outputForAtCoder(&solve);
