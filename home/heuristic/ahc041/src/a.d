@@ -22,78 +22,105 @@ void problem() {
     int node, value;
   }
 
-  Node[] nodes = N.iota.map!(i => Node(i, A[i])).array;
+  auto nodes = N.iota.map!(i => Node(i, A[i])).array.sort!"a.value > b.value";
   int[][] graph = new int[][](N, 0);
   foreach(e; E) {
     graph[e[0]] ~= e[1];
     graph[e[1]] ~= e[0];
   }
-  foreach(ref g; graph) g.sort!((a, b) => A[a] < A[b]);
 
-  UnionFind uf = UnionFind(N);
-  bool[] used = new bool[](N);
-  int[] roots = (-1).repeat(N).array;
-  int[] rootIds;
-
-  foreach(leaf; nodes.array.sort!"a.value > b.value") {
-    if (used[leaf.node]) continue;
-
-    used[leaf.node] = true;
-    int[] route;
-
-    int dfs(int cur, int pre, int depth) {
-      if (depth > H) return depth;
-
-      foreach(next; graph[cur]) {
-        if (next == pre || used[next]) continue;
-
-        roots[cur] = next;
-        used[next] = true;
-        route ~= next;
-        return dfs(next, cur, depth + 1);
-      }
-      return depth;
+  Tuple!(int, int[]) solve(int tried) {
+    if (tried == 0) {
+      foreach(ref g; graph) g.sort!((a, b) => A[a] < A[b]);
+    } else {
+      foreach(ref g; graph) g.randomShuffle(RND);
     }
 
-    int maxDepth = dfs(leaf.node, leaf.node, 1);
+    bool[] used = new bool[](N);
+    int[] roots = (-1).repeat(N).array;
+    int[] rootIds;
+
     alias Item = Tuple!(int, "node", int, "depth");
     auto heap = new Item[](0).heapify!"a.depth < b.depth";
-    foreach(depth, node; route.retro.enumerate(1)) heap.insert(Item(node, depth));
 
-    while(!heap.empty) {
-      Item item = heap.front;
-      heap.removeFront;
+    auto availables = N.iota.map!(i => graph[i].redBlackTree).array;
 
-      auto branch = item.node;
-      foreach(next; graph[branch]) {
-        if (used[next]) continue;
-        // if (A[next] < A[branch]) continue;
+    foreach(leaf; nodes) {
+      if (used[leaf.node]) continue;
 
-        roots[next] = branch;
-        used[next] = true;
-        if (item.depth < H) heap.insert(Item(next, item.depth + 1));
+      used[leaf.node] = true;
+      int[] route;
+
+      int dfs(int cur, int pre, int depth) {
+        if (depth > H) return depth;
+
+        foreach(next; graph[cur]) {
+          if (next == pre || used[next]) continue;
+
+          roots[cur] = next;
+          used[next] = true;
+          route ~= next;
+          return dfs(next, cur, depth + 1);
+        }
+        return depth;
       }
+
+      int maxDepth = dfs(leaf.node, leaf.node, 1);
+      foreach(depth, node; route.retro.enumerate(1)) heap.insert(Item(node, depth));
+
+      while(!heap.empty) {
+        Item item = heap.front;
+        heap.removeFront;
+
+        auto branch = item.node;
+        foreach(next; availables[branch].array) {
+          availables[branch].removeKey(next);
+          if (used[next]) continue;
+
+          roots[next] = branch;
+          used[next] = true;
+          if (item.depth < H) heap.insert(Item(next, item.depth + 1));
+          if (!availables[branch].empty) {
+            heap.insert(item);
+            break;
+          }
+        }
+      }
+
+      rootIds ~= route.empty ? leaf.node : route[$ - 1];
     }
 
-    rootIds ~= route.empty ? leaf.node : route[$ - 1];
-  }
-
-  int[][] trees = new int[][](N, 0);
-  foreach(cur, root; roots.enumerate(0)) {
-    if (root != -1) trees[root] ~= cur;
-  }
-
-  int heightSum;
-  foreach(root; rootIds) {
-    void countHeights(int cur, int depth) {
-      heightSum += depth;
-      foreach(next; trees[cur]) countHeights(next, depth + 1);
+    int[][] trees = new int[][](N, 0);
+    foreach(cur, root; roots.enumerate(0)) {
+      if (root != -1) trees[root] ~= cur;
     }
-    countHeights(root, 1);
+
+    int heightSum;
+    int score = 1;
+    foreach(root; rootIds) {
+      void countHeights(int cur, int depth) {
+        heightSum += depth;
+        score += depth * A[cur];
+        foreach(next; trees[cur]) countHeights(next, depth + 1);
+      }
+      countHeights(root, 1);
+    }
+    (heightSum.to!real / N).deb;
+    score.deb;
+    // writefln("%(%s %)", roots);
+
+    return tuple(score, roots);
   }
 
-  (heightSum.to!real / N).deb;
-  writefln("%(%s %)", roots);
+  int[] ans;
+  int bestScore;
+  int tried;
+  while(!elapsed(1800)) {
+    auto ret = solve(tried++);
+    if (bestScore.chmax(ret[0])) ans = ret[1];
+    break;
+  }
+  writefln("%(%s %)", ans);
 }
 
 // ----------------------------------------------
