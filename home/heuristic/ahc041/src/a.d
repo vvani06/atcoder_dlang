@@ -19,7 +19,7 @@ void problem() {
   int[][] XY = scan!int(2 * N).chunks(2).array;
   
   struct Node {
-    int id, value;
+    int node, value;
   }
 
   Node[] nodes = N.iota.map!(i => Node(i, A[i])).array;
@@ -28,34 +28,71 @@ void problem() {
     graph[e[0]] ~= e[1];
     graph[e[1]] ~= e[0];
   }
+  foreach(ref g; graph) g.sort!((a, b) => A[a] < A[b]);
 
   UnionFind uf = UnionFind(N);
   bool[] used = new bool[](N);
   int[] roots = (-1).repeat(N).array;
+  int[] rootIds;
 
   foreach(leaf; nodes.array.sort!"a.value > b.value") {
-    if (used[leaf.id]) continue;
+    if (used[leaf.node]) continue;
 
-    used[leaf.id] = true;
+    used[leaf.node] = true;
     int[] route;
 
-    void dfs(int cur, int pre, int depth) {
-      if (depth >= H) return;
+    int dfs(int cur, int pre, int depth) {
+      if (depth > H) return depth;
 
       foreach(next; graph[cur]) {
         if (next == pre || used[next]) continue;
-        if (A[next] > A[cur]) continue;
 
         roots[cur] = next;
         used[next] = true;
-        dfs(next, cur, depth + 1);
-        break;
-      }     
+        route ~= next;
+        return dfs(next, cur, depth + 1);
+      }
+      return depth;
     }
 
-    dfs(leaf.id, leaf.id, 1);
+    int maxDepth = dfs(leaf.node, leaf.node, 1);
+    alias Item = Tuple!(int, "node", int, "depth");
+    auto heap = new Item[](0).heapify!"a.depth < b.depth";
+    foreach(depth, node; route.retro.enumerate(1)) heap.insert(Item(node, depth));
+
+    while(!heap.empty) {
+      Item item = heap.front;
+      heap.removeFront;
+
+      auto branch = item.node;
+      foreach(next; graph[branch]) {
+        if (used[next]) continue;
+        // if (A[next] < A[branch]) continue;
+
+        roots[next] = branch;
+        used[next] = true;
+        if (item.depth < H) heap.insert(Item(next, item.depth + 1));
+      }
+    }
+
+    rootIds ~= route.empty ? leaf.node : route[$ - 1];
   }
-  
+
+  int[][] trees = new int[][](N, 0);
+  foreach(cur, root; roots.enumerate(0)) {
+    if (root != -1) trees[root] ~= cur;
+  }
+
+  int heightSum;
+  foreach(root; rootIds) {
+    void countHeights(int cur, int depth) {
+      heightSum += depth;
+      foreach(next; trees[cur]) countHeights(next, depth + 1);
+    }
+    countHeights(root, 1);
+  }
+
+  (heightSum.to!real / N).deb;
   writefln("%(%s %)", roots);
 }
 
