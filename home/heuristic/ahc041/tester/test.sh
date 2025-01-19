@@ -3,14 +3,14 @@
 cd `dirname $0`
 
 ldmd2 -O -release ../src/a.d -of ./a
-touch score
-mkdir -p out
-mkdir -p logs
-rm score
+touch score run_times
+mkdir -p out logs time
+rm score run_times
 rm out/*
+rm time/*
 
-TOTAL_CASES=50
-PARALLEL_SIZE=5
+TOTAL_CASES=150
+PARALLEL_SIZE=10
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 
 for cycle in `eval echo {0..$CYCLE}`; do
@@ -18,8 +18,7 @@ for cycle in `eval echo {0..$CYCLE}`; do
   max=$(($cycle * $PARALLEL_SIZE + $PARALLEL_SIZE - 1))
   for i in {0000..0999}; do
     if [ $min -le $i ] && [ $max -ge $i ]; then
-      tester ./a < /ahc_in/${i}.txt > out/${i}.txt &
-      # ./a < /ahc_in/${i}.txt > out/${i}.txt &
+      { time -p ./a; } < /ahc_in/${i}.txt > out/${i}.txt 2>time/${i}.txt &
     fi
   done
   wait
@@ -28,6 +27,7 @@ done
 for i in {0000..0999}; do
   if [ -f out/${i}.txt ]; then
     vis /ahc_in/${i}.txt out/${i}.txt >> score
+    cat time/${i}.txt | head -n 1 >> run_times
   fi
 done
 
