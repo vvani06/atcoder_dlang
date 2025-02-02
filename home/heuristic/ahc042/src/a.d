@@ -41,58 +41,146 @@ void problem() {
     }
   }
 
-  Coord[] os, xs;
-  foreach(r; 0..N) foreach(c; 0..N) {
-    if (G[r][c] == 'o') os ~= new Coord(r, c);
-    if (G[r][c] == 'x') xs ~= new Coord(r, c);
+  struct Move {
+    int dir, index;
+
+    string asAns() {
+      return "%s %s".format(MOVE[dir..dir + 1], index);
+    }
   }
-  
-  void move(int dir, int target, int step) {
-    foreach(_; 0..step) writefln("%s %s", MOVE[dir..dir + 1], target);
-    int[] orem, xrem;
 
-    if (dir % 2 == 0) {
-      int delta = dir == 0 ? -step : step;
+  long oTotal = G.map!"a.count('o')".sum;
+  long xTotal = G.map!"a.count('x')".sum;
 
-      foreach(i, ref t; os) {
-        if (t.c != target) continue;
+  struct State {
+    int turn;
+    int[][] oCol;
+    int[][] oRow;
+    int[][] xCol;
+    int[][] xRow;
 
-        t.r += delta;
-        if (t.r < 0 || t.r >= N) orem ~= i.to!int;
+    this(int turn, int[][] oc, int[][] or, int[][] xc, int[][] xr) {
+      this.turn = turn;
+      oCol = oc;
+      oRow = or;
+      xCol = xc;
+      xRow = xr;
+    }
+
+    long restX() {
+      return xCol.map!"a.length".sum;
+    }
+
+    long score() {
+      long penalty = (oTotal - oCol.map!"a.length".sum) * 1_000_000_000;
+      long score = (xTotal - xCol.map!"a.length".sum) * 500_000;
+
+      foreach(r; 0..N) {
+        foreach(i; 0..xRow[r].length.to!int - 1) {
+          auto l = xRow[r][i];
+          auto u = xRow[r][i + 1];
+          score += 10_000 / (u - l);
+          penalty += oRow[r].assumeSorted.upperBound(l).lowerBound(u).length * 50;
+        }
       }
-      foreach(i, ref t; xs) {
-        if (t.c != target) continue;
 
-        t.r += delta;
-        if (t.r < 0 || t.r >= N) xrem ~= i.to!int;
+      foreach(c; 0..N) {
+        foreach(i; 0..xCol[c].length.to!int - 1) {
+          auto l = xCol[c][i];
+          auto u = xCol[c][i + 1];
+          score += 10_000 / (u - l);
+          penalty += oCol[c].assumeSorted.upperBound(l).lowerBound(u).length * 50;
+        }
       }
-    } else {
-      int delta = dir == 1 ? -step : step;
 
-      foreach(i, ref t; os) {
-        if (t.r != target) continue;
+      return score - penalty;
+    }
 
-        t.c += delta;
-        if (t.c < 0 || t.c >= N) orem ~= i.to!int;
+    State move(Move move) {
+      auto movedOCol = oCol.dup;
+      auto movedORow = oRow.dup;
+      auto movedXCol = xCol.dup;
+      auto movedXRow = xRow.dup;
+
+      if (move.dir % 2 == 1) {
+        int delta = move.dir == 1 ? -1 : 1;
+
+        movedXRow[move.index][] += delta;
+        movedXRow[move.index] = movedXRow[move.index].filter!(t => 0 <= t && t < N).array;
+        movedORow[move.index][] += delta;
+        movedORow[move.index] = movedORow[move.index].filter!(t => 0 <= t && t < N).array;
+        foreach(ref col; [movedXCol, movedOCol]) {
+          foreach(i; delta == -1 ? N.iota.array : N.iota.retro.array) {
+            if (!col[i].canFind(move.index)) continue;
+
+            col[i] = col[i].filter!(r => r != move.index).array;
+            auto t = i + delta;
+            if (0 <= t && t < N) col[t] = (col[t] ~ move.index).sort.array;
+          }
+        }
+      } else {
+        int delta = move.dir == 0 ? -1 : 1;
+
+        movedXCol[move.index][] += delta;
+        movedXCol[move.index] = movedXCol[move.index].filter!(t => 0 <= t && t < N).array;
+        movedOCol[move.index][] += delta;
+        movedOCol[move.index] = movedOCol[move.index].filter!(t => 0 <= t && t < N).array;
+        foreach(ref row; [movedXRow, movedORow]) {
+          foreach(i; delta == -1 ? N.iota.array : N.iota.retro.array) {
+            if (!row[i].canFind(move.index)) continue;
+
+            row[i] = row[i].filter!(r => r != move.index).array;
+            auto t = i + delta;
+            if (0 <= t && t < N) row[t] = (row[t] ~ move.index).sort.array;
+          }
+        }
       }
-      foreach(i, ref t; xs) {
-        if (t.r != target) continue;
 
-        t.c += delta;
-        if (t.c < 0 || t.c >= N) xrem ~= i.to!int;
+      return State(turn + 1, movedOCol, movedORow, movedXCol, movedXRow);
+    }
+  }
+
+  State initState = {
+    int[][] oCol = new int[][](N, 0);
+    int[][] oRow = new int[][](N, 0);
+    int[][] xCol = new int[][](N, 0);
+    int[][] xRow = new int[][](N, 0);
+    foreach(r; 0..N) foreach(c; 0..N) {
+      if (G[r][c] == 'o') {
+        oCol[c] ~= r;
+        oRow[r] ~= c;
+      }
+      if (G[r][c] == 'x') {
+        xCol[c] ~= r;
+        xRow[r] ~= c;
       }
     }
 
-    if (!orem.empty) os = os.length.to!int.iota.filter!(t => !orem.canFind(t)).map!(t => os[t]).array;
-    if (!xrem.empty) xs = xs.length.to!int.iota.filter!(t => !xrem.canFind(t)).map!(t => xs[t]).array;
+    return State(0, oCol, oRow, xCol, xRow);
+  }();
+
+  initState.score.deb;
+  auto cur = initState;
+  int limit = 4 * N^^2;
+  while(cur.turn < limit && cur.restX > 0) {
+    Move bestMove;
+    State bestState;
+    long bestScore = long.min;
+
+    foreach(i; 0..N) foreach(dir; 0..4) {
+      auto next = cur.move(Move(dir, i));
+      if (bestScore.chmax(next.score)) {
+        bestMove = Move(dir, i);
+        bestState = next;
+      }
+    }
+
+    writeln(bestMove.asAns());
+    bestScore.deb;
+    cur = bestState;
   }
 
-  while(!xs.empty) {
-    xs.sort!((a, b) => a.outDistance < b.outDistance);
-
-    auto x = xs[0];    
-    move(x.outDir, x.outDir % 2 == 0 ? x.c : x.r, x.outDistance);
-  }
+  cur.oRow.each!deb;
 }
 
 // ----------------------------------------------
