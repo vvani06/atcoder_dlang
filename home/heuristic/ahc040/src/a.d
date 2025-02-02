@@ -18,6 +18,22 @@ void problem() {
     wh[1] = clamp(wh[1], 10^^4, 10^^5);
   }
 
+  long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
+  // baseHeight.deb;
+
+  int[] rc = new int[](N);
+  rc[] = 1;
+  for(int t; T > 3; t++, T--) {
+    auto i = t % N;
+    writeln(1);
+    writefln("%s %s %s %s", i, 0, "U", -1);
+    stdout.flush();
+    auto wh = scan!long(2);
+    foreach(j; 0..2) WH[i][j] += clamp(wh[j], 10^^4, 10^^5);
+    rc[i]++;
+  }
+  foreach(i; 0..N) WH[i][] /= rc[i];
+
   class Rect {
     int rectId;
     int rotated;
@@ -84,8 +100,8 @@ void problem() {
         by = base;
       }
 
-      long dw = max(0, min(bx + w() + S, other.ex()) - max(bx, other.sx));
-      long dh = max(0, min(by + h() + S, other.ey()) - max(by, other.sy));
+      long dw = max(0, min(bx + w(), other.ex()) - max(bx, other.sx));
+      long dh = max(0, min(by + h(), other.ey()) - max(by, other.sy));
       // [dw, dh].deb;
       return dw * dh > 0;
     }
@@ -107,24 +123,6 @@ void problem() {
     }
     return [w, h];
   }
-
-  int rc;
-  while (T > N + 3) {
-    rc++;
-    foreach(i; 0..N) {
-      writeln(1);
-      writefln("%s %s %s %s", i, 0, "U", -1);
-      stdout.flush();
-      auto wh = scan!long(2);
-      foreach(j; 0..2) WH[i][j] += clamp(wh[j], 10^^4, 10^^5);
-    }
-    T -= N;
-  }
-  foreach(i; 0..N) {
-    WH[i][0] /= rc + 1;
-    WH[i][1] /= rc + 1;
-  }
-  long baseHeight = WH.map!"a[0] * a[1]".sum.to!real.sqrt.to!long;
 
   Rect[] allRects;
   Tuple!(long[], Rect[]) testPack(long threshold, bool dryrun = false) {
@@ -183,19 +181,51 @@ void problem() {
   long snapScore = best[0].sum;
   int badCount;
   int count;
-  while(!elapsed(2500)) {
+  while(!elapsed(2000)) {
     count++;
-
     auto target = uniform(0, N, RND);
-    if (count % 5 < 4) {
+    curRects[target].rotate();
+
+    long w, h;
+    foreach(i; 0..N) {
+      curRects[i].recalc(curRects[0..i]);
+      w = max(w, curRects[i].ex);
+      h = max(h, curRects[i].ey);
+    }
+    if (w + h < snapScore) {
+      snapshot = curRects.map!"a.dup".array;
+      snapScore = w + h;
+      badCount = 0;
+      snapScore.deb;
+    } else if (badCount >= 3) {
+      curRects = snapshot.map!"a.dup".array;
+      badCount = 0;
+    } else {
+      badCount++;
+    }
+  }
+
+  deb("burned: ", count);
+
+  writeln(snapshot.length);
+  foreach(r; snapshot) writeln(r.asOutput());
+  stdout.flush();
+  scan!long(2);
+  T--;
+
+  while(!elapsed(2800)) {
+    count++;
+    auto target = uniform(0, N, RND);
+    if (count % 2 == 0) {
       curRects[target].rotate();
     } else {
       if (curRects[target].baseRectId == -1) continue;
 
-      curRects[target].baseRectId = uniform(0, target, RND);
       curRects[target].rotated = uniform(0, 2, RND);
-      foreach(n; curRects[target + 1..$]) {
-        if (n.baseRectId == target) n.baseRectId--; 
+      auto newBase = uniform(0, target, RND);
+      curRects[target].baseRectId = newBase;
+      foreach(p; target..N) {
+        if (curRects[p].baseRectId == target) curRects[p].baseRectId--;
       }
     }
 
@@ -209,8 +239,8 @@ void problem() {
       snapshot = curRects.map!"a.dup".array;
       snapScore = w + h;
       badCount = 0;
-      deb("update #", count, " => ", snapScore);
-    } else if (w + h > snapScore * 1.2 || badCount >= 3) {
+      snapScore.deb;
+    } else if (badCount >= 3) {
       curRects = snapshot.map!"a.dup".array;
       badCount = 0;
     } else {
