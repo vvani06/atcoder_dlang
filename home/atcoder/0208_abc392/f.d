@@ -5,16 +5,10 @@ void problem() {
   auto P = scan!int(N);
 
   auto solve() {
-    auto segtree = SegTree!("a + b", int)(0 ~ repeat(1, N).array);
-
-    int[] ans = new int[](N);
-    foreach(n, p; zip(iota(N, 0, -1), P.retro)) {
-      auto index = segtree.lowerBound(p);
-      segtree.update(index, 0);
-      ans[index - 1] = n;
-    }
+    auto skipList = SkipList!(int, 20)([]);
+    foreach(n, i; lockstep(iota(1, N + 1), P)) skipList.insert(i - 1, n);
     
-    return ans;
+    return skipList.array();
   }
 
   outputForAtCoder(&solve);
@@ -65,6 +59,162 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct SkipList(T, int MAX_HEIGHT = 20) {
+  class Node {
+    T value;
+    Node[] nexts;
+    size_t[] skipped;
+    bool sentinel = true;
+
+    this() {}
+    this(T v) {
+      value = v;
+      sentinel = false;
+    }
+
+    override string toString() {
+      if (sentinel) {
+        return (nexts.empty ? "$" : "^") ~ " %s".format(skipped);
+      } else {
+        return "%s : %s".format(value, skipped);
+      }
+    }
+
+    bool tail() {
+      return sentinel && skipped.empty;
+    }
+  }
+
+  enum INF = int.max / 3;
+  
+  size_t length;
+  Node head;
+  auto rnd = Xorshift(1);
+
+  this(T[] values) {
+    rnd.seed(unpredictableSeed);
+    this.length = values.length;
+    this.head = new Node();
+
+    Node[] preNodes = head.repeat(MAX_HEIGHT).array;
+    size_t[] preIndex = new size_t[](MAX_HEIGHT);
+    foreach(i, v; values.enumerate(1)) {
+      auto node = new Node(v);
+      foreach(h; 0..MAX_HEIGHT) {
+        preNodes[h].nexts ~= node;
+        preNodes[h].skipped ~= i - preIndex[h];
+        preNodes[h] = node;
+        preIndex[h] = i;
+        if (!increaseHeight()) break;
+      }
+    }
+
+    auto sentinel = new Node();
+    foreach(h; 0..MAX_HEIGHT) {
+      preNodes[h].nexts ~= sentinel;
+      preNodes[h].skipped ~= 1;
+    }
+  }
+
+  bool increaseHeight() {
+    return uniform(0, 1.0, rnd) < 0.35;
+  }
+
+  void insert(size_t index, T value) {
+    int height = 1;
+    while(height < MAX_HEIGHT) {
+      if (increaseHeight()) height++; else break;
+    }
+
+    auto newNode = new Node(value);
+    newNode.nexts = new Node[](height);
+    newNode.skipped = new size_t[](height);
+    auto pres = preNodes(index);
+    foreach(h, preNode, preIndex; lockstep(MAX_HEIGHT.iota, pres[0], pres[1])) {
+      if (h < height) {
+        // [[index, height], [h, preNode.value, preIndex]].deb;
+        const preSkipped = preNode.skipped[h];
+        newNode.skipped[h] = preSkipped - (index - preIndex);
+        preNode.skipped[h] -= preSkipped - (index - preIndex) - 1;
+        newNode.nexts[h] = preNode.nexts[h];
+        preNode.nexts[h] = newNode;
+      } else {
+        preNode.skipped[h]++;
+      }
+    }
+    // dbg();
+  }
+
+  T[] array() {
+    T[] ret;
+    for(auto cur = head; !cur.nexts.empty; cur = cur.nexts[0]) {
+      if (cur.sentinel) continue;
+
+      ret ~= cur.value;
+    }
+    return ret;
+  }
+
+  T get(size_t index) {
+    auto step = index;
+    auto cur = head;
+    while(step > 0 && !cur.tail) {
+      // cur.deb;
+      auto h = nextFor(cur, step);
+      step -= cur.skipped[h];
+      cur = cur.nexts[h];
+    }
+    // cur.deb;
+
+    if (step != 0) throw new Exception("invalid index"); else return cur.value;
+  }
+
+  Tuple!(Node[], size_t[]) preNodes(size_t index) {
+    auto step = index;
+    auto cur = head;
+
+    auto ret = new Node[](MAX_HEIGHT);
+    ret[] = head;
+    auto indicies = new size_t[](MAX_HEIGHT);
+    while(step > 0 && !cur.tail) {
+      auto h = nextFor(cur, step);
+      if (h == INF) break;
+
+      // deb(h, " @ ", cur);
+      step -= cur.skipped[h];
+      indicies[0..h + 1] += cur.skipped[h];
+      cur = cur.nexts[h];
+      if (!cur.tail) ret[0..h + 1] = cur;
+    }
+
+    // deb("preNodes for ", index, ": ", step, indicies);
+    if (step == 0 || index == 0) {
+      return tuple(ret, indicies);
+    } else {
+      throw new Exception("invalid index");
+    }
+  }
+
+  size_t nextFor(Node cur, size_t step) {
+    if (step < 0) throw new Exception("invalid step");
+
+    foreach_reverse(i, sk; cur.skipped) {
+      if (sk <= step) return i;
+    }
+    return 0;
+  }
+
+  void dbg() {
+    debug {
+      "=============".deb;
+      for(auto cur = head; !cur.nexts.empty; cur = cur.nexts[0]) {
+        cur.deb;
+      }
+      "=============".deb;
+    }
+  }
+}
 
 struct SegTree(alias pred = "a + b", T = long) {
   alias predFun = binaryFun!pred;
