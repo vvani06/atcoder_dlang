@@ -48,6 +48,46 @@ struct SegTree(alias pred = "a + b", T = long) {
     T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
     return predFun(leftValue, rightValue);
   }
+
+  T[] array() {
+    return size.iota.map!(i => get(i)).array;
+  }
+
+  int lowerBound(T border) {
+    return binarySearch((int t) => sum(0, t) < border, 0, size + 1);
+  }
+
+  int upperBound(T border) {
+    return binarySearch((int t) => sum(t, size) < border, size, -1);
+  }
+
+  private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+  private T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+    auto ok = l;
+    auto ng = r;
+    const T TWO = 2;
+  
+    bool again() {
+      static if (is(T == float) || is(T == double) || is(T == real)) {
+        return !ng.approxEqual(ok, 1e-08, 1e-08);
+      } else {
+        return abs(ng - ok) > 1;
+      }
+    }
+  
+    while(again()) {
+      const half = (ng + ok) / TWO;
+      const halfValue = fn(half);
+  
+      if (cond(halfValue)) {
+        ok = half;
+      } else {
+        ng = half;
+      }
+    }
+  
+    return ok;
+  }
 }
 
 long countInvertions(T)(T[] arr) {

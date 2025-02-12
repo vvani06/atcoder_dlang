@@ -3,18 +3,11 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto M = scan!int;
-  auto A = scan!int(M);
+  auto A = scan!int(M).array.sort;
 
   auto solve() {
-    int[] ans;
-
-    auto rbt = A.redBlackTree;
-    foreach(i; 1..N + 1) {
-      if (!(i in rbt)) ans ~= i;
-    }
-
-    ans.length.writeln;
-    return ans;
+    auto filtered = iota(1, N + 1).filter!(i => !(i in A)).array;
+    return tuple(filtered.length, filtered);
   }
 
   outputForAtCoder(&solve);
