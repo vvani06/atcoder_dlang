@@ -44,6 +44,7 @@ struct Eratosthenes {
     spf = new int[](lim + 1);
     spf[] = int.max;
     spf[0..2] = 1;
+    memo = new int[][](lim + 1, 0);
 
     foreach (i; 2..lim+1) {
       if (isPrime[i]) {
@@ -73,5 +74,30 @@ struct Eratosthenes {
     }
     return ret;
   }
-}
 
+  int lpf(int x) {
+    int ret = 1;
+    while(x > 1) {
+      ret = max(ret, spf[x]);
+      x /= spf[x];
+    }
+    return ret;
+  }
+
+  int[][] memo;
+  int[] divisors(int num) {
+    if (num <= 1) return [1];
+    if (!memo[num].empty) return memo[num];
+
+    auto p = lpf(num);
+    int t; for(auto n = num; n % p == 0; n /= p) t++;
+    auto pres = this.divisors(num / (p ^^ t));
+    
+    int[] ret;
+    foreach(c; 0..t + 1) {
+      ret ~= pres.map!(pre => pre * (p ^^ c)).array;
+    }
+    ret.sort!"a > b";
+    return memo[num] = ret;
+  }
+}
