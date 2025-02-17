@@ -130,7 +130,6 @@ void problem() {
   class State {
     Customer[] customers;
     long money;
-    int turn;
 
     Cell[] grid;
     RedBlackTree!int fromCoveredSet, toCoveredSet;
@@ -208,7 +207,7 @@ void problem() {
         auto toSatisfied = grid[t].toBit;
         auto satisfied = fromSatisfied & toSatisfied;
 
-        auto value = satisfied.bitsSet.map!(c => customers[c].value * 10).sum;
+        auto value = satisfied.bitsSet.map!(c => customers[c].value * 100_000).sum;
         value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value).sum;
         value -= fc.distance(Coord(t));
         if (best.chmax(value)) {
@@ -234,8 +233,12 @@ void problem() {
 
       foreach(s; ret) applyStation(s);
       foreach(_; 0..limit - 2) {
+        if (elapsed(2500)) break;
+
         int best, bestValue;
         foreach(t; 0..N^^2 - 1) {
+          if (grid[t].fromSet.empty && grid[t].toSet.empty) continue;
+
           auto halfCovered = fromCoveredBit ^ toCoveredBit;
           auto toFullCovered = halfCovered & (grid[t].fromBit | grid[t].toBit);
 
@@ -341,17 +344,20 @@ void problem() {
       return ret;
     }
 
-    void simulate(int turns) {
+    void simulate(int limit) {
+      string[] outputs;
+      long bestMoney = money;
+      int turn, bestTurn;
+
       for (auto queue = DList!Order(orders); !queue.empty;) {
-        if (turns == 0) break;
+        if (turn == limit) break;
 
         auto order = queue.front;
         
         if (money >= order.cost) {
           money -= order.cost;
           queue.removeFront;
-          writeln(order.asOutput());
-          
+          outputs ~= order.asOutput();
 
           if (order.type == 0) {
             auto coord = Coord(order.r, order.c);
@@ -362,16 +368,24 @@ void problem() {
             income = (fromSim & toSim).bitsSet.map!(c => customers[c].value).sum;
           }
         } else {
-          writeln(-1);
+          outputs ~= "-1";
         }
-        turns--;
+        money += income;
+        turn++;
+        if (bestMoney.chmax(money + income*(limit - turn))) {
+          bestTurn = turn;
+        }
+      }
+
+      foreach(_; 0..limit - turn) {
+        outputs ~= "-1";
         money += income;
       }
 
-      foreach(_; 0..turns) {
-        writeln(-1);
-        money += income;
+      foreach(t, o; outputs) {
+        writeln(t <= bestTurn ? o : "-1");
       }
+      [bestTurn, bestMoney].deb;
     }
   }
 
