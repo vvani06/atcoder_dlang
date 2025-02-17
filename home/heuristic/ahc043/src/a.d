@@ -22,6 +22,25 @@ void problem() {
   enum COST_RAIL = 100;
   enum COST_STATION = 5000;
 
+  int[][] nexts = {
+    int[][] ret = new int[][](N^^2, 0);
+
+    foreach(r; 0..N) {
+      int[] dr;
+      if (r < N - 1) dr ~= N;
+      if (r > 0) dr ~= -N;
+      foreach(c; 0..N) {
+        int[] dc;
+        if (c < N - 1) dc ~= 1;
+        if (c > 0) dc ~= -1;
+
+        auto t = r*N + c;
+        ret[t] ~= (dr ~ dc).map!(x => t + x).array;
+      }
+    }
+    return ret;
+  }();
+
   int asId(int r, int c) {
     return r * N + c; 
   }
@@ -82,63 +101,292 @@ void problem() {
     }
   }
 
-  auto customers = IJ.enumerate(0).map!(ij => Customer(ij[0], Coord(ij[1][0], ij[1][1]), Coord(ij[1][2], ij[1][3]))).array;
-  auto froms = (N^^2).iota.map!(_ => BitArray(false.repeat(M).array)).array;
-  auto tos = (N^^2).iota.map!(_ => BitArray(false.repeat(M).array)).array;
-  foreach(customer; customers) {
-    foreach(id; customer.from.aroundId()) froms[id][customer.id] = true;
-    foreach(id; customer.to.aroundId()) tos[id][customer.id] = true;
+  struct Order {
+    int type, r, c;
+
+    string asOutput() {
+      return "%s %s %s".format(type, r, c);
+    }
+
+    int cost() {
+      if (type == -1) return 0;
+      if (type == 0) return COST_STATION;
+      return COST_RAIL;
+    }
   }
 
-  long money = K;
-  int bestFrom, bestTo, bestValue;
-  foreach(f; 0..N^^2 - 1) {
-    auto fromSatisfied = froms[f];
-    auto fc = Coord(f / N, f % N);
-    foreach(t; f + 1..N^^2) {
-      auto tc = Coord(t / N, t % N);
-      if (money < fc.distance(tc) * COST_RAIL + COST_STATION*2) continue;
+  class Cell {
+    BitArray fromBit, toBit;
+    RedBlackTree!int fromSet, toSet;
 
-      auto toSatisfied = tos[t];
-      auto satisfied = fromSatisfied & toSatisfied;
+    this() {
+      fromBit = BitArray(false.repeat(M).array);
+      toBit = BitArray(false.repeat(M).array);
+      fromSet = new int[](0).redBlackTree;
+      toSet = new int[](0).redBlackTree;
+    }
+  }
 
-      auto value = satisfied.bitsSet.map!(c => customers[c].value * 100_000).sum;
-      value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value).sum;
-      value -= Coord(f).distance(Coord(t));
-      if (bestValue.chmax(value)) {
-        bestFrom = f;
-        bestTo = t;
+  class State {
+    Customer[] customers;
+    long money;
+    int turn;
+
+    Cell[] grid;
+    RedBlackTree!int fromCoveredSet, toCoveredSet;
+    BitArray fromCoveredBit, toCoveredBit;
+    int[] rail;
+    Order[] orders;
+
+    long income;
+    BitArray fromSim, toSim;
+
+    this(long money, Customer[] customers) {
+      this.money = money;
+      this.customers = customers;
+      fromCoveredSet = new int[](0).redBlackTree;
+      fromCoveredBit = BitArray(false.repeat(M).array);
+      toCoveredSet = new int[](0).redBlackTree;
+      toCoveredBit = BitArray(false.repeat(M).array);
+      fromSim = BitArray(false.repeat(M).array);
+      toSim = BitArray(false.repeat(M).array);
+      rail = new int[](N ^^ 2);
+      foreach(i; 0..N^^2) grid ~= new Cell();
+      foreach(customer; customers) {
+        foreach(id; customer.from.aroundId()) {
+          grid[id].fromBit[customer.id] = true;
+          grid[id].fromSet.insert(customer.id);
+        }
+        foreach(id; customer.to.aroundId()) {
+          grid[id].toBit[customer.id] = true;
+          grid[id].toSet.insert(customer.id);
+        }
+      }
+    }
+
+    RedBlackTree!int opposites(int coordId) {
+      auto ret = new int[](0).redBlackTree;
+      foreach(customer; grid[coordId].fromSet.array.map!(c => customers[c])) {
+        ret.insert(customer.to.aroundId);
+      }
+      foreach(customer; grid[coordId].toSet.array.map!(c => customers[c])) {
+        ret.insert(customer.from.aroundId);
+      }
+      return ret;
+    }
+
+    void applyStation(int coordId) {
+      foreach(customer; grid[coordId].fromSet.array.map!(c => customers[c])) {
+        foreach(id; customer.from.aroundId) {
+          grid[id].fromBit[customer.id] = false;
+          grid[id].fromSet.removeKey(customer.id);
+        }
+        if (!(customer.id in toCoveredSet)) fromCoveredSet.insert(customer.id);
+        fromCoveredBit[customer.id] = true;
+      }
+
+      foreach(customer; grid[coordId].toSet.array.map!(c => customers[c])) {
+        foreach(id; customer.to.aroundId) {
+          grid[id].toBit[customer.id] = false;
+          grid[id].toSet.removeKey(customer.id);
+        }
+        if (!(customer.id in fromCoveredSet)) toCoveredSet.insert(customer.id);
+        toCoveredBit[customer.id] = true;
+      }
+    }
+
+    Tuple!(int, int) findBestStationCoordId(int coordIdFrom) {
+      auto fromSatisfied = grid[coordIdFrom].fromBit;
+      auto fc = Coord(coordIdFrom);
+
+      int ret;
+      int best = int.min;
+      foreach(t; opposites(coordIdFrom)) {
+        auto tc = Coord(t);
+        if (money < fc.distance(tc) * COST_RAIL + COST_STATION*2) continue;
+
+        auto toSatisfied = grid[t].toBit;
+        auto satisfied = fromSatisfied & toSatisfied;
+
+        auto value = satisfied.bitsSet.map!(c => customers[c].value * 10).sum;
+        value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value).sum;
+        value -= fc.distance(Coord(t));
+        if (best.chmax(value)) {
+          ret = t;
+        }
+      }
+      return tuple(ret, best);
+    }
+
+    int[] findBestStations(int limit) {
+      int[] ret; {
+        int bestFrom, bestTo, bestValue;
+        foreach(f; 0..N^^2 - 1) {
+          auto to = findBestStationCoordId(f);
+          if (bestValue.chmax(to[1])) {
+            bestFrom = min(f, to[0]);
+            bestTo = max(f, to[0]);
+          }
+        }
+        ret ~= bestFrom;
+        ret ~= bestTo;
+      }
+
+      foreach(s; ret) applyStation(s);
+      foreach(_; 0..limit - 2) {
+        int best, bestValue;
+        foreach(t; 0..N^^2 - 1) {
+          auto halfCovered = fromCoveredBit ^ toCoveredBit;
+          auto toFullCovered = halfCovered & (grid[t].fromBit | grid[t].toBit);
+
+          auto value = halfCovered.bitsSet.map!(c => customers[c].value).sum;
+          value += toFullCovered.bitsSet.map!(c => customers[c].value * 5).sum;
+          if (bestValue.chmax(value)) {
+            best = t;
+          }
+        }
+
+        if (bestValue == 0) break;
+        ret ~= best;
+        applyStation(best);
+      }
+
+      return ret;
+    }
+
+    Order[] createOrder(int from, int to) {
+      Order[] ret;
+      void dfs(Coord cur, Coord pre, Coord goal) {
+        int type;
+        if (cur == pre || cur == goal) {
+          type = 0;
+        } else if (cur.r != pre.r && cur.r == goal.r) {
+          type = goal.c > cur.c ? 5 : 4;
+        } else if (cur.r != pre.r) {
+          type = 2;
+        } else if (cur.c != pre.c) {
+          type = 1;
+        }
+        if (cur != pre) {
+          ret ~= Order(type, cur.r, cur.c);
+        }
+        
+        if (cur == goal) return;
+        auto next = cur;
+        if (cur.r == goal.r) next.c += goal.c > cur.c ? 1 : -1; else next.r++;
+        dfs(next, cur, goal);
+      }
+
+      dfs(Coord(from), Coord(from), Coord(to));
+      ret ~= Order(0, Coord(from).r, Coord(from).c);
+      return ret;
+    }
+
+    Order[] createOrder2(int from) {
+      int[] froms = (-1).repeat(N^^2).array;
+      froms[from] = from;
+
+      int goal = from;
+      for(auto queue = DList!int(from); !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        if (rail[cur] != 0) {
+          goal = cur;
+          break;
+        }
+
+        foreach(next; nexts[cur]) {
+          if (froms[next] != -1) continue;
+
+          froms[next] = cur;
+          queue.insertBack(next);
+        }
+      }
+
+      Order[] ret;
+      auto pre = Coord(goal);
+      for(auto cur = goal; cur != from; cur = froms[cur]) {
+        if (pre == Coord(cur)) continue;
+
+        auto curc = Coord(cur);
+        bool l, r, u, d;
+        foreach(neigh; [pre, Coord(froms[cur])]) {
+          if (neigh.r == curc.r - 1) u = true;
+          if (neigh.r == curc.r + 1) d = true;
+          if (neigh.c == curc.c - 1) l = true;
+          if (neigh.c == curc.c + 1) r = true;
+        }
+
+        int type = {
+          if (l && r) return 1;  
+          if (u && d) return 2;
+          if (l && d) return 3;
+          if (l && u) return 4;
+          if (r && u) return 5;
+          if (r && d) return 6;
+          throw new Exception("invalid Dir"); 
+        }();
+        ret ~= Order(type, curc.r, curc.c);
+        rail[cur] = type;
+        pre = curc;
+      }
+      if (rail[goal] != 9) {
+        ret ~= Order(0, goal / N, goal % N);
+        rail[goal] = 9;
+      }
+      if (rail[from] != 9) {
+        ret ~= Order(0, from / N, from % N);
+        rail[from] = 9;
+      }
+      return ret;
+    }
+
+    void simulate(int turns) {
+      for (auto queue = DList!Order(orders); !queue.empty;) {
+        if (turns == 0) break;
+
+        auto order = queue.front;
+        
+        if (money >= order.cost) {
+          money -= order.cost;
+          queue.removeFront;
+          writeln(order.asOutput());
+          
+
+          if (order.type == 0) {
+            auto coord = Coord(order.r, order.c);
+            foreach(c; customers) {
+              if (coord.distance(c.from) <= 2) fromSim[c.id] = true;
+              if (coord.distance(c.to) <= 2) toSim[c.id] = true;
+            }
+            income = (fromSim & toSim).bitsSet.map!(c => customers[c].value).sum;
+          }
+        } else {
+          writeln(-1);
+        }
+        turns--;
+        money += income;
+      }
+
+      foreach(_; 0..turns) {
+        writeln(-1);
+        money += income;
       }
     }
   }
-  deb(Coord(bestFrom), Coord(bestTo), bestValue);
 
-  int turn;
-  void dfs(Coord cur, Coord pre, Coord goal) {
-    int type;
-    if (cur == pre || cur == goal) {
-      type = 0;
-    } else if (cur.r != pre.r && cur.r == goal.r) {
-      type = goal.c > cur.c ? 5 : 4;
-    } else if (cur.r != pre.r) {
-      type = 2;
-    } else if (cur.c != pre.c) {
-      type = 1;
-    }
-    if (cur != pre) writefln("%s %s %s", type, cur.r, cur.c);
-    turn++;
-    if (cur == goal) return;
+  auto customers = IJ.enumerate(0).map!(ij => Customer(ij[0], Coord(ij[1][0], ij[1][1]), Coord(ij[1][2], ij[1][3]))).array;
+  auto state = new State(K, customers);
+  
+  auto goals = state.findBestStations(100);
+  state.orders ~= Order(0, goals[0]/N, goals[0]%N);
+  state.rail[goals[0]] = 9;
+  foreach(next; goals[1..$]) {
+    Coord(next).deb;
 
-    auto next = cur;
-    if (cur.r == goal.r) next.c += goal.c > cur.c ? 1 : -1; else next.r++;
-    dfs(next, cur, goal);
+    state.orders ~= state.createOrder2(next);
   }
-
-  dfs(Coord(bestFrom), Coord(bestFrom), Coord(bestTo));
-  writefln("%s %s %s", 0, Coord(bestFrom).r, Coord(bestFrom).c);
-  foreach(_; turn..T) {
-    writeln(-1);
-  }
+  state.simulate(T);
 }
 
 // ----------------------------------------------
