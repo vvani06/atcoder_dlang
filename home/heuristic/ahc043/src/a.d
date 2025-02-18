@@ -239,14 +239,16 @@ void problem() {
       int[] ret;
       foreach(_; 0..limit) {
         int best, bestValue;
+        auto preCovered = fromCoveredBit ^ toCoveredBit;
         foreach(t; 0..N^^2 - 1) {
           if (grid[t].fromSet.empty && grid[t].toSet.empty) continue;
 
-          auto halfCovered = fromCoveredBit ^ toCoveredBit;
-          auto toFullCovered = halfCovered & (grid[t].fromBit | grid[t].toBit);
+          auto postCovered = grid[t].fromBit | grid[t].toBit;
+          auto toFullCovered = preCovered & postCovered;
 
-          auto value = halfCovered.bitsSet.map!(c => customers[c].value).sum;
+          auto value = postCovered.bitsSet.map!(c => customers[c].value).sum;
           value += toFullCovered.bitsSet.map!(c => customers[c].value * 5).sum;
+          value += rail[t] != 0 ? 5 : 0;
           if (bestValue.chmax(value)) {
             best = t;
           }
@@ -265,19 +267,28 @@ void problem() {
       froms[from] = from;
 
       int goal = from;
-      for(auto queue = DList!int(from); !queue.empty;) {
-        auto cur = queue.front;
+      int goalCost = int.max;
+      auto simIncome = (fromCoveredBit & toCoveredBit).bitsSet.map!(c => customers[c].value).sum;
+      alias Item = Tuple!(int, "coord", int, "cost");
+      for(auto queue = DList!Item(Item(from, 0)); !queue.empty;) {
+        auto cur = queue.front.coord;
+        auto cost = queue.front.cost;
         queue.removeFront;
+        if (goalCost <= cost) continue;
+
         if (rail[cur] != 0) {
-          goal = cur;
-          break;
+          cost += rail[cur] == 9 ? 0 : min(15, max(5, (1500 - simIncome) / 100));
+          if (goalCost.chmin(cost)) {
+            goal = cur;
+          }
+          continue;
         }
 
         foreach(next; nexts[cur]) {
           if (froms[next] != -1) continue;
 
           froms[next] = cur;
-          queue.insertBack(next);
+          queue.insertBack(Item(next, cost + 1));
         }
       }
 
@@ -371,7 +382,7 @@ void problem() {
   state.orders ~= Order(0, goals[0]/N, goals[0]%N);
   state.rail[goals[0]] = 9;
   state.orders ~= state.createOrder(goals[1]);
-  foreach(_; 0..100) {
+  foreach(_; 0..200) {
     if (elapsed(2800)) break;
     
     auto station = state.findBestStations(1);
