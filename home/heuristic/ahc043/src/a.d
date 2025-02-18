@@ -217,7 +217,7 @@ void problem() {
       return tuple(ret, best);
     }
 
-    int[] findBestStations(int limit) {
+    int[] findFirstStationPair() {
       int[] ret; {
         int bestFrom, bestTo, bestValue;
         foreach(f; 0..N^^2 - 1) {
@@ -232,9 +232,12 @@ void problem() {
       }
 
       foreach(s; ret) applyStation(s);
-      foreach(_; 0..limit - 2) {
-        if (elapsed(2500)) break;
+      return ret;
+    }
 
+    int[] findBestStations(int limit) {
+      int[] ret;
+      foreach(_; 0..limit) {
         int best, bestValue;
         foreach(t; 0..N^^2 - 1) {
           if (grid[t].fromSet.empty && grid[t].toSet.empty) continue;
@@ -252,40 +255,12 @@ void problem() {
         if (bestValue == 0) break;
         ret ~= best;
         applyStation(best);
+        [best, bestValue].deb;
       }
-
       return ret;
     }
 
-    Order[] createOrder(int from, int to) {
-      Order[] ret;
-      void dfs(Coord cur, Coord pre, Coord goal) {
-        int type;
-        if (cur == pre || cur == goal) {
-          type = 0;
-        } else if (cur.r != pre.r && cur.r == goal.r) {
-          type = goal.c > cur.c ? 5 : 4;
-        } else if (cur.r != pre.r) {
-          type = 2;
-        } else if (cur.c != pre.c) {
-          type = 1;
-        }
-        if (cur != pre) {
-          ret ~= Order(type, cur.r, cur.c);
-        }
-        
-        if (cur == goal) return;
-        auto next = cur;
-        if (cur.r == goal.r) next.c += goal.c > cur.c ? 1 : -1; else next.r++;
-        dfs(next, cur, goal);
-      }
-
-      dfs(Coord(from), Coord(from), Coord(to));
-      ret ~= Order(0, Coord(from).r, Coord(from).c);
-      return ret;
-    }
-
-    Order[] createOrder2(int from) {
+    Order[] createOrder(int from) {
       int[] froms = (-1).repeat(N^^2).array;
       froms[from] = from;
 
@@ -333,13 +308,13 @@ void problem() {
         rail[cur] = type;
         pre = curc;
       }
-      if (rail[goal] != 9) {
-        ret ~= Order(0, goal / N, goal % N);
-        rail[goal] = 9;
-      }
-      if (rail[from] != 9) {
-        ret ~= Order(0, from / N, from % N);
-        rail[from] = 9;
+
+      foreach(t; [goal, from]) {
+        if (rail[t] != 9) {
+          ret ~= Order(0, t / N, t % N);
+          rail[t] = 9;
+          applyStation(t);
+        }
       }
       return ret;
     }
@@ -392,14 +367,18 @@ void problem() {
   auto customers = IJ.enumerate(0).map!(ij => Customer(ij[0], Coord(ij[1][0], ij[1][1]), Coord(ij[1][2], ij[1][3]))).array;
   auto state = new State(K, customers);
   
-  auto goals = state.findBestStations(100);
+  auto goals = state.findFirstStationPair();
   state.orders ~= Order(0, goals[0]/N, goals[0]%N);
   state.rail[goals[0]] = 9;
-  foreach(next; goals[1..$]) {
-    Coord(next).deb;
-
-    state.orders ~= state.createOrder2(next);
+  state.orders ~= state.createOrder(goals[1]);
+  foreach(_; 0..100) {
+    if (elapsed(2800)) break;
+    
+    auto station = state.findBestStations(1);
+    if (station.empty) break;
+    state.orders ~= state.createOrder(station[0]);
   }
+
   state.simulate(T);
 }
 
