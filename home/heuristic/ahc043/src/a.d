@@ -237,17 +237,20 @@ void problem() {
 
     int[] findBestStations(int limit) {
       int[] ret;
+      auto cost = costGrid();
       foreach(_; 0..limit) {
         int best, bestValue;
         auto preCovered = fromCoveredBit ^ toCoveredBit;
-        foreach(t; 0..N^^2 - 1) {
+        foreach(t; iota(N^^2).array.sort!((a, b) => cost[a] < cost[b])) {
           if (grid[t].fromSet.empty && grid[t].toSet.empty) continue;
 
           auto postCovered = grid[t].fromBit | grid[t].toBit;
           auto toFullCovered = preCovered & postCovered;
 
           auto value = postCovered.bitsSet.map!(c => customers[c].value).sum;
-          value += toFullCovered.bitsSet.map!(c => customers[c].value * 5).sum;
+          value += toFullCovered.bitsSet.map!(c => customers[c].value).sum * 5;
+          value -= cost[t];
+          if (toFullCovered.count() == 0) value /= 10;
           value += rail[t] != 0 ? 5 : 0;
           if (bestValue.chmax(value)) {
             best = t;
@@ -257,9 +260,13 @@ void problem() {
         if (bestValue == 0) break;
         ret ~= best;
         applyStation(best);
-        [best, bestValue].deb;
+        [best, bestValue, cost[best]].deb;
       }
       return ret;
+    }
+
+    int simulateIncome() {
+      return (fromCoveredBit & toCoveredBit).bitsSet.map!(c => customers[c].value).sum;
     }
 
     Order[] createOrder(int from) {
@@ -268,7 +275,7 @@ void problem() {
 
       int goal = from;
       int goalCost = int.max;
-      auto simIncome = (fromCoveredBit & toCoveredBit).bitsSet.map!(c => customers[c].value).sum;
+      auto simIncome = simulateIncome();
       alias Item = Tuple!(int, "coord", int, "cost");
       for(auto queue = DList!Item(Item(from, 0)); !queue.empty;) {
         auto cur = queue.front.coord;
@@ -325,6 +332,34 @@ void problem() {
           ret ~= Order(0, t / N, t % N);
           rail[t] = 9;
           applyStation(t);
+        }
+      }
+      return ret;
+    }
+
+    int[] costGrid() {
+      auto ret = new int[](N^^2);
+      alias Item = Tuple!(int, "coord", int, "cost");
+      auto queue = new Item[](0).heapify!"a.cost > b.cost";
+
+      auto railStartCost = min(15, max(5, (1500 - simulateIncome()) / 100));
+      foreach(i; 0..N^^2) {
+        if (rail[i] != 0) {
+          ret[i] = rail[i] == 9 ? 1 : railStartCost + 1;
+          queue.insert(Item(i, ret[i]));
+        }
+      }
+
+      while(!queue.empty) {
+        auto cur = queue.front;
+        queue.removeFront;
+
+        foreach(next; nexts[cur.coord]) {
+          if (ret[next] != 0) continue;
+
+          auto cost = cur.cost + 1;
+          ret[next] = cost;
+          queue.insert(Item(next, cost));
         }
       }
       return ret;
