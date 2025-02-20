@@ -195,16 +195,17 @@ void problem() {
     }
 
     Tuple!(int, int) findBestStationCoordId(int coordIdFrom) {
-      auto fromSatisfied = grid[coordIdFrom].fromBit;
+      auto fromSatisfied = grid[coordIdFrom].fromBit | grid[coordIdFrom].toBit;
       auto fc = Coord(coordIdFrom);
 
       int ret;
       int best = int.min;
       foreach(t; opposites(coordIdFrom)) {
         auto tc = Coord(t);
-        if (money < fc.distance(tc) * COST_RAIL + COST_STATION*2) continue;
+        if (fc.distance(tc) <= 4) continue;
+        if (money < (fc.distance(tc) - 1) * COST_RAIL + COST_STATION*2) continue;
 
-        auto toSatisfied = grid[t].toBit;
+        auto toSatisfied = grid[t].fromBit | grid[t].toBit;
         auto satisfied = fromSatisfied & toSatisfied;
 
         auto value = satisfied.bitsSet.map!(c => customers[c].value * 100_000).sum;
@@ -214,6 +215,8 @@ void problem() {
           ret = t;
         }
       }
+      // "from: %s, to: %s, value: %s".format(Coord(coordIdFrom), Coord(ret), best).deb;
+      // opposites(coordIdFrom).array.map!(c => Coord(c)).deb;
       return tuple(ret, best);
     }
 
@@ -230,6 +233,8 @@ void problem() {
         ret ~= bestFrom;
         ret ~= bestTo;
       }
+
+      // ret = [asId(17, 15), asId(30, 15)];
 
       foreach(s; ret) applyStation(s);
       return ret;
@@ -260,7 +265,7 @@ void problem() {
         if (bestValue == 0) break;
         ret ~= best;
         applyStation(best);
-        [best, bestValue, cost[best]].deb;
+        // [best, bestValue, cost[best]].deb;
       }
       return ret;
     }
@@ -425,6 +430,7 @@ void problem() {
     state.orders ~= state.createOrder(station[0]);
   }
 
+  state.orders.each!deb;
   state.simulate(T);
 }
 
