@@ -202,15 +202,16 @@ void problem() {
       int best = int.min;
       foreach(t; opposites(coordIdFrom)) {
         auto tc = Coord(t);
-        if (fc.distance(tc) <= 4) continue;
-        if (money < (fc.distance(tc) - 1) * COST_RAIL + COST_STATION*2) continue;
+        auto distance = fc.distance(tc);
+        if (distance <= 4) continue;
+        if (money < (distance - 1) * COST_RAIL + COST_STATION*2) continue;
 
         auto toSatisfied = grid[t].fromBit | grid[t].toBit;
         auto satisfied = fromSatisfied & toSatisfied;
 
         auto value = satisfied.bitsSet.map!(c => customers[c].value * 100_000).sum;
         value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value).sum;
-        value -= fc.distance(Coord(t));
+        value -= distance;
         if (best.chmax(value)) {
           ret = t;
         }
@@ -254,9 +255,9 @@ void problem() {
 
           auto value = postCovered.bitsSet.map!(c => customers[c].value).sum;
           value += toFullCovered.bitsSet.map!(c => customers[c].value).sum * 5;
-          value -= cost[t];
           if (toFullCovered.count() == 0) value /= 10;
-          value += rail[t] != 0 ? 5 : 0;
+          value *= 1000 - cost[t];
+          value += rail[t] != 0 ? 5000 : 0;
           if (bestValue.chmax(value)) {
             best = t;
           }
@@ -265,13 +266,17 @@ void problem() {
         if (bestValue == 0) break;
         ret ~= best;
         applyStation(best);
-        // [best, bestValue, cost[best]].deb;
+        [best, bestValue, cost[best]].deb;
       }
       return ret;
     }
 
     int simulateIncome() {
       return (fromCoveredBit & toCoveredBit).bitsSet.map!(c => customers[c].value).sum;
+    }
+
+    int weightedStationCost(int income) {
+      return min(45, max(5, (1500 - income) / 30));
     }
 
     Order[] createOrder(int from) {
@@ -289,7 +294,7 @@ void problem() {
         if (goalCost <= cost) continue;
 
         if (rail[cur] != 0) {
-          cost += rail[cur] == 9 ? 0 : min(15, max(5, (1500 - simIncome) / 100));
+          cost += rail[cur] == 9 ? 0 : weightedStationCost(simIncome);
           if (goalCost.chmin(cost)) {
             goal = cur;
           }
@@ -347,7 +352,7 @@ void problem() {
       alias Item = Tuple!(int, "coord", int, "cost");
       auto queue = new Item[](0).heapify!"a.cost > b.cost";
 
-      auto railStartCost = min(15, max(5, (1500 - simulateIncome()) / 100));
+      auto railStartCost = weightedStationCost(simulateIncome());
       foreach(i; 0..N^^2) {
         if (rail[i] != 0) {
           ret[i] = rail[i] == 9 ? 1 : railStartCost + 1;
