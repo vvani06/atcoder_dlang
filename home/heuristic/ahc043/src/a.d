@@ -137,9 +137,6 @@ void problem() {
     int[] rail;
     Order[] orders;
 
-    long income;
-    BitArray fromSim, toSim;
-
     this(long money, Customer[] customers) {
       this.money = money;
       this.customers = customers;
@@ -147,8 +144,6 @@ void problem() {
       fromCoveredBit = BitArray(false.repeat(M).array);
       toCoveredSet = new int[](0).redBlackTree;
       toCoveredBit = BitArray(false.repeat(M).array);
-      fromSim = BitArray(false.repeat(M).array);
-      toSim = BitArray(false.repeat(M).array);
       rail = new int[](N ^^ 2);
       foreach(i; 0..N^^2) grid ~= new Cell();
       foreach(customer; customers) {
@@ -192,6 +187,7 @@ void problem() {
         if (!(customer.id in fromCoveredSet)) toCoveredSet.insert(customer.id);
         toCoveredBit[customer.id] = true;
       }
+
     }
 
     Tuple!(int, int) findBestStationCoordId(int coordIdFrom) {
@@ -266,7 +262,7 @@ void problem() {
         if (bestValue == 0) break;
         ret ~= best;
         applyStation(best);
-        [best, bestValue, cost[best]].deb;
+        // [best, bestValue, cost[best]].deb;
       }
       return ret;
     }
@@ -380,6 +376,12 @@ void problem() {
       long bestMoney = money;
       int turn, bestTurn;
 
+      auto fromSim = BitArray(false.repeat(M).array);
+      auto toSim = BitArray(false.repeat(M).array);
+      auto satisfied = new BitArray[](T + 1);
+      
+      long income;
+
       for (auto queue = DList!Order(orders); !queue.empty;) {
         if (turn == limit) break;
 
@@ -396,7 +398,8 @@ void problem() {
               if (coord.distance(c.from) <= 2) fromSim[c.id] = true;
               if (coord.distance(c.to) <= 2) toSim[c.id] = true;
             }
-            income = (fromSim & toSim).bitsSet.map!(c => customers[c].value).sum;
+            satisfied[turn] = fromSim & toSim;
+            income = satisfied[turn].bitsSet.map!(c => customers[c].value).sum;
           }
         } else {
           outputs ~= "-1";
@@ -417,6 +420,11 @@ void problem() {
         writeln(t <= bestTurn ? o : "-1");
       }
       [bestTurn, bestMoney].deb;
+
+      deb("=== satisfied report ===");
+      foreach(m; M.iota.array.sort!((a, b) => customers[a].value > customers[b].value)) {
+        debf("[%s] %s", satisfied[bestTurn][m] ? "o" : "x", customers[m]);
+      }
     }
   }
 
@@ -428,7 +436,7 @@ void problem() {
   state.rail[goals[0]] = 9;
   state.orders ~= state.createOrder(goals[1]);
   foreach(_; 0..200) {
-    if (elapsed(2800)) break;
+    if (elapsed(2800) || state.orders.length >= T) break;
     
     auto station = state.findBestStations(1);
     if (station.empty) break;
@@ -447,6 +455,7 @@ string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; st
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
 void deb(T ...)(lazy T t){ debug { write("# "); writeln(t); }}
+void debf(T ...)(lazy T t){ debug { write("# "); writefln(t); }}
 // void deb(T ...)(T t){ debug {  }}
 T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
