@@ -11,7 +11,7 @@ else
     cp "/ahc_in/${testcase}.txt" ./a -f
 fi
 
-ldmd2 -debug -O ./a.d -of ./built
+ldmd2 -debug -O ./a.d -of=./built
 { time -p ./built; } < ./a > ${base}/../tester/debug_out
 
 cat ${base}/../tester/debug_out | grep -v "#" > ${base}/../tester/debug_out_filtered

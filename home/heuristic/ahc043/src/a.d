@@ -118,6 +118,7 @@ void problem() {
   class Cell {
     BitArray fromBit, toBit;
     RedBlackTree!int fromSet, toSet;
+    int fromValue, toValue;
 
     this() {
       fromBit = BitArray(false.repeat(M).array);
@@ -150,10 +151,12 @@ void problem() {
         foreach(id; customer.from.aroundId()) {
           grid[id].fromBit[customer.id] = true;
           grid[id].fromSet.insert(customer.id);
+          grid[id].fromValue += customer.value;
         }
         foreach(id; customer.to.aroundId()) {
           grid[id].toBit[customer.id] = true;
           grid[id].toSet.insert(customer.id);
+          grid[id].toValue += customer.value;
         }
       }
     }
@@ -174,6 +177,7 @@ void problem() {
         foreach(id; customer.from.aroundId) {
           grid[id].fromBit[customer.id] = false;
           grid[id].fromSet.removeKey(customer.id);
+          grid[id].fromValue -= customer.value;
         }
         if (!(customer.id in toCoveredSet)) fromCoveredSet.insert(customer.id);
         fromCoveredBit[customer.id] = true;
@@ -183,6 +187,7 @@ void problem() {
         foreach(id; customer.to.aroundId) {
           grid[id].toBit[customer.id] = false;
           grid[id].toSet.removeKey(customer.id);
+          grid[id].toValue -= customer.value;
         }
         if (!(customer.id in fromCoveredSet)) toCoveredSet.insert(customer.id);
         toCoveredBit[customer.id] = true;
@@ -252,8 +257,7 @@ void problem() {
           auto value = postCovered.bitsSet.map!(c => customers[c].value).sum;
           value += toFullCovered.bitsSet.map!(c => customers[c].value).sum * 5;
           if (toFullCovered.count() == 0) value /= 10;
-          value *= 1000 - cost[t];
-          value += rail[t] != 0 ? 5000 : 0;
+          value *= 1000 - (rail[t] == 0 ? cost[t] : -500);
           if (bestValue.chmax(value)) {
             best = t;
           }
@@ -278,30 +282,39 @@ void problem() {
     Order[] createOrder(int from) {
       int[] froms = (-1).repeat(N^^2).array;
       froms[from] = from;
+      applyStation(from);
+
+      auto memCosts = (N^^2).iota.map!(_ => [int.max, int.max]).array;
+      memCosts[from] = [0, 0];
 
       int goal = from;
-      int goalCost = int.max;
+      int[] goalCost = [int.max, int.max];
       auto simIncome = simulateIncome();
-      alias Item = Tuple!(int, "coord", int, "cost");
-      for(auto queue = DList!Item(Item(from, 0)); !queue.empty;) {
+      alias Item = Tuple!(int, "coord", int[], "cost");
+      for(auto queue = [Item(from, [0, 0])].heapify!"a.cost > b.cost"; !queue.empty;) {
         auto cur = queue.front.coord;
         auto cost = queue.front.cost;
         queue.removeFront;
-        if (goalCost <= cost) continue;
+        if (goalCost <= cost || memCosts[cur] != cost) continue;
 
         if (rail[cur] != 0) {
-          cost += rail[cur] == 9 ? 0 : weightedStationCost(simIncome);
           if (goalCost.chmin(cost)) {
+            // writefln("# swapped: %s => %s, %s (%s) %s", Coord(from), Coord(cur), cost, weightedStationCost(simIncome), Coord(froms[cur]));
             goal = cur;
           }
           continue;
         }
 
         foreach(next; nexts[cur]) {
-          if (froms[next] != -1) continue;
-
+          auto nc = cost.dup;
+          nc[0] += 1;
+          nc[1] -= grid[next].fromValue + grid[next].toValue;
+          if (rail[next] != 0) nc[0] += rail[next] == 9 ? 0 : weightedStationCost(simIncome);
+          if (memCosts[next] <= nc) continue;
+          
+          memCosts[next] = nc;
           froms[next] = cur;
-          queue.insertBack(Item(next, cost + 1));
+          queue.insert(Item(next, nc));
         }
       }
 
@@ -340,6 +353,8 @@ void problem() {
           applyStation(t);
         }
       }
+
+
       return ret;
     }
 
@@ -382,11 +397,10 @@ void problem() {
       
       long income;
 
-      for (auto queue = DList!Order(orders); !queue.empty;) {
+      for (auto queue = DList!Order(orders.array); !queue.empty;) {
         if (turn == limit) break;
 
         auto order = queue.front;
-        
         if (money >= order.cost) {
           money -= order.cost;
           queue.removeFront;
@@ -443,7 +457,6 @@ void problem() {
     state.orders ~= state.createOrder(station[0]);
   }
 
-  state.orders.each!deb;
   state.simulate(T);
 }
 
