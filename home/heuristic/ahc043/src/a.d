@@ -278,7 +278,7 @@ void problem() {
     }
 
     int weightedStationCost(int income) {
-      return min(45, max(5, (1500 - income) / 30));
+      return min(50, max(2, (2000 - income) / 40));
     }
 
     Order[] createOrder(int from) {
@@ -468,7 +468,7 @@ void problem() {
   state.rail[goals[0]] = 9;
   state.orders ~= state.createOrder(goals[1]);
   foreach(_; 0..200) {
-    if (elapsed(2800) || state.orders.length >= T) break;
+    if (elapsed(8800) || state.orders.length >= T) break;
     
     auto station = state.findBestStations(1);
     if (station.empty) break;
