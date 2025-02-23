@@ -105,6 +105,8 @@ void problem() {
     int type, r, c;
 
     string asOutput() {
+      if (type == -1) return "-1";
+
       return "%s %s %s".format(type, r, c);
     }
 
@@ -396,11 +398,27 @@ void problem() {
       auto satisfied = new BitArray[](T + 1);
       
       long income;
+      DList!Order waitedOrders;
+      enum WAIT_INCOME = 280;
 
-      for (auto queue = DList!Order(orders.array); !queue.empty;) {
+      for (auto queue = DList!Order(orders.array); !(queue.empty && waitedOrders.empty);) {
         if (turn == limit) break;
 
-        auto order = queue.front;
+        if (!waitedOrders.empty && money >= waitedOrders.front.cost) {
+          queue.insertFront(waitedOrders.front);
+          waitedOrders.removeFront;
+        }
+
+        if (queue.empty) queue.insertFront(Order(-1));
+        Order order = queue.front;
+        while (income >= WAIT_INCOME && order.type == 0 && money < order.cost) {
+          waitedOrders.insertBack(order);
+          queue.removeFront;
+          if (queue.empty) queue.insertFront(Order(-1));
+
+          order = queue.front;
+        }
+
         if (money >= order.cost) {
           money -= order.cost;
           queue.removeFront;
