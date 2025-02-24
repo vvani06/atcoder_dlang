@@ -224,24 +224,17 @@ void problem() {
       return tuple(ret, best);
     }
 
-    int[] findFirstStationPair() {
-      int[] ret; {
+    int[][] findFirstStationPair() {
+      int[][] ret; {
         int bestFrom, bestTo, bestValue;
         foreach(f; 0..N^^2 - 1) {
           auto to = findBestStationCoordId(f);
-          if (bestValue.chmax(to[1])) {
-            bestFrom = min(f, to[0]);
-            bestTo = max(f, to[0]);
-          }
+          ret ~= [min(f, to[0]), max(f, to[0]), to[1]];
         }
-        ret ~= bestFrom;
-        ret ~= bestTo;
       }
 
-      // ret = [asId(17, 15), asId(30, 15)];
-
-      foreach(s; ret) applyStation(s);
-      return ret;
+      // foreach(s; ret) applyStation(s);
+      return ret.sort!"a[2] > b[2]".array;
     }
 
     int[] findBestStations(int limit) {
@@ -389,8 +382,8 @@ void problem() {
       return ret;
     }
 
-    void simulate(int limit) {
-      string[] outputs;
+    Tuple!(long, string[]) simulate(int limit) {
+      string[] outputs, ret;
       long bestMoney = money;
       int turn, bestTurn;
 
@@ -450,7 +443,7 @@ void problem() {
       }
 
       foreach(t, o; outputs) {
-        writeln(t <= bestTurn ? o : "-1");
+        ret ~= format(t <= bestTurn ? o : "-1");
       }
       [bestTurn, bestMoney].deb;
 
@@ -458,26 +451,40 @@ void problem() {
       foreach(m; M.iota.array.sort!((a, b) => customers[a].value > customers[b].value)) {
         debf("[%s] %s", satisfied[bestTurn][m] ? "o" : "x", customers[m]);
       }
+      return tuple(bestMoney, ret);
     }
   }
 
   auto customers = IJ.enumerate(0).map!(ij => Customer(ij[0], Coord(ij[1][0], ij[1][1]), Coord(ij[1][2], ij[1][3]))).array;
-  auto state = new State(K, customers);
-  
-  auto goals = state.findFirstStationPair();
-  state.orders ~= Order(0, goals[0]/N, goals[0]%N);
-  state.rail[goals[0]] = 9;
-  state.orders ~= state.createOrder(goals[1]);
-  auto limit = environment.get("ATCODER", "0").to!int == 1 ? 2800 : 10_000;
-  foreach(_; 0..200) {
-    if (elapsed(limit) || state.orders.length >= T) break;
-    
-    auto station = state.findBestStations(1);
-    if (station.empty) break;
-    state.orders ~= state.createOrder(station[0]);
+  auto testState = new State(K, customers);
+  auto goals = testState.findFirstStationPair();
+  auto limit = environment.get("ATCODER", "0").to!int == 1 ? 2800 : 2800;
+
+  long bestScore;
+  string[] ans;
+  foreach(fp; goals) {
+    if (elapsed(limit)) break;
+
+    auto state = new State(K, customers);
+    state.orders ~= Order(0, fp[0]/N, fp[0]%N);
+    state.applyStation(fp[0]);
+    state.rail[fp[0]] = 9;
+    state.orders ~= state.createOrder(fp[1]);
+    foreach(_; 0..200) {
+      if (elapsed(limit) || state.orders.length >= T) break;
+      
+      auto station = state.findBestStations(1);
+      if (station.empty) break;
+      state.orders ~= state.createOrder(station[0]);
+    }
+
+    auto test = state.simulate(T);
+    if (bestScore.chmax(test[0])) {
+      ans = test[1];
+    }
   }
 
-  state.simulate(T);
+  foreach(s; ans) writeln(s);
 }
 
 // ----------------------------------------------
