@@ -468,8 +468,9 @@ void problem() {
   state.orders ~= Order(0, goals[0]/N, goals[0]%N);
   state.rail[goals[0]] = 9;
   state.orders ~= state.createOrder(goals[1]);
+  auto limit = environment.get("ATCODER", "0").to!int == 1 ? 2800 : 10_000;
   foreach(_; 0..200) {
-    if (elapsed(8800) || state.orders.length >= T) break;
+    if (elapsed(limit) || state.orders.length >= T) break;
     
     auto station = state.findBestStations(1);
     if (station.empty) break;
