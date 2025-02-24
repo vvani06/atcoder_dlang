@@ -213,7 +213,7 @@ void problem() {
         auto satisfied = fromSatisfied & toSatisfied;
 
         auto value = satisfied.bitsSet.map!(c => customers[c].value * 100_000).sum;
-        value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value).sum;
+        value += (fromSatisfied ^ toSatisfied).bitsSet.map!(c => customers[c].value ^^ 2).sum;
         value -= distance;
         if (best.chmax(value)) {
           ret = t;
@@ -256,9 +256,8 @@ void problem() {
           auto postCovered = grid[t].fromBit | grid[t].toBit;
           auto toFullCovered = preCovered & postCovered;
 
-          auto value = postCovered.bitsSet.map!(c => customers[c].value).sum;
-          value += toFullCovered.bitsSet.map!(c => customers[c].value).sum * 5;
-          if (toFullCovered.count() == 0) value /= 10;
+          auto value = postCovered.bitsSet.map!(c => customers[c].value ^^ 2).sum;
+          value += toFullCovered.bitsSet.map!(c => customers[c].value).sum * 1000;
           value *= 1000 - (rail[t] == 0 ? cost[t] : -500);
           if (bestValue.chmax(value)) {
             best = t;
@@ -311,6 +310,8 @@ void problem() {
           auto nc = cost.dup;
           nc[0] += 1;
           nc[1] -= grid[next].fromValue + grid[next].toValue;
+          nc[1] -= grid[next].fromSet.array.filter!(m => toCoveredBit[m]).map!(m => customers[m].value).sum;
+          nc[1] -= grid[next].toSet.array.filter!(m => fromCoveredBit[m]).map!(m => customers[m].value).sum;
           if (rail[next] != 0) nc[0] += rail[next] == 9 ? 0 : weightedStationCost(simIncome);
           if (memCosts[next] <= nc) continue;
           
@@ -430,13 +431,13 @@ void problem() {
               if (coord.distance(c.from) <= 2) fromSim[c.id] = true;
               if (coord.distance(c.to) <= 2) toSim[c.id] = true;
             }
-            satisfied[turn] = fromSim & toSim;
-            income = satisfied[turn].bitsSet.map!(c => customers[c].value).sum;
+            income = (fromSim & toSim).bitsSet.map!(c => customers[c].value).sum;
           }
         } else {
           outputs ~= "-1";
         }
         money += income;
+        satisfied[turn] = fromSim & toSim;
         turn++;
         if (bestMoney.chmax(money + income*(limit - turn))) {
           bestTurn = turn;
@@ -453,7 +454,7 @@ void problem() {
       }
       [bestTurn, bestMoney].deb;
 
-      deb("=== satisfied report ===");
+      debf("=== satisfied report ===");
       foreach(m; M.iota.array.sort!((a, b) => customers[a].value > customers[b].value)) {
         debf("[%s] %s", satisfied[bestTurn][m] ? "o" : "x", customers[m]);
       }
