@@ -70,7 +70,7 @@ void problem() {
   enum int[] SIM_WEEKS = [500, 1000, 3000, 10000, 30000];
   enum int[] PHASE_ELPS = [200, 400, 800, 1400, 1900];
   enum int REPLACE_CANDIDATES = 2;
-  enum int CHALLENGE_COUNT = 8;
+  enum int CHALLENGE_COUNT = 25;
 
   auto bestGraph = graph.dup;
   int badCount, calcCount;
@@ -99,7 +99,7 @@ void problem() {
         badCount = 0;
       } else {
         badCount++;
-        if (badCount >= CHALLENGE_COUNT) {
+        if (badCount >= CHALLENGE_COUNT || res.score > bestScore*1.6) {
           badCount = 0;
           graph = bestGraph.dup;
         }
