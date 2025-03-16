@@ -17,22 +17,22 @@ void problem() {
     int turns;
     int[] goals;
 
-    this(int t) {
-      turns = t;
-      goals = T.map!(g => g / t).array;
+    this(int l) {
+      turns = l;
+      goals = T.map!(t => (t * l) / L).array;
     }
 
     int calcScore(int[][] graph) {
       int[] worked = new int[](N);
       int worker;
       foreach(_; 0..turns) {
-        worker = graph[worker][++worked[worker] % 2];
+        worked[worker]++;
+        worker = graph[worker][worked[worker] % 2];
       }
       return zip(goals, worked).map!(x => abs(x[0] - x[1])).sum;
     }
   }
 
-  auto sim = new Sim(1000);
   auto box = N.iota.map!(i => repeat(i, T[i]).array).joiner.array;
   int[][] graph = new int[][](N, 2);
   foreach(i; 0..N) {
@@ -41,8 +41,31 @@ void problem() {
     while(graph[i][0] == graph[i][1]) graph[i][1] = box.choice(RND);
   }
 
+  auto sim = new Sim(500);
+  auto bestScore = sim.calcScore(graph);
+  auto bestGraph = graph.map!"a.dup".array;
+
+  int badCount;
+  while(!elapsed(1900)) {
+    auto replaceWorker = uniform(0, N, RND);
+    graph[replaceWorker][0] = box.choice(RND);
+    graph[replaceWorker][1] = box.choice(RND);
+
+    auto score = sim.calcScore(graph);
+    if (bestScore.chmin(score)) {
+      bestGraph = graph.map!"a.dup".array;
+      badCount = 0;
+    } else {
+      badCount++;
+      if (badCount > 10) {
+        badCount = 0;
+        graph = bestGraph.map!"a.dup".array;
+      }
+    }
+  }
+
   foreach(i; 0..N) {
-    writefln("%s %s", graph[i][0], graph[i][1]);
+    writefln("%s %s", bestGraph[i][0], bestGraph[i][1]);
   }
 }
 
