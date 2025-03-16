@@ -69,39 +69,40 @@ void problem() {
 
   enum int[] SIM_WEEKS = [500, 1000, 3000, 10000, 30000];
   enum int[] PHASE_ELPS = [200, 400, 800, 1400, 1900];
+  enum real[] PENA_PARAM = [4.0, 3.2, 2.8, 2.3, 1.8];
   enum int REPLACE_CANDIDATES = 2;
-  enum int CHALLENGE_COUNT = 25;
+  enum int CHALLENGE_COUNT = 20000;
 
   auto bestGraph = graph.dup;
   int badCount, calcCount;
 
-  foreach(week, elp; zip(SIM_WEEKS, PHASE_ELPS)) {
+  foreach(week, elp, pen; zip(SIM_WEEKS, PHASE_ELPS, PENA_PARAM)) {
     badCount = 0;
     auto sim = new Sim(week);
     auto bestSim = sim.calcScore(graph);
     auto bestScore = bestSim.score;
+    SimResult* preSim;
   
     while(!elapsed(elp)) {
       calcCount++;
-      foreach(_; 0..1) {
-        auto calced = sim.calcScore(graph);
-        auto target = calced.busyIndicies(REPLACE_CANDIDATES, graph).choice(RND);
-        auto from = graph[target];
-        auto to = calced.frees(REPLACE_CANDIDATES).choice(RND);
-        // to = box.choice(RND);
-        graph[target] = to;
-      }
+      auto calced = preSim is null ? sim.calcScore(graph) : *preSim;
+      auto target = calced.busyIndicies(REPLACE_CANDIDATES, graph).choice(RND);
+      auto from = graph[target];
+      auto to = calced.frees(REPLACE_CANDIDATES).choice(RND);
+      graph[target] = to;
 
       auto res = sim.calcScore(graph);
+      preSim = &res;
       if (bestScore.chmin(res.score)) {
         bestSim = res;
         bestGraph = graph.dup;
         badCount = 0;
       } else {
         badCount++;
-        if (badCount >= CHALLENGE_COUNT || res.score > bestScore*1.6) {
+        if (badCount >= CHALLENGE_COUNT || res.score > bestScore*pen) {
           badCount = 0;
           graph = bestGraph.dup;
+          preSim = null;
         }
       }
     }
