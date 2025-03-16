@@ -62,13 +62,13 @@ void problem() {
 
   auto box = N.iota.map!(i => repeat(i, T[i]).array).joiner.array;
   int[] graph = new int[](2 * N);
-  foreach(i; 0..N * 2) {
-    graph[i] = box.choice(RND);
+  // foreach(i; 0..N * 2) {
+    graph = box.randomShuffle[0..2*N];
     // while(graph[i][0] == graph[i][1]) graph[i][1] = box.choice(RND);
-  }
+  // }
 
   enum int[] SIM_WEEKS = [500, 1000, 3000, 10000, 50000];
-  enum int[] PHASE_ELPS = [200, 400, 800, 1400, 1900];
+  enum int[] PHASE_ELPS = [200, 300, 500, 1600, 1900];
   enum real[] PENA_PARAM = [4.0, 3.2, 2.8, 2.3, 1.8];
   enum int REPLACE_CANDIDATES = 2;
   enum int CHALLENGE_COUNT = 20000;
