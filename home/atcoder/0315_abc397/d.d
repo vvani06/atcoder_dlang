@@ -2,28 +2,28 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!long;
-  auto StartTime = MonoTime.currTime();
-  bool elapsed(int ms) { 
-    return (ms <= (MonoTime.currTime() - StartTime).total!"msecs");
-  }
-
-  ulong croot(ulong cube) {
-    auto r = pow(cube.to!real, 1.0/3.0) + 1e-6;
-    return r.to!ulong;
-  }
 
   auto solve() {
-    auto low = croot(N);
-    auto high = croot(ulong.max);
-    while (!elapsed(1900)) {
-      auto x = uniform(low, high + 1);
-      if (x^^3 <= N) continue;
+    // d = x - y
+    for(long d = 1; d^^3 <= N; d++) {
+      auto nsd = N - d^^3;
+      if (N % d != 0 || nsd % 3 != 0) continue;
 
-      auto y3 = x^^3 - N;
-      auto y = croot(y3);
-      if (y == 0) continue;
-      if (y3 == y^^3) return "%s %s".format(x, y);
+      // xxd - xdd = (N - ddd)/3
+      auto right = nsd / 3;
+      bool isOk(long x) {
+        return x^^2 * d - x * d^^2 <= right;
+      }
+      
+      auto x = binarySearch(&isOk, 1, (N / d).to!real.sqrt.to!long + 1);
+      if (x - d <= 0) continue;
+
+      // if (d == 276544) [[d, N, d^^3, nsd], [right, x], [x^^2 * d, x * d^^2]].deb;
+      if (x^^2 * d - x * d^^2 == right) {
+        return "%s %s".format(x, x - d);
+      }
     }
+
     return "-1";
   }
 

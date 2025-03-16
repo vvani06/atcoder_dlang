@@ -12,14 +12,27 @@ void problem() {
       e[0]--; e[1]--;
       graph[e[0]] ~= e[1];
       graph[e[1]] ~= e[0];
-      degrees[e[0]]++;
-      degrees[e[1]]++;
     }
 
-    alias Queue = Tuple!(int, "node", int, "deg");
-    auto heap = (N * K).iota.map!(i => Queue(i, degrees[i])).array.heapify!"a.deg > b.deg";
+    int[] depth = {
+      auto ret = new int[](N * K);
+      void dfs(int cur, int pre) {
+        foreach(next; graph[cur]) {
+          if (next == pre) continue;
+
+          ret[next] = ret[cur] + 1;
+          dfs(next, cur);
+        }
+      }
+      dfs(0, 0);
+      return ret;
+    }();
+
+    alias Queue = Tuple!(int, "node", int, "depth");
+    auto heap = (N * K).iota.map!(i => Queue(i, depth[i])).array.heapify!"a.depth < b.depth";
     auto visited = new bool[](N * K);
     auto sizes = new int[](N * K);
+    auto merged = new int[](N * K);
     sizes[] = 1;
 
     while(!heap.empty) {
@@ -27,27 +40,22 @@ void problem() {
       heap.removeFront;
       if (visited[cur.node]) continue;
       visited[cur.node] = true;
-      // cur.deb;
+
+      if (merged[cur.node] == 2 || sizes[cur.node] % K == 0) continue;
 
       foreach(par; graph[cur.node]) {
         if (visited[par]) continue;
 
-        if ((sizes[cur.node] + sizes[par]) <= K) {
+        if (merged[par] <= 1) {
+          merged[par]++;
           sizes[par] += sizes[cur.node];
-          break;
+          sizes[cur.node] = 0;
         }
-      }
-
-      foreach(par; graph[cur.node]) {
-        if (visited[par]) continue;
-
-        degrees[par]--;
-        heap.insert(Queue(par, degrees[par]));
       }
     }
 
-    // sizes.deb;
-    return sizes.count!(s => s == K) == N;
+    sizes.deb;
+    return sizes.all!(s => s % K == 0);
   }
 
   outputForAtCoder(&solve);
