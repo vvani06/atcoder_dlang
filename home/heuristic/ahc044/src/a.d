@@ -13,6 +13,31 @@ void problem() {
   int L = scan!int;
   int[] T = scan!int(N);
 
+  struct SimResult {
+    int score;
+    int[] deltas;
+    int[] sortedDeltas;
+
+    this(int score, int[] deltas) {
+      this.score = score;
+      this.deltas = deltas.dup;
+      sortedDeltas = deltas.enumerate(0).array.sort!((a, b) => a[1] < b[1]).map!"a[0]".array;
+    }
+
+    auto frees(int n) {
+      return sortedDeltas[0..n];
+    }
+
+    auto busys(int n) {
+      return sortedDeltas[$ - n..$];
+    }
+
+    auto busyIndicies(int n, int[] graph) {
+      auto b = busys(n).redBlackTree;
+      return (2 * N).iota.filter!(i => graph[i] in b).array;
+    }
+  }
+
   class Sim {
     int turns;
     int[] goals;
@@ -22,50 +47,55 @@ void problem() {
       goals = T.map!(t => (t * l) / L).array;
     }
 
-    int calcScore(int[][] graph) {
+    SimResult calcScore(int[] graph) {
       int[] worked = new int[](N);
       int worker;
       foreach(_; 0..turns) {
         worked[worker]++;
-        worker = graph[worker][worked[worker] % 2];
+        worker = graph[worker * 2 + (worked[worker] % 2)^1];
       }
-      return zip(goals, worked).map!(x => abs(x[0] - x[1])).sum;
+
+      auto deltas = zip(goals, worked).map!(x => x[1] - x[0]).array;
+      return SimResult(deltas.map!"a.abs".sum, deltas);
     }
   }
 
   auto box = N.iota.map!(i => repeat(i, T[i]).array).joiner.array;
-  int[][] graph = new int[][](N, 2);
-  foreach(i; 0..N) {
-    graph[i][0] = box.choice(RND);
-    graph[i][1] = box.choice(RND);
-    while(graph[i][0] == graph[i][1]) graph[i][1] = box.choice(RND);
+  int[] graph = new int[](2 * N);
+  foreach(i; 0..N * 2) {
+    graph[i] = box.choice(RND);
+    // while(graph[i][0] == graph[i][1]) graph[i][1] = box.choice(RND);
   }
 
   auto sim = new Sim(500);
-  auto bestScore = sim.calcScore(graph);
-  auto bestGraph = graph.map!"a.dup".array;
+  auto bestSim = sim.calcScore(graph);
+  auto bestScore = bestSim.score;
+  auto bestGraph = graph.dup;
 
   int badCount;
   while(!elapsed(1900)) {
-    auto replaceWorker = uniform(0, N, RND);
-    graph[replaceWorker][0] = box.choice(RND);
-    graph[replaceWorker][1] = box.choice(RND);
+    foreach(_; 0..1) {
+      auto target = bestSim.busyIndicies(10, graph).choice();
+      graph[target] = bestSim.frees(10).choice(RND);
+      // graph[target] = box.choice(RND);
+    }
 
-    auto score = sim.calcScore(graph);
-    if (bestScore.chmin(score)) {
-      bestGraph = graph.map!"a.dup".array;
+    auto res = sim.calcScore(graph);
+    if (bestScore.chmin(res.score)) {
+      bestSim = res;
+      bestGraph = graph.dup;
       badCount = 0;
     } else {
       badCount++;
-      if (badCount > 10) {
+      if (badCount > 2) {
         badCount = 0;
-        graph = bestGraph.map!"a.dup".array;
+        graph = bestGraph.dup;
       }
     }
   }
 
-  foreach(i; 0..N) {
-    writefln("%s %s", bestGraph[i][0], bestGraph[i][1]);
+  foreach(ans; graph.chunks(2)) {
+    writefln("%s %s", ans[0], ans[1]);
   }
 }
 
