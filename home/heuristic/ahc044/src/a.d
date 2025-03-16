@@ -67,33 +67,49 @@ void problem() {
     // while(graph[i][0] == graph[i][1]) graph[i][1] = box.choice(RND);
   }
 
-  auto sim = new Sim(500);
-  auto bestSim = sim.calcScore(graph);
-  auto bestScore = bestSim.score;
+  enum int[] SIM_WEEKS = [500, 1000, 3000, 10000, 30000];
+  enum int[] PHASE_ELPS = [200, 400, 800, 1400, 1900];
+  enum int REPLACE_CANDIDATES = 2;
+  enum int CHALLENGE_COUNT = 8;
+
   auto bestGraph = graph.dup;
+  int badCount, calcCount;
 
-  int badCount;
-  while(!elapsed(1900)) {
-    foreach(_; 0..1) {
-      auto target = bestSim.busyIndicies(10, graph).choice();
-      graph[target] = bestSim.frees(10).choice(RND);
-      // graph[target] = box.choice(RND);
-    }
+  foreach(week, elp; zip(SIM_WEEKS, PHASE_ELPS)) {
+    badCount = 0;
+    auto sim = new Sim(week);
+    auto bestSim = sim.calcScore(graph);
+    auto bestScore = bestSim.score;
+  
+    while(!elapsed(elp)) {
+      calcCount++;
+      foreach(_; 0..1) {
+        auto calced = sim.calcScore(graph);
+        auto target = calced.busyIndicies(REPLACE_CANDIDATES, graph).choice(RND);
+        auto from = graph[target];
+        auto to = calced.frees(REPLACE_CANDIDATES).choice(RND);
+        // to = box.choice(RND);
+        graph[target] = to;
+      }
 
-    auto res = sim.calcScore(graph);
-    if (bestScore.chmin(res.score)) {
-      bestSim = res;
-      bestGraph = graph.dup;
-      badCount = 0;
-    } else {
-      badCount++;
-      if (badCount > 2) {
+      auto res = sim.calcScore(graph);
+      if (bestScore.chmin(res.score)) {
+        bestSim = res;
+        bestGraph = graph.dup;
         badCount = 0;
-        graph = bestGraph.dup;
+      } else {
+        badCount++;
+        if (badCount >= CHALLENGE_COUNT) {
+          badCount = 0;
+          graph = bestGraph.dup;
+        }
       }
     }
   }
 
+  calcCount.deb;
+  // bestSim.frees(10).deb;
+  // bestSim.busys(10).deb;
   foreach(ans; graph.chunks(2)) {
     writefln("%s %s", ans[0], ans[1]);
   }
