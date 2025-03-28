@@ -5,9 +5,7 @@ void problem() {
 
   auto solve() {
     auto counts = new int[](8);
-    foreach(n, c; A.sort.group) {
-      foreach(i; 0..c + 1) counts[i]++;
-    }
+    foreach(n, c; A.sort.group) counts[0..c + 1] += 1;
 
     return counts[3] >= 1 && counts[2] >= 2;
   }

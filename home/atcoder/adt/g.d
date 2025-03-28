@@ -2,42 +2,41 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!long(N);
-  auto LR = scan!int(scan!int * 2).chunks(2).array;
 
   auto solve() {
-    struct STValue {
-      int size, dist;
-
-      STValue opBinary(string op: "+")(STValue other) {
-        return STValue(
-          size + other.size,
-          max(dist, other.dist)
-        );
-      }
+    auto scores = new long[][](2 * N, 2 * N);
+    foreach(i; 1..2 * N) {
+      auto l = 2 * N - i;
+      scores[i - 1][i..$] = scan!long(l);
+    }
+    foreach(i; 0..2 * N - 1) foreach(j; i..2 * N) {
+      scores[j][i] = scores[i][j];
     }
 
-    auto segtree = {
-      auto stv = new STValue[](N);
-      for (int i, j; i < N; i++) {
-        while (j < N && A[i] * 2 > A[j]) j++;
-        stv[i] = STValue(1, j - i);
+    long ans;
+    void dfs(int cur, int[][] pairs) {
+      if (cur >= 2 * N) {
+        long score = pairs.map!(p => scores[p[0]][p[1]]).fold!"a ^ b"(0L);
+        ans = max(ans, score);
+        return;
       }
-      // stv.each!deb;
-      return SegTree!("a + b", STValue)(stv, STValue(0, 0));
-    }();
 
-    segtree.sum(0, N).deb;
-
-    foreach(l, r; lockstep(LR.map!"a[0]", LR.map!"a[1]")) {
-      l--;
-      
-      bool isOk(int t) {
-        auto seg = segtree.sum(l, t);
-        return l + seg.size + max(seg.size, seg.dist) <= r;
+      foreach(i; 0..pairs.length) {
+        if (pairs[i].length == 1) {
+          pairs[i] ~= cur;
+          dfs(cur + 1, pairs);
+          pairs[i].length = 1;
+        }
       }
-      writeln(binarySearch(&isOk, l, r) - l);
+
+      if (pairs.length < N) {
+        pairs ~= [cur];
+        dfs(cur + 1, pairs);
+        pairs.length = pairs.length - 1;
+      }
     }
+    dfs(0, []);
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -88,83 +87,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
-
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
-      }
-    }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
-  }
-
-  void add(int index, T value) {
-    update(index, get(index) + value);
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
-
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}

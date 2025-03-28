@@ -1,46 +1,31 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto X = scan!long;
-  auto E = scan!int(2 * M).chunks(2).array;
-  
+  auto S = scan!string(9);
+  alias Vector = Vector2!int;
+
   auto solve() {
-    auto graph = new int[][][](2, N, 0);
-    foreach(e; E) {
-      e[0]--; e[1]--;
-      graph[0][e[0]] ~= e[1];
-      graph[1][e[1]] ~= e[0];
-    }
+    bool[long] ans;
 
-    auto memoCosts = new long[][](2, N);
-    enum INF = long.max / 3;
-    foreach(ref m; memoCosts) m[] = INF;
-    memoCosts[0][0] = 0;
+    foreach(sr; 0..9) foreach(sc; 0..9) {
+      auto v1 = Vector(sr, sc);
+      foreach(size; 1..10) foreach(x; 0..size) {
+        auto verticies = [v1];
+        auto edge = Vector(x, size - x);
+        foreach(_; 0..3) {
+          verticies ~= verticies[$ - 1] + edge;
+          edge = edge.rotate();
+        }
 
-    alias Cursor = Tuple!(int, "node", int, "inverted", long, "cost");
-    for(auto queue = [Cursor(0, 0, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
-      auto cur = queue.front;
-      queue.removeFront;
-      if (memoCosts[cur.inverted][cur.node] != cur.cost) continue;
-
-      long cost = cur.cost;
-      auto inv = cur.inverted;
-      foreach(next; graph[inv][cur.node]) {
-        auto nCur = Cursor(next, inv, cost + 1);
-        if (memoCosts[inv][next].chmin(nCur.cost)) queue.insert(nCur);
-      }
-
-      cost += X;
-      inv ^= 1;
-      foreach(next; graph[inv][cur.node]) {
-        auto nCur = Cursor(next, inv, cost + 1);
-        if (memoCosts[inv][next].chmin(nCur.cost)) queue.insert(nCur);
+        if (verticies.any!(v => v.min < 0 || v.max >= 9)) continue;
+        if (verticies.any!(v => S[v.y][v.x] == '.')) continue;
+        
+        long hash = verticies.fold!((a, b) => a ^ b.hashOf())(0L);
+        ans[hash] = true;
       }
     }
 
-    return min(memoCosts[0][N - 1], memoCosts[1][N - 1]);
+    return ans.length;
   }
 
   outputForAtCoder(&solve);
@@ -49,6 +34,7 @@ void problem() {
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -68,7 +54,7 @@ string asAnswer(T ...)(T t) {
     static if (isIterable!A && !is(A == string)) {
       string[] rets;
       foreach(b; a) rets ~= asAnswer(b);
-      static if (isInputRange!A) ret ~= rets.joiner("\n").to!string; else ret ~= rets.joiner("\n").to!string; 
+      static if (isInputRange!A) ret ~= rets.joiner(" ").to!string; else ret ~= rets.joiner("\n").to!string; 
     } else {
       static if (is(A == float) || is(A == double) || is(A == real)) ret ~= "%.16f".format(a);
       else static if (is(A == bool)) ret ~= YESNO[a]; else ret ~= "%s".format(a);
@@ -92,71 +78,16 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct Eratosthenes {
-  bool[] isPrime;
-  int[] rawPrimes;
-  int[] spf;
-
-  this(int lim) {
-    isPrime = new bool[](lim + 1);
-    isPrime[2..$] = true;
-    spf = new int[](lim + 1);
-    spf[] = int.max;
-    spf[0..2] = 1;
-    memo = new int[][](lim + 1, 0);
-
-    foreach (i; 2..lim+1) {
-      if (isPrime[i]) {
-        spf[i] = i;
-
-        auto x = i*2;
-        while (x <= lim) {
-          isPrime[x] = false;
-          spf[x].chmin(i);
-          x += i;
-        }
-      }
-    }
-
-    foreach(p; 2..lim + 1) {
-      if (isPrime[p]) rawPrimes ~= p;
-    }
-  }
-
-  auto primes() { return rawPrimes.assumeSorted; }
-
-  int[int] factorize(int x) {
-    int[int] ret;
-    while(x > 1) {
-      ret[spf[x]]++;
-      x /= spf[x];
-    }
-    return ret;
-  }
-
-  int lpf(int x) {
-    int ret = 1;
-    while(x > 1) {
-      ret = max(ret, spf[x]);
-      x /= spf[x];
-    }
-    return ret;
-  }
-
-  int[][] memo;
-  int[] divisors(int num) {
-    if (num <= 1) return [1];
-    if (!memo[num].empty) return memo[num];
-
-    auto p = lpf(num);
-    int t; for(auto n = num; n % p == 0; n /= p) t++;
-    auto pres = this.divisors(num / (p ^^ t));
-    
-    int[] ret;
-    foreach(c; 0..t + 1) {
-      ret ~= pres.map!(pre => pre * (p ^^ c)).array;
-    }
-    ret.sort!"a > b";
-    return memo[num] = ret;
-  }
+struct Vector2(T) {
+  T x, y;
+  Vector2 add(Vector2 other) { return Vector2(x + other.x, y + other.y ); }
+  Vector2 opBinary(string op: "+") (Vector2 other) { return add(other); }
+  Vector2 sub(Vector2 other) { return Vector2(x - other.x, y - other.y ); }
+  Vector2 opBinary(string op: "-") (Vector2 other) { return sub(other); }
+  T norm(Vector2 other) { return (x - other.x)*(x - other.x) + (y - other.y)*(y - other.y); }
+  T dot(Vector2 other) { return x*other.y - y*other.x; }
+  Vector2 normalize() { if (x == 0 || y == 0) return Vector2(x == 0 ? 0 : x/x.abs, y == 0 ? 0 : y/y.abs);const gcd = x.abs.gcd(y.abs);return Vector2(x / gcd, y / gcd);}
+  Vector2 rotate() { return Vector2(-y, x); }
+  T min() { return .min(x, y); }
+  T max() { return .max(x, y); }
 }

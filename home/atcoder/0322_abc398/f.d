@@ -3,21 +3,13 @@ void main() { runSolver(); }
 void problem() {
   auto S = scan!string;
 
-  bool isParindrome(string s) {
-    return s.retro.to!string == s;
-  }
-
   auto solve() {
-    auto revc = S.retro.to!string ~ S;
+    auto revc = S.retro.to!string ~ "#" ~ S;
     auto za = zAlgorithm(revc);
     za.deb;
 
-    auto ls = za[S.length..$].redBlackTree!"a > b";
-    foreach(l; ls) {
-      auto ans = S ~ S[0..$ - l].retro.to!string;
-      if (isParindrome(ans)) return ans;
-    }
-    return "";
+    int commons = za[S.length..$].maxElement;
+    return S ~ S[0..$ - commons].retro.to!string;
   }
 
   outputForAtCoder(&solve);

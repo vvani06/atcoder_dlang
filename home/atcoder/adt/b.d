@@ -1,21 +1,10 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
+  auto S = scan;
 
   auto solve() {
-    char[][] ans = new char[][](N, N);
-    foreach(ref a; ans) a[] = '.';
-
-    foreach(i; 0..N) {
-      auto j = N - i;
-
-      foreach(r; i..j) {
-        ans[r][i..j] = i % 2 == 0 ? '#' : '.';
-      }
-    }
-
-    foreach(a; ans) a.to!string.writeln;
+    return iota(0, 10).filter!(i => !S.canFind(i.to!string));
   }
 
   outputForAtCoder(&solve);

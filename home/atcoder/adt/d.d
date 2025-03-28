@@ -1,31 +1,24 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto Q = scan!int;
+  auto X = scan!int;
+  auto Y = scan!int;
+  auto Z = scan!int;
 
   auto solve() {
-    auto pigeons = (N + 1).iota.array;
-    auto boxLabels = (N + 1).iota.array;
-    auto revs = (N + 1).iota.array;
-
-    foreach(t; 1..Q + 1) {
-      auto qt = scan!int;
-
-      if (qt == 1) {
-        auto a = scan!int;
-        auto b = scan!int;
-        pigeons[a] = boxLabels[b];
-      } else if (qt == 2) {
-        auto a = scan!int;
-        auto b = scan!int;
-        boxLabels.swapAt(a, b);
-        revs.swapAt(boxLabels[a], boxLabels[b]);
-      } else {
-        auto a = scan!int;
-        writeln(revs[pigeons[a]]);
-      }
+    if (X < 0) {
+      X *= -1;
+      Y *= -1;
+      Z *= -1;
     }
+
+    if (Y > 0 && X > Y) {
+      if (Z > Y) return -1;
+      else if (Z > 0) return X;
+      else return 2 * Z.abs + X;
+    }
+
+    return X;
   }
 
   outputForAtCoder(&solve);

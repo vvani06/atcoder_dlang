@@ -1,11 +1,10 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto A = scan!int(N);
+  auto H = scan!real;
 
   auto solve() {
-    return iota(1, N).all!(i => A[i] > A[i - 1]);
+    return (H * (12800000 + H)).sqrt;
   }
 
   outputForAtCoder(&solve);

@@ -2,21 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!int(N);
+  auto S = scan!string(N);
 
   auto solve() {
-    int[][int] indicies;
-    foreach(i, a; A.enumerate(0)) {
-      indicies[a] ~= i;
-    }
-
-    auto ans = int.max;
-    foreach(k, v; indicies) {
-      foreach(i; 0..v.length.to!int - 1) {
-        ans = min(ans, v[i + 1] - v[i] + 1);
-      }
-    }
-    return ans == int.max ? -1 : ans;
+    auto wins = 0 ~ S.map!(s => s.count('o')).array;
+    return iota(1, N + 1).array.multiSort!((a, b) => wins[a] > wins[b], "a < b");
   }
 
   outputForAtCoder(&solve);

@@ -1,28 +1,29 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto X = scan!int;
-  auto UD = scan!int(2 * N).chunks(2).array;
-  auto U = UD.map!"a[0]".array;
-  auto D = UD.map!"a[1]".array;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto S = scan!string(H);
 
   auto solve() {
-    long ans;
-
-    foreach(iot; [iota(0, N - 1, 1), iota(N - 2, -1, -1)]) foreach(i; iot) {
-      auto diff = abs(U[i + 1] - U[i]);
-      if (diff > X) {
-        if (U[i] < U[i + 1]) U[i + 1] -= diff - X; else U[i] -= diff - X;
-        ans += diff - X;
+    int left = int.max;
+    int top = int.max;
+    int bottom = 0;
+    int right = 0;
+    foreach(r; 0..H) foreach(c; 0..W) {
+      if (S[r][c] == '#') {
+        left = min(left, c);
+        top = min(top, r);
+        right = max(right, c);
+        bottom = max(bottom, r);
       }
     }
 
-    int h = N.iota.map!(i => U[i] + D[i]).minElement;
-    foreach(i; 0..N) {
-      ans += U[i] + D[i] - h;
+    foreach(r; top..bottom + 1) {
+      if (S[r][left..right + 1].canFind('.')) return false;
     }
-    return ans;
+
+    return true;
   }
 
   outputForAtCoder(&solve);
