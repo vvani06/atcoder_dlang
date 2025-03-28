@@ -1,0 +1,7 @@
+tester/**
+!tester/test.sh
+!tester/tester
+src/out**
+src/vis.html
+tools/in/*
+tools/target/**
