@@ -26,128 +26,28 @@ void problem() {
   int W = scan!int;
   int[] G = scan!int(M);
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
-
-  int testCount = Q / ((N + L - 1) / L);
-  int[][][] testGroups = testCount.iota.map!(_ => N.iota.array.randomShuffle(RND).chunks(L).array).array;
-  BitArray[] testTrees;
-  foreach(t; 0..testCount) {
-    BitArray tree = BitArray(false.repeat(N^^2).array);
-    foreach(tg; testGroups[t]) {
-      if (tg.length == 1) continue;
-      
-      output("? %s %(%s %)", tg.length, tg);
-
-      int[][] mst = scan!int(2 * tg.length - 2).chunks(2).array;
-      foreach(uv; mst) tree[uv[0] * N + uv[1]] = true;
-    }
-    testTrees ~= tree;
-  }
+  int[][] XY = scan!int(2 * N).chunks(2).array;
   
-  int bestScore;
-  Coord[] bestCoords;
-  int[][][] coordsSeed = new int[][][](N, 2, 0);
-
-  while(!elapsed(1500)) {
-    Coord[] coords = RECTS.map!(rc => Coord(uniform(rc[0], rc[1] + 1, RND), uniform(rc[2], rc[3] + 1, RND))).array;
-    auto dist = (int i, int j) => coords[i].norm(coords[j]);
-    auto cmpDist = (int[] a, int[] b) => dist(a[0], a[1]) < dist(b[0], b[1]);
-
-    int score;
-    foreach(groups, testTree; zip(testGroups, testTrees)) {
-      UnionFind uf = UnionFind(N);
-
-      foreach(nodes; groups) {
-        int[][] pairs;
-        foreach(i; 0..nodes.length.to!int - 1) foreach(j; i + 1..nodes.length.to!int) pairs ~= [nodes[i], nodes[j]];
-
-        foreach(pair; pairs.sort!cmpDist) {
-          if (uf.same(pair[0], pair[1])) continue;
-
-          uf.unite(pair[0], pair[1]);
-          if (testTree[pair[0] * N + pair[1]]) {
-            score++;
-            coordsSeed[pair[0]][0] ~= coords[pair[0]].x;
-            coordsSeed[pair[0]][1] ~= coords[pair[0]].y;
-            coordsSeed[pair[1]][0] ~= coords[pair[1]].x;
-            coordsSeed[pair[1]][1] ~= coords[pair[1]].y;
-          }
-        }
-      }
-    }
-
-    if (bestScore.chmax(score)) {
-      bestCoords = coords.dup;
-    }
-  }
-
-  Coord[] coords = bestCoords;
-  foreach(i; 0..N) {
-    if (coordsSeed[i][0].empty) continue;
-
-    coords[i].x = coordsSeed[i][0].mean.to!int;
-    coords[i].y = coordsSeed[i][1].mean.to!int;
-  }
-  foreach(c; coords) stderr.writefln("%s %s", c.x, c.y);
-
-  int[][] groups = {
-    // auto used = new bool[](N);
-    // int[][] ret;
-    // foreach(_; 0..M) {
-    //   int maxDist, maxNode;
-    //   foreach(node; 0..N) {
-    //     if (used[node]) continue;
-
-    //     auto maxd = N.iota.filter!(i => !used[i]).map!(i => coords[node].norm(coords[i])).maxElement;
-    //     if (maxDist.chmax(maxd)) maxNode = node;
-    //   }
-    //   ret ~= [maxNode];
-    //   used[maxNode] = true;
-    // }
-
-    auto minDists = N.iota.map!(base => N.iota.map!(i => base == i ? int.max : coords[base].norm(coords[i])).minElement).array;
-    return N.iota.array.sort!((a, b) => minDists[a] < minDists[b])[0..M].map!"[a]".array;
-  }();
-  auto groupIndicies = G.enumerate(0).array.sort!"a[1] < b[1]";
+  auto uf = UnionFind(N);
+  Coord[] coords = XY.map!(xy => Coord(xy[0], xy[1])).array;
 
   struct Edge {
-    int base, from, to;
+    int u, v;
 
     int norm() {
-      return coords[from].norm(coords[to]);
-    }
-
-    int[] asAns() {
-      return [min(from, to), max(from, to)];
+      return coords[u].norm(coords[v]);
     }
   }
 
-  auto heap = M.iota.map!(m => N.iota.map!(i => Edge(m, groups[m][0], i))).joiner.array.heapify!"a.norm > b.norm";
-  bool[] used = new bool[](N);
-  foreach(g; groups) used[g[0]] = true;
-  UnionFind uf = UnionFind(N);
-  Edge[][] edges = new Edge[][](M, 0);
+  int[] costs;
+  foreach(edge; N.iota.map!(i => iota(i + 1, N).map!(j => Edge(i, j)).array).joiner.array.sort!"a.norm < b.norm") {
+    if (uf.same(edge.u, edge.v)) continue;
 
-  while(!heap.empty) {
-    auto edge = heap.front;
-    heap.removeFront;
-    if (used[edge.to] || groups[edge.base].length == G[edge.base]) continue;
-
-    edges[edge.base] ~= edge;
-    used[edge.to] = true;
-    groups[edge.base] ~= edge.to;
-    stderr.writeln([[edge.base, edge.from, edge.to, edge.norm]]);
-    foreach(next; 0..N) {
-      if (!used[next]) heap.insert(Edge(edge.base, edge.to, next));
-    }
+    uf.unite(edge.u, edge.v);
+    costs ~= edge.norm.to!real.sqrt.to!int;
   }
 
-  output("!");
-  foreach(g, es; zip(groups, edges)) {
-    output("%(%s %)", g);
-    foreach(e; es) {
-      output("%(%s %)", e.asAns());
-    }
-  }
+  writefln("%s %s %s %s", M, L, W, costs.sort[0..$ - M + 1].sum);
 }
 
 // ----------------------------------------------
