@@ -57,7 +57,7 @@ void problem() {
 
       foreach(nodes; groups) {
         int[][] pairs;
-        foreach(i; 0..nodes.length.to!int - 1) foreach(j; i + 1..nodes.length.to!int) pairs ~= [groups[i], groups[j]];
+        foreach(i; 0..nodes.length.to!int - 1) foreach(j; i + 1..nodes.length.to!int) pairs ~= [nodes[i], nodes[j]];
 
         foreach(pair; pairs.sort!cmpDist) {
           if (uf.same(pair[0], pair[1])) continue;
@@ -73,7 +73,7 @@ void problem() {
     }
   }
 
-  // foreach(c; bestCoords) stderr.writeln(c);
+  foreach(c; bestCoords) stderr.writefln("%s %s", c.x, c.y);
 
   Coord[] coords = bestCoords;
   int[][] groups = {
