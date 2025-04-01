@@ -27,68 +27,8 @@ void problem() {
   int[] G = scan!int(M);
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
 
-  int testCount = Q / ((N + L - 1) / L);
-  int[][][] testGroups = testCount.iota.map!(_ => N.iota.array.randomShuffle(RND).chunks(L).array).array;
-  BitArray[] testTrees;
-  foreach(t; 0..testCount) {
-    BitArray tree = BitArray(false.repeat(N^^2).array);
-    foreach(tg; testGroups[t]) {
-      if (tg.length == 1) continue;
-      
-      output("? %s %(%s %)", tg.length, tg);
-
-      int[][] mst = scan!int(2 * tg.length - 2).chunks(2).array;
-      foreach(uv; mst) tree[uv[0] * N + uv[1]] = true;
-    }
-    testTrees ~= tree;
-  }
+  Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
   
-  int bestScore;
-  Coord[] bestCoords;
-  int[][][] coordsSeed = new int[][][](N, 2, 0);
-
-  while(!elapsed(1500)) {
-    Coord[] coords = RECTS.map!(rc => Coord(uniform(rc[0], rc[1] + 1, RND), uniform(rc[2], rc[3] + 1, RND))).array;
-    auto dist = (int i, int j) => coords[i].norm(coords[j]);
-    auto cmpDist = (int[] a, int[] b) => dist(a[0], a[1]) < dist(b[0], b[1]);
-
-    int score;
-    foreach(groups, testTree; zip(testGroups, testTrees)) {
-      UnionFind uf = UnionFind(N);
-
-      foreach(nodes; groups) {
-        int[][] pairs;
-        foreach(i; 0..nodes.length.to!int - 1) foreach(j; i + 1..nodes.length.to!int) pairs ~= [nodes[i], nodes[j]];
-
-        foreach(pair; pairs.sort!cmpDist) {
-          if (uf.same(pair[0], pair[1])) continue;
-
-          uf.unite(pair[0], pair[1]);
-          if (testTree[pair[0] * N + pair[1]]) {
-            score++;
-            coordsSeed[pair[0]][0] ~= coords[pair[0]].x;
-            coordsSeed[pair[0]][1] ~= coords[pair[0]].y;
-            coordsSeed[pair[1]][0] ~= coords[pair[1]].x;
-            coordsSeed[pair[1]][1] ~= coords[pair[1]].y;
-          }
-        }
-      }
-    }
-
-    if (bestScore.chmax(score)) {
-      bestCoords = coords.dup;
-    }
-  }
-
-  Coord[] coords = bestCoords;
-  foreach(i; 0..N) {
-    if (coordsSeed[i][0].empty) continue;
-
-    coords[i].x = coordsSeed[i][0].mean.to!int;
-    coords[i].y = coordsSeed[i][1].mean.to!int;
-  }
-  foreach(c; coords) stderr.writefln("%s %s", c.x, c.y);
-
   struct Edge {
     int from, to;
 
