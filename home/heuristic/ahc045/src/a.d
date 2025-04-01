@@ -89,30 +89,10 @@ void problem() {
   }
   foreach(c; coords) stderr.writefln("%s %s", c.x, c.y);
 
-  int[][] groups = {
-    // auto used = new bool[](N);
-    // int[][] ret;
-    // foreach(_; 0..M) {
-    //   int maxDist, maxNode;
-    //   foreach(node; 0..N) {
-    //     if (used[node]) continue;
-
-    //     auto maxd = N.iota.filter!(i => !used[i]).map!(i => coords[node].norm(coords[i])).maxElement;
-    //     if (maxDist.chmax(maxd)) maxNode = node;
-    //   }
-    //   ret ~= [maxNode];
-    //   used[maxNode] = true;
-    // }
-
-    auto minDists = N.iota.map!(base => N.iota.map!(i => base == i ? int.max : coords[base].norm(coords[i])).minElement).array;
-    return N.iota.array.sort!((a, b) => minDists[a] < minDists[b])[0..M].map!"[a]".array;
-  }();
-  auto groupIndicies = G.enumerate(0).array.sort!"a[1] < b[1]";
-
   struct Edge {
-    int base, from, to;
+    int from, to;
 
-    int norm() {
+    inout int norm() {
       return coords[from].norm(coords[to]);
     }
 
@@ -120,31 +100,60 @@ void problem() {
       return [min(from, to), max(from, to)];
     }
   }
+  
+  UnionFind stepTree = {
+    auto uf = UnionFind(N);
 
-  auto heap = M.iota.map!(m => N.iota.map!(i => Edge(m, groups[m][0], i))).joiner.array.heapify!"a.norm > b.norm";
-  bool[] used = new bool[](N);
-  foreach(g; groups) used[g[0]] = true;
-  UnionFind uf = UnionFind(N);
-  Edge[][] edges = new Edge[][](M, 0);
+    int[int] restPerSize = cast(int[int])G.dup.sort.group.assocArray;
+    int[] rests = new int[](N + 2);
+    foreach_reverse(i; 0..N + 1) rests[i] = rests[i + 1] + restPerSize.get(i, 0);
+    auto heap = (N - 1).iota.map!(i => iota(i + 1, N).map!(j => Edge(i, j))).joiner.array.heapify!"a.norm > b.norm";
 
-  while(!heap.empty) {
-    auto edge = heap.front;
-    heap.removeFront;
-    if (used[edge.to] || groups[edge.base].length == G[edge.base]) continue;
+    while(!heap.empty) {
+      auto edge = heap.front;
+      heap.removeFront;
 
-    edges[edge.base] ~= edge;
-    used[edge.to] = true;
-    groups[edge.base] ~= edge.to;
-    stderr.writeln([[edge.base, edge.from, edge.to, edge.norm]]);
-    foreach(next; 0..N) {
-      if (!used[next]) heap.insert(Edge(edge.base, edge.to, next));
+      if (uf.same(edge.from, edge.to)) continue;
+      if (uf.size(edge.from) != 1 && uf.size(edge.to) != 1) continue;
+      if (rests[uf.size(edge.from) + uf.size(edge.to)] <= 0) continue;
+
+      restPerSize[uf.size(edge.from)]++;
+      restPerSize[uf.size(edge.to)]++;
+      uf.unite(edge.from, edge.to);
+      rests[uf.size(edge.to)]--;
     }
+    return uf;
+  }();
+
+  int[][int] ans;
+  int[][] nodes = new int[][](N, 0);
+  foreach(i; 0..N) {
+    nodes[stepTree.root(i)] ~= i;
+    if (stepTree.root(i) == i) ans[stepTree.size(i)] ~= i;
   }
 
+  Edge[][] edges = new Edge[][](N, 0);
+  auto partialTree = UnionFind(N);
+  foreach(n; 0..N) {
+    auto g = nodes[n].length.to!int;
+    auto heap = (g - 1).iota.map!(i => iota(i + 1, g).map!(j => Edge(nodes[n][i], nodes[n][j]))).joiner.array.heapify!"a.norm > b.norm";
+    while(!heap.empty) {
+      auto cur = heap.front;
+      heap.removeFront;
+      if (partialTree.same(cur.from, cur.to)) continue;
+
+      edges[n] ~= cur;
+      partialTree.unite(cur.from, cur.to);
+    }
+  }
+  
   output("!");
-  foreach(g, es; zip(groups, edges)) {
-    output("%(%s %)", g);
-    foreach(e; es) {
+  foreach(g; G) {
+    auto id = ans[g].back;
+    ans[g].length = ans[g].length - 1;
+
+    output("%(%s %)", nodes[id]);
+    foreach(e; edges[id]) {
       output("%(%s %)", e.asAns());
     }
   }
