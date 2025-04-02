@@ -211,11 +211,21 @@ void problem() {
     }
   }
   
+  // 占いに完全に頼れる場合だけ占い結果で上書き
+  foreach(id; ans.values.joiner) {
+    auto size = nodes[id].length.to!int;
+    if (size < 3 || size > L) continue;
+    
+    output("? %s %(%s %)", size, nodes[id]);
+    edges[id] = scan!int(2 * size - 2).chunks(2).map!(uv => Edge(uv[0], uv[1])).array;
+  }
+  
   output("!");
   foreach(g; G) {
     auto id = ans[g].back;
     ans[g].length = ans[g].length - 1;
 
+    auto size = nodes[id].length.to!int - 1;
     output("%(%s %)", nodes[id]);
     foreach(e; edges[id]) {
       output("%(%s %)", e.asAns());
