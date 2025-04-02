@@ -28,7 +28,7 @@ void problem() {
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
 
   Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
-  
+
   struct Edge {
     int from, to;
 
@@ -67,11 +67,135 @@ void problem() {
 
   int[][int] ans;
   int[][] nodes = new int[][](N, 0);
+  int[] at = new int[](N);
   foreach(i; 0..N) {
     nodes[stepTree.root(i)] ~= i;
+    at[i] = stepTree.root(i);
     if (stepTree.root(i) == i) ans[stepTree.size(i)] ~= i;
   }
 
+  class State {
+    RedBlackTree!(int)[] nodes;
+    int[] nodeAt;
+    RedBlackTree!(int, "a < b", true)[] l, t;
+    RedBlackTree!(int, "a < b", true)[] r, b;
+    int[][int] ansGroup;
+    int[] groupIds;
+    int cost;
+
+    int[][] operations;
+
+    State dup() {
+      auto uf = UnionFind(N);
+      foreach(t; nodes) {
+        if (!t.empty) foreach(n; t.array) uf.unite(t.front, n);
+      }
+      return new State(uf);
+    }
+
+    void remove(int node, int group) {
+      nodes[group].removeKey(node);
+      nodeAt[node] = -1;
+      l[group].removeKey(RECTS[node][0]);
+      r[group].removeKey(RECTS[node][1]);
+      t[group].removeKey(RECTS[node][2]);
+      b[group].removeKey(RECTS[node][3]);
+    }
+
+    void add(int node, int group) {
+      nodes[group].insert(node);
+      nodeAt[node] = group;
+      l[group].insert(RECTS[node][0]);
+      r[group].insert(RECTS[node][1]);
+      t[group].insert(RECTS[node][2]);
+      b[group].insert(RECTS[node][3]);
+    }
+
+    void swap(int p, int q) {
+      auto ap = nodeAt[p];
+      auto aq = nodeAt[q];
+      if (ap == aq) return;
+
+      cost -= calcCostAt(ap);
+      cost -= calcCostAt(aq);
+      remove(p, ap);
+      add(p, aq);
+      remove(q, aq);
+      add(q, ap);
+      cost += calcCostAt(ap);
+      cost += calcCostAt(aq);
+      operations ~= [p, q];
+    }
+
+    void reset() {
+      foreach_reverse(op; operations) {
+        swap(op[0], op[1]);
+      }
+      commit();
+    }
+
+    void commit() {
+      operations.length = 0;
+    }
+
+    int calcCostAt(int i) {
+      if (nodes[i].length <= 1) return 0;
+
+      return r[i].back - l[i].front + b[i].back - t[i].front;
+    }
+
+    int calcCost() {
+      return N.iota.map!(i => calcCostAt(i)).sum;
+    }
+
+    int worstGroup() {
+      int ret, worst;
+      foreach(g; groupIds) {
+        if (worst.chmax(calcCostAt(g))) ret = g;
+      }
+      return ret;
+    }
+
+    this() {
+      nodes = new int[][](N, 0).map!redBlackTree.array;
+      nodeAt = new int[](N);
+      l = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
+      r = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
+      t = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
+      b = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
+    }
+
+    this(UnionFind uf) {
+      this();
+      foreach(i; 0..N) {
+        add(i, uf.root(i));
+        if (uf.root(i) == i) ansGroup[uf.size(i)] ~= i;
+      }
+      groupIds = ansGroup.values.joiner.array;
+      cost = calcCost();
+    }
+  }
+
+  auto state = new State(stepTree);
+  auto bestCost = state.cost;
+
+  // 頂点集合を焼きなまし
+  if (M > 1) while (!elapsed(1800)) {
+    auto wg = state.worstGroup();
+    auto swapper = state.nodes[wg].array.choice(RND);
+    auto swappee = uniform(0, N, RND);
+    state.swap(swapper, swappee);
+    if (bestCost.chmin(state.cost)) {
+      state.commit();
+      // stderr.writefln("commit: %s", bestCost);
+    } else if (state.operations.length >= 8) {
+      state.reset();
+      // stderr.writefln("reset: %s", state.cost);
+    }
+  }
+
+  state.reset();
+  nodes = state.nodes.map!array.array;
   Edge[][] edges = new Edge[][](N, 0);
   auto partialTree = UnionFind(N);
   foreach(n; 0..N) {
