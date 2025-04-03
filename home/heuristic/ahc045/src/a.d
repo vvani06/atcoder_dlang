@@ -31,9 +31,25 @@ void problem() {
 
   struct Edge {
     int from, to;
+    int _norm = -1;
+
+    this(int from, int to) {
+      this.from = from;
+      this.to = to;
+
+      int[] ret;
+      auto f = RECTS[from];
+      auto t = RECTS[to];
+      foreach(fx, fy; zip([f[0], f[0], f[1], f[1]], [f[2], f[3], f[2], f[3]])) {
+        foreach(tx, ty; zip([t[0], t[0], t[1], t[1]], [t[2], t[3], t[2], t[3]])) {
+          ret ~= Coord(fx, fy).norm(Coord(tx, ty)).to!real.sqrt.to!int;
+        }
+      }
+      _norm = ret.mean.to!int;
+    }
 
     inout int norm() {
-      return coords[from].norm(coords[to]);
+      return _norm;
     }
 
     int[] asAns() {
@@ -73,6 +89,7 @@ void problem() {
     at[i] = stepTree.root(i);
     if (stepTree.root(i) == i) ans[stepTree.size(i)] ~= i;
   }
+
 
   class State {
     RedBlackTree!(int)[] nodes;
@@ -180,19 +197,19 @@ void problem() {
   auto bestCost = state.cost;
 
   // 頂点集合を焼きなまし
-  if (M > 1) while (!elapsed(1800)) {
-    auto wg = state.worstGroup();
-    auto swapper = state.nodes[wg].array.choice(RND);
-    auto swappee = uniform(0, N, RND);
-    state.swap(swapper, swappee);
-    if (bestCost.chmin(state.cost)) {
-      state.commit();
-      // stderr.writefln("commit: %s", bestCost);
-    } else if (state.operations.length >= 8) {
-      state.reset();
-      // stderr.writefln("reset: %s", state.cost);
-    }
-  }
+  // if (M > 1) while (!elapsed(1800)) {
+  //   auto wg = state.worstGroup();
+  //   auto swapper = state.nodes[wg].array.choice(RND);
+  //   auto swappee = uniform(0, N, RND);
+  //   state.swap(swapper, swappee);
+  //   if (bestCost.chmin(state.cost)) {
+  //     state.commit();
+  //     // stderr.writefln("commit: %s", bestCost);
+  //   } else if (state.operations.length >= 8) {
+  //     state.reset();
+  //     // stderr.writefln("reset: %s", state.cost);
+  //   }
+  // }
 
   state.reset();
   nodes = state.nodes.map!array.array;
