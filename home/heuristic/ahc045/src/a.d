@@ -28,34 +28,88 @@ void problem() {
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
 
   Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
+  int[][] distances = new int[][](N, N); {
+    foreach(i; 0..N) foreach(j; i + 1..N) {
+      int[] d;
+      auto f = RECTS[i];
+      auto t = RECTS[j];
+      foreach(fx, fy; zip([f[0], f[0], f[1], f[1]], [f[2], f[3], f[2], f[3]])) {
+        foreach(tx, ty; zip([t[0], t[0], t[1], t[1]], [t[2], t[3], t[2], t[3]])) {
+          d ~= Coord(fx, fy).norm(Coord(tx, ty));
+          // d ~= Coord(fx, fy).norm(Coord(tx, ty)).to!real.sqrt.to!int;
+        }
+      }
+      distances[i][j] = distances[j][i] = d.mean.to!int;
+    }
+  }
 
   struct Edge {
     int from, to;
-    int _norm = -1;
-
-    this(int from, int to) {
-      this.from = from;
-      this.to = to;
-
-      int[] ret;
-      auto f = RECTS[from];
-      auto t = RECTS[to];
-      foreach(fx, fy; zip([f[0], f[0], f[1], f[1]], [f[2], f[3], f[2], f[3]])) {
-        foreach(tx, ty; zip([t[0], t[0], t[1], t[1]], [t[2], t[3], t[2], t[3]])) {
-          ret ~= Coord(fx, fy).norm(Coord(tx, ty)).to!real.sqrt.to!int;
-        }
-      }
-      _norm = ret.mean.to!int;
-    }
 
     inout int norm() {
-      return _norm;
+      return distances[from][to];
     }
 
     int[] asAns() {
       return [min(from, to), max(from, to)];
     }
   }
+
+  UnionFind flTree = {
+    auto uf = UnionFind(N);
+    bool[] used = new bool[](N);
+    auto rest = N.iota.array.redBlackTree;
+
+    foreach(eg; G.enumerate(0).array.sort!"a[1] > b[1]") {
+      auto n = eg[0];
+      auto g = eg[1];
+      
+      int best = int.max;
+      int[] bestNodes;
+      foreach(from; rest.array) {
+        auto testTree = UnionFind(N);
+        auto heap = new Edge[](0).heapify!"a.norm > b.norm";
+        auto nodes = [from].redBlackTree;
+        int size = 1;
+        int cost;
+        foreach(to; rest.array.filter!(x => x != from)) heap.insert(Edge(from, to));
+
+        while(!heap.empty) {
+          auto e = heap.front;
+          heap.removeFront;
+          if (testTree.same(e.from, e.to)) continue;
+
+          testTree.unite(e.from, e.to);
+          int newNode;
+          foreach(t; [e.from, e.to]) {
+            if (!(t in nodes)) {
+              nodes.insert(t);
+              newNode = t;
+              size++;
+              cost += e.norm();
+            }
+          }
+
+          if (size >= g) break;
+
+          foreach(next; rest.array) {
+            if (testTree.same(newNode, next)) continue;
+
+            heap.insert(Edge(newNode, next));
+          }
+        }
+
+        if (best.chmin(cost)) {
+          bestNodes = nodes.array;
+        }
+      }
+
+      if (g > 1) foreach(a; bestNodes[1..$]) uf.unite(bestNodes[0], a);
+      rest.removeKey(bestNodes);
+      stderr.writefln("%s %s", g, bestNodes);
+    }
+    return uf;
+  }();
   
   UnionFind stepTree = {
     auto uf = UnionFind(N);
@@ -81,6 +135,8 @@ void problem() {
     return uf;
   }();
 
+  stepTree = flTree;
+
   int[][int] ans;
   int[][] nodes = new int[][](N, 0);
   int[] at = new int[](N);
@@ -89,7 +145,6 @@ void problem() {
     at[i] = stepTree.root(i);
     if (stepTree.root(i) == i) ans[stepTree.size(i)] ~= i;
   }
-
 
   class State {
     RedBlackTree!(int)[] nodes;
