@@ -30,29 +30,17 @@ void problem() {
   auto CALC_BOUND = max(3500, W * 2);
   Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
   int[][] distances = new int[][](N, N); {
-    bool[][] overed = new bool[][](N, N);
-    foreach(i; 0..N) foreach(j; i + 1..N) {
-      if (coords[i].norm(coords[j]) > CALC_BOUND^^2) {
-        distances[i][j] = distances[j][i]  = (coords[i].norm(coords[j])).to!float.sqrt.to!int;
-        overed[i][j] = true;
-      }
-    }
-
-    enum MONT_TIMES = 1000;
+    enum MONT_TIMES = 300;
     foreach(_; 0..MONT_TIMES) {
       auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
       auto ry = RECTS.map!(r => uniform(r[2], r[3] + 1, RND)).array;
       foreach(i; 0..N) foreach(j; i + 1..N) {
-        if (overed[i][j]) continue;
-
         auto dx = abs(rx[i] - rx[j]);
         auto dy = abs(ry[i] - ry[j]);
         distances[i][j] += (dx*dx + dy*dy).to!float.sqrt.to!int;
       }
     }
     foreach(i; 0..N) foreach(j; i + 1..N) {
-      if (overed[i][j]) continue;
-      
       distances[i][j] /= MONT_TIMES;
       distances[j][i] = distances[i][j];
     }
