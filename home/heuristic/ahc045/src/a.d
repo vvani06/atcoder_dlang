@@ -113,7 +113,7 @@ void problem() {
     int[] at;
     int[] costs;
     RedBlackTree!Edge edges;
-    RedBlackTree!(Edge)[] edgesPerNode;
+    RedBlackTree!(Edge)[] edgesPerGroup;
 
     this(UnionFind tree) {
       int[][int] nodesPerRoot;
@@ -138,7 +138,7 @@ void problem() {
 
       auto uf = UnionFind(N);
       edges = new Edge[](0).redBlackTree;
-      edgesPerNode = M.iota.map!(_ => new Edge[](0).redBlackTree).array;
+      edgesPerGroup = M.iota.map!(_ => new Edge[](0).redBlackTree).array;
       foreach(gid, ns; nodes.enumerate(0)) {
         auto arr = ns.array;
         foreach(i; arr) at[i] = gid;
@@ -151,7 +151,7 @@ void problem() {
 
           uf.unite(cur.from, cur.to);
           edges.insert(cur);
-          edgesPerNode[gid].insert(cur);
+          edgesPerGroup[gid].insert(cur);
           degrees[cur.from]++;
           degrees[cur.to]++;
           costs[gid] += cur.norm();
@@ -164,7 +164,7 @@ void problem() {
       output("!");
       foreach(id; 0..M) {
         output("%(%s %)", nodes[id].array);
-        foreach(e; edgesPerNode[id]) {
+        foreach(e; edgesPerGroup[id]) {
           output("%(%s %)", e.asAns());
         }
       }
@@ -243,8 +243,8 @@ void problem() {
       }
       costs[gid] = 0;
       
-      edges.removeKey(edgesPerNode[gid].array);
-      edgesPerNode[gid].clear;
+      edges.removeKey(edgesPerGroup[gid].array);
+      edgesPerGroup[gid].clear;
 
       int merged;
       auto uf = UnionFind(N);
@@ -255,11 +255,80 @@ void problem() {
 
         uf.unite(cur.from, cur.to);
         edges.insert(cur);
-        edgesPerNode[gid].insert(cur);
+        edgesPerGroup[gid].insert(cur);
         degrees[cur.from]++;
         degrees[cur.to]++;
         costs[gid] += cur.norm();
         if (++merged == G[gid] - 1) break;
+      }
+    }
+
+    void oraclate() {
+      if (M < 15) return;
+
+      foreach(id; 0..M) {
+        if (G[id] < 3) continue;
+
+        edges.removeKey(edgesPerGroup[id].array);
+        edgesPerGroup[id].clear;
+
+        auto rest = nodes[id].dup;
+        auto visited = new int[](0).redBlackTree;
+
+        auto uf = UnionFind(N);
+        while(!rest.empty) {
+          int[] pair;
+          if (rest.array.length == 1) {
+            pair = [rest.front];
+          } else {
+            auto arr = rest.array;
+            int nearest = int.max;
+            foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
+              auto p = arr[i];
+              auto q = arr[j];
+              if (nearest.chmin(Edge(p, q).norm())) {
+                pair = [p, q];
+              }
+            }
+          }
+
+          auto heap = new Edge[](0).heapify!"a > b";
+          foreach(f; pair) {
+            foreach(t; visited.empty ? nodes[id] : visited) {
+              if (pair.canFind(t)) continue;
+
+              heap.insert(Edge(f, t));
+            }
+          }
+
+          auto search = pair;
+          auto neigh = pair.redBlackTree;
+          foreach(e; heap) {
+            if (!(e.from in neigh)) {
+              search ~= e.from;
+              neigh.insert(e.from);
+            }
+            if (search.length >= L) break;
+
+            if (!(e.to in neigh)) {
+              search ~= e.to;
+              neigh.insert(e.to);
+            }
+            if (search.length >= L) break;
+          }
+
+          auto qs = search.length.to!int;
+          output("? %s %(%s %)", qs, search);
+          foreach(e; scan!int(2 * qs - 2).chunks(2)) {
+            if (uf.same(e[0], e[1])) continue;
+
+            uf.unite(e[0], e[1]);
+            edges.insert(Edge(e[0], e[1]));
+            edgesPerGroup[id].insert(Edge(e[0], e[1]));
+            rest.removeKey(e[0], e[1]);
+            visited.insert([e[0], e[1]]);
+          }
+        }
       }
     }
   }
@@ -278,7 +347,7 @@ void problem() {
       auto from = state.swappable(swapEdge).choice(RND);
       int bestTo;
       int best = int.max;
-      foreach(to; state.nearestOthers(state.at[from], from)[0..50]) {
+      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 50)]) {
         if (best.chmin(state.testSwap(from, to))) {
           bestTo = to;
         }
@@ -296,6 +365,7 @@ void problem() {
     if (globalBest >= boundary) break;
   }
 
+  state.oraclate();
   state.outputAsAns();
 
   // Edge[][] edges = new Edge[][](N, 0);
