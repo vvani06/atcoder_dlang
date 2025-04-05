@@ -27,10 +27,11 @@ void problem() {
   int[] G = scan!int(M);
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
 
+  // モンテカルロで頂点間の距離を推定
+  enum MONT_TIMES = 100;
   auto CALC_BOUND = max(3500, W * 2);
   Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
   int[][] distances = new int[][](N, N); {
-    enum MONT_TIMES = 300;
     foreach(_; 0..MONT_TIMES) {
       auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
       auto ry = RECTS.map!(r => uniform(r[2], r[3] + 1, RND)).array;
@@ -41,21 +42,45 @@ void problem() {
       }
     }
     foreach(i; 0..N) foreach(j; i + 1..N) {
-      distances[i][j] /= MONT_TIMES;
       distances[j][i] = distances[i][j];
     }
   }
+
+  int[800^^2] distacesArray;
+  foreach(i; 0..N) foreach(j; 0..N) distacesArray[i*N + j] = distances[i][j];
 
   struct Edge {
     int from, to;
 
     inout int norm() {
-      return distances[from][to];
+      return distacesArray[from*N + to];
     }
 
     int[] asAns() {
       return [min(from, to), max(from, to)];
     }
+
+    inout opCmp(inout Edge other) {
+      return cmp(
+        [norm(), from, to],
+        [other.norm(), other.from, other.to],
+      );
+    }
+
+    string toString() {
+      return format("Edge(%s -> %s) / cost: %s", from, to, norm() / MONT_TIMES);
+    }
+  }
+
+  Edge[] allEdges(int[] nodes = [-1]) { 
+    if (nodes == [-1]) nodes = N.iota.array;
+
+    Edge[] ret;
+    int size = nodes.length.to!int;
+    foreach(i; 0..size - 1) foreach(j; i + 1..size) {
+      ret ~= Edge(nodes[i], nodes[j]);
+    }
+    return ret;
   }
   
   UnionFind stepTree = {
@@ -64,7 +89,7 @@ void problem() {
     int[int] restPerSize = cast(int[int])G.dup.sort.group.assocArray;
     int[] rests = new int[](N + 2);
     foreach_reverse(i; 0..N + 1) rests[i] = rests[i + 1] + restPerSize.get(i, 0);
-    auto heap = (N - 1).iota.map!(i => iota(i + 1, N).map!(j => Edge(i, j))).joiner.array.heapify!"a.norm > b.norm";
+    auto heap = allEdges().heapify!"a > b";
 
     while(!heap.empty) {
       auto edge = heap.front;
@@ -82,226 +107,286 @@ void problem() {
     return uf;
   }();
 
-  int[][int] ans;
-  int[][] nodes = new int[][](N, 0);
-  int[] at = new int[](N);
-  foreach(i; 0..N) {
-    nodes[stepTree.root(i)] ~= i;
-    at[i] = stepTree.root(i);
-    if (stepTree.root(i) == i) ans[stepTree.size(i)] ~= i;
-  }
-
   class State {
     RedBlackTree!(int)[] nodes;
-    int[] nodeAt;
-    RedBlackTree!(int, "a < b", true)[] l, t;
-    RedBlackTree!(int, "a < b", true)[] r, b;
-    int[][int] ansGroup;
-    int[] groupIds;
-    int cost;
+    int[] degrees;
+    int[] at;
+    int[] costs;
+    RedBlackTree!Edge edges;
+    RedBlackTree!(Edge)[] edgesPerNode;
 
-    int[][] operations;
+    this(UnionFind tree) {
+      int[][int] nodesPerRoot;
+      foreach(i; 0..N) nodesPerRoot[tree.root(i)] ~= i;
 
-    State dup() {
+      nodes = M.iota.map!(_ => new int[](0).redBlackTree).array; {
+        int[][int] groupIdsPerSize;
+        foreach(i, g; G.enumerate(0)) groupIdsPerSize[g] ~= i;
+        int[int] groupCountPerSize;
+        
+        foreach(nds; nodesPerRoot.values) {
+          int size = nds.length.to!int;
+          
+          nodes[groupIdsPerSize[size][groupCountPerSize.get(size, 0)]].insert(nds);
+          groupCountPerSize[size]++;
+        }
+      }
+
+      degrees = new int[](N);
+      at = new int[](N);
+      costs = new int[](M);
+
       auto uf = UnionFind(N);
-      foreach(t; nodes) {
-        if (!t.empty) foreach(n; t.array) uf.unite(t.front, n);
+      edges = new Edge[](0).redBlackTree;
+      edgesPerNode = M.iota.map!(_ => new Edge[](0).redBlackTree).array;
+      foreach(gid, ns; nodes.enumerate(0)) {
+        auto arr = ns.array;
+        foreach(i; arr) at[i] = gid;
+
+        int merged;
+        for(auto heap = allEdges(arr).heapify!"a > b"; !heap.empty;) {
+          auto cur = heap.front;
+          heap.removeFront;
+          if (uf.same(cur.from, cur.to)) continue;
+
+          uf.unite(cur.from, cur.to);
+          edges.insert(cur);
+          edgesPerNode[gid].insert(cur);
+          degrees[cur.from]++;
+          degrees[cur.to]++;
+          costs[gid] += cur.norm();
+          if (++merged == G[gid] - 1) break;
+        }
       }
-      return new State(uf);
     }
 
-    void remove(int node, int group) {
-      nodes[group].removeKey(node);
-      nodeAt[node] = -1;
-      l[group].removeKey(RECTS[node][0]);
-      r[group].removeKey(RECTS[node][1]);
-      t[group].removeKey(RECTS[node][2]);
-      b[group].removeKey(RECTS[node][3]);
-    }
-
-    void add(int node, int group) {
-      nodes[group].insert(node);
-      nodeAt[node] = group;
-      l[group].insert(RECTS[node][0]);
-      r[group].insert(RECTS[node][1]);
-      t[group].insert(RECTS[node][2]);
-      b[group].insert(RECTS[node][3]);
-    }
-
-    void swap(int p, int q) {
-      auto ap = nodeAt[p];
-      auto aq = nodeAt[q];
-      if (ap == aq) return;
-
-      cost -= calcCostAt(ap);
-      cost -= calcCostAt(aq);
-      remove(p, ap);
-      add(p, aq);
-      remove(q, aq);
-      add(q, ap);
-      cost += calcCostAt(ap);
-      cost += calcCostAt(aq);
-      operations ~= [p, q];
-    }
-
-    void reset() {
-      foreach_reverse(op; operations) {
-        swap(op[0], op[1]);
+    void outputAsAns() {
+      output("!");
+      foreach(id; 0..M) {
+        output("%(%s %)", nodes[id].array);
+        foreach(e; edgesPerNode[id]) {
+          output("%(%s %)", e.asAns());
+        }
       }
-      commit();
     }
 
-    void commit() {
-      operations.length = 0;
+    int[] swappable(Edge e) {
+      return [e.from, e.to].filter!(i => degrees[i] == 1).array;
     }
 
-    int calcCostAt(int i) {
-      if (nodes[i].length <= 1) return 0;
+    int[] nearestOthers(int gid, int except) {
+      int[][] dists;
+      foreach(i; N.iota.filter!(i => !(i in nodes[gid]))) {
+        int mini = int.max;
+        foreach(j; nodes[gid]) {
+          if (j == except) continue;
 
-      return r[i].back - l[i].front + b[i].back - t[i].front;
+          mini = min(mini, Edge(i, j).norm());
+        }
+        dists ~= [i, mini];
+      }
+      return dists.sort!"a[1] < b[1]".map!"a[0]".array;
     }
 
-    int calcCost() {
-      return N.iota.map!(i => calcCostAt(i)).sum;
+    int testSwap(int p, int q) {
+      if (at[p] == at[q]) return 0;
+
+      auto np = nodes[at[p]].dup;
+      np.removeKey(p);
+      np.insert(q);
+      auto cp = calcCost(np);
+
+      auto nq = nodes[at[q]].dup;
+      nq.removeKey(q);
+      nq.insert(p);
+      auto cq = calcCost(nq);
+
+      return (cp - costs[at[p]]) + (cq - costs[at[q]]);
     }
 
-    int worstGroup() {
-      int ret, worst;
-      foreach(g; groupIds) {
-        if (worst.chmax(calcCostAt(g))) ret = g;
+    int calcCost(RedBlackTree!int testNodes) {
+      int ret;
+      int merged;
+      auto size = testNodes.array.length;
+
+      auto uf = UnionFind(N);
+      for(auto heap = allEdges(testNodes.array).heapify!"a > b"; !heap.empty;) {
+        auto cur = heap.front;
+        heap.removeFront;
+        if (uf.same(cur.from, cur.to)) continue;
+
+        uf.unite(cur.from, cur.to);
+        ret += cur.norm();
+        if (++merged == size - 1) break;
       }
       return ret;
     }
 
-    this() {
-      nodes = new int[][](N, 0).map!redBlackTree.array;
-      nodeAt = new int[](N);
-      l = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
-      r = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
-      t = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
-      b = new int[][](N, 0).map!(arr => arr.redBlackTree!true).array;
+    void swap(int p, int q) {
+      auto ap = at[p];
+      auto aq = at[q];
+      if (ap == aq) return;
+
+      nodes[ap].removeKey(p);
+      nodes[ap].insert(q);
+      nodes[aq].removeKey(q);
+      nodes[aq].insert(p);
+      build(ap);
+      build(aq);
     }
 
-    this(UnionFind uf) {
-      this();
-      foreach(i; 0..N) {
-        add(i, uf.root(i));
-        if (uf.root(i) == i) ansGroup[uf.size(i)] ~= i;
+    void build(int gid) {
+      auto arr = nodes[gid].array;
+      foreach(i; arr) {
+        at[i] = gid;
+        degrees[i] = 0;
       }
-      groupIds = ansGroup.values.joiner.array;
-      cost = calcCost();
+      costs[gid] = 0;
+      
+      edges.removeKey(edgesPerNode[gid].array);
+      edgesPerNode[gid].clear;
+
+      int merged;
+      auto uf = UnionFind(N);
+      for(auto heap = allEdges(arr).heapify!"a > b"; !heap.empty;) {
+        auto cur = heap.front;
+        heap.removeFront;
+        if (uf.same(cur.from, cur.to)) continue;
+
+        uf.unite(cur.from, cur.to);
+        edges.insert(cur);
+        edgesPerNode[gid].insert(cur);
+        degrees[cur.from]++;
+        degrees[cur.to]++;
+        costs[gid] += cur.norm();
+        if (++merged == G[gid] - 1) break;
+      }
     }
   }
 
   auto state = new State(stepTree);
-  auto bestCost = state.cost;
 
-  // 頂点集合を焼きなまし
-  // if (M > 1) while (!elapsed(1800)) {
-  //   auto wg = state.worstGroup();
-  //   auto swapper = state.nodes[wg].array.choice(RND);
-  //   auto swappee = uniform(0, N, RND);
-  //   state.swap(swapper, swappee);
-  //   if (bestCost.chmin(state.cost)) {
-  //     state.commit();
-  //     // stderr.writefln("commit: %s", bestCost);
-  //   } else if (state.operations.length >= 8) {
-  //     state.reset();
-  //     // stderr.writefln("reset: %s", state.cost);
+  foreach(e; state.edges)e.deb;
+
+  auto boundary = -MONT_TIMES * W / 5;
+  while(!elapsed(1500)) {
+    int tested;
+    int globalBest;
+    foreach_reverse(swapEdge; state.edges) {
+      if (state.swappable(swapEdge).empty) continue;
+
+      auto from = state.swappable(swapEdge).choice(RND);
+      int bestTo;
+      int best = int.max;
+      foreach(to; state.nearestOthers(state.at[from], from)[0..50]) {
+        if (best.chmin(state.testSwap(from, to))) {
+          bestTo = to;
+        }
+      }
+
+      globalBest = min(globalBest, best);
+      if (best < boundary) {
+        state.swap(from, bestTo);
+        debf("swap: %s => %s", from, bestTo);
+        break;
+      }
+
+      if (++tested >= 5) break;
+    }
+    if (globalBest >= boundary) break;
+  }
+
+  state.outputAsAns();
+
+  // Edge[][] edges = new Edge[][](N, 0);
+  // auto partialTree = UnionFind(N);
+  // foreach(n; 0..N) {
+  //   auto g = nodes[n].length.to!int;
+  //   auto heap = allEdges(nodes[n]).heapify!"a > b";
+  //   while(!heap.empty) {
+  //     auto cur = heap.front;
+  //     heap.removeFront;
+  //     if (partialTree.same(cur.from, cur.to)) continue;
+
+  //     edges[n] ~= cur;
+  //     partialTree.unite(cur.from, cur.to);
   //   }
   // }
-
-  state.reset();
-  nodes = state.nodes.map!array.array;
-  Edge[][] edges = new Edge[][](N, 0);
-  auto partialTree = UnionFind(N);
-  foreach(n; 0..N) {
-    auto g = nodes[n].length.to!int;
-    auto heap = (g - 1).iota.map!(i => iota(i + 1, g).map!(j => Edge(nodes[n][i], nodes[n][j]))).joiner.array.heapify!"a.norm > b.norm";
-    while(!heap.empty) {
-      auto cur = heap.front;
-      heap.removeFront;
-      if (partialTree.same(cur.from, cur.to)) continue;
-
-      edges[n] ~= cur;
-      partialTree.unite(cur.from, cur.to);
-    }
-  }
   
   // 占い結果で仮装木を上書き
-  if (M >= 15) foreach(id; ans.values.joiner) {
-    auto size = nodes[id].length.to!int;
-    if (size < 3) continue;
+  // if (M >= 15) foreach(id; ans.values.joiner) {
+  //   auto size = nodes[id].length.to!int;
+  //   if (size < 3) continue;
 
-    edges[id].length = 0;
-    auto rest = nodes[id].redBlackTree;
-    auto visited = new int[](0).redBlackTree;
+  //   edges[id].length = 0;
+  //   auto rest = nodes[id].redBlackTree;
+  //   auto visited = new int[](0).redBlackTree;
 
-    auto uf = UnionFind(N);
-    while(!rest.empty) {
-      int[] pair;
-      if (rest.array.length == 1) {
-        pair = [rest.front];
-      } else {
-        auto arr = rest.array;
-        int nearest = int.max;
-        foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
-          auto p = arr[i];
-          auto q = arr[j];
-          if (nearest.chmin(Edge(p, q).norm())) {
-            pair = [p, q];
-          }
-        }
-      }
+  //   auto uf = UnionFind(N);
+  //   while(!rest.empty) {
+  //     int[] pair;
+  //     if (rest.array.length == 1) {
+  //       pair = [rest.front];
+  //     } else {
+  //       auto arr = rest.array;
+  //       int nearest = int.max;
+  //       foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
+  //         auto p = arr[i];
+  //         auto q = arr[j];
+  //         if (nearest.chmin(Edge(p, q).norm())) {
+  //           pair = [p, q];
+  //         }
+  //       }
+  //     }
 
-      auto heap = new Edge[](0).heapify!"a.norm > b.norm";
-      foreach(f; pair) {
-        foreach(t; visited.empty ? nodes[id] : visited.array) {
-          if (pair.canFind(t)) continue;
+  //     auto heap = new Edge[](0).heapify!"a > b";
+  //     foreach(f; pair) {
+  //       foreach(t; visited.empty ? nodes[id] : visited.array) {
+  //         if (pair.canFind(t)) continue;
 
-          heap.insert(Edge(f, t));
-        }
-      }
+  //         heap.insert(Edge(f, t));
+  //       }
+  //     }
 
-      auto search = pair;
-      auto neigh = pair.redBlackTree;
-      foreach(e; heap) {
-        if (!(e.from in neigh)) {
-          search ~= e.from;
-          neigh.insert(e.from);
-        }
-        if (search.length >= L) break;
+  //     auto search = pair;
+  //     auto neigh = pair.redBlackTree;
+  //     foreach(e; heap) {
+  //       if (!(e.from in neigh)) {
+  //         search ~= e.from;
+  //         neigh.insert(e.from);
+  //       }
+  //       if (search.length >= L) break;
 
-        if (!(e.to in neigh)) {
-          search ~= e.to;
-          neigh.insert(e.to);
-        }
-        if (search.length >= L) break;
-      }
+  //       if (!(e.to in neigh)) {
+  //         search ~= e.to;
+  //         neigh.insert(e.to);
+  //       }
+  //       if (search.length >= L) break;
+  //     }
 
-      auto qs = search.length.to!int;
-      output("? %s %(%s %)", qs, search);
-      foreach(e; scan!int(2 * qs - 2).chunks(2)) {
-        if (uf.same(e[0], e[1])) continue;
+  //     auto qs = search.length.to!int;
+  //     output("? %s %(%s %)", qs, search);
+  //     foreach(e; scan!int(2 * qs - 2).chunks(2)) {
+  //       if (uf.same(e[0], e[1])) continue;
 
-        uf.unite(e[0], e[1]);
-        edges[id] ~= Edge(e[0], e[1]);
-        rest.removeKey(e[0], e[1]);
-        visited.insert([e[0], e[1]]);
-      }
-    }
-  }
+  //       uf.unite(e[0], e[1]);
+  //       edges[id] ~= Edge(e[0], e[1]);
+  //       rest.removeKey(e[0], e[1]);
+  //       visited.insert([e[0], e[1]]);
+  //     }
+  //   }
+  // }
   
-  output("!");
-  foreach(g; G) {
-    auto id = ans[g].back;
-    ans[g].length = ans[g].length - 1;
+  // output("!");
+  // foreach(g; G) {
+  //   auto id = ans[g].back;
+  //   ans[g].length = ans[g].length - 1;
 
-    output("%(%s %)", nodes[id]);
-    foreach(e; edges[id]) {
-      output("%(%s %)", e.asAns());
-    }
-  }
+  //   output("%(%s %)", nodes[id]);
+  //   foreach(e; edges[id]) {
+  //     output("%(%s %)", e.asAns());
+  //   }
+  // }
 }
 
 // ----------------------------------------------
@@ -311,8 +396,8 @@ import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
-void deb(T ...)(T t){ debug { write("#"); writeln(t); }}
-// void deb(T ...)(T t){ debug {  }}
+void deb(T ...)(T t){ debug { stderr.write("# "); stderr.writeln(t); }}
+void debf(T ...)(T t){ debug { stderr.write("# "); stderr.writefln(t); }}
 T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
@@ -334,7 +419,7 @@ void runSolver() {
 }
 enum YESNO = [true: "Yes", false: "No"];
 void output(T ...)(T t) {
-  debug stderr.writefln(t);
+  // debug stderr.writefln(t);
   stdout.writefln(t);
   stdout.flush();
 }
