@@ -264,56 +264,70 @@ void problem() {
     }
 
     void oraclate() {
-      bool[] visited = new bool[](N);
-      UnionFind uf = UnionFind(N);
-      int oracleCount;
+      if (M < 15) return;
 
-      foreach(id; M.iota.array.sort!((a, b) => G[a] < G[b])) {
-        if (oracleCount >= Q) break;
+      foreach(id; 0..M) {
         if (G[id] < 3) continue;
-        deb("oracle: ", id);
-        
-        Edge[] rep;
+
+        edges.removeKey(edgesPerGroup[id].array);
+        edgesPerGroup[id].clear;
+
         auto rest = nodes[id].dup;
-        while(uf.size(nodes[id].front) != G[id]) {
-          if (oracleCount >= Q) break;
-          int[] best;
-          int bestCost = int.max;
-          foreach(from; rest.empty ? nodes[id] : rest) {
-            auto heap = new Edge[](0).heapify!"a < b";
-            foreach(to; rest.empty ? nodes[id] : rest) {
-              if (!uf.same(from, to)) heap.insert(Edge(from, to));
-            }
+        auto visited = new int[](0).redBlackTree;
 
-            auto targets = heap.array[0..min($, L - 1)];
-            auto cost = targets.map!"a.norm".sum;
-            if (bestCost.chmin(cost)) {
-              best = from ~ targets.map!(e => e.from == from ? e.to : e.from).array;
+        auto uf = UnionFind(N);
+        while(!rest.empty) {
+          int[] pair;
+          if (rest.array.length == 1) {
+            pair = [rest.front];
+          } else {
+            auto arr = rest.array;
+            int nearest = int.max;
+            foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
+              auto p = arr[i];
+              auto q = arr[j];
+              if (nearest.chmin(Edge(p, q).norm())) {
+                pair = [p, q];
+              }
             }
           }
-          
-          foreach(node; nodes[id]) {
-            if (best.length == min(G[id], L)) break;
 
-            if (!best.canFind(node)) best ~= node;
+          auto heap = new Edge[](0).heapify!"a > b";
+          foreach(f; pair) {
+            foreach(t; visited.empty ? nodes[id] : visited) {
+              if (pair.canFind(t)) continue;
+
+              heap.insert(Edge(f, t));
+            }
           }
-          
-          auto qs = best.length.to!int;
-          output("? %s %(%s %)", qs, best);
-          oracleCount++;
-          auto oracled = scan!int(qs * 2 - 2).chunks(2);
-          foreach(e; oracled) {
+
+          auto search = pair;
+          auto neigh = pair.redBlackTree;
+          foreach(e; heap) {
+            if (!(e.from in neigh)) {
+              search ~= e.from;
+              neigh.insert(e.from);
+            }
+            if (search.length >= L) break;
+
+            if (!(e.to in neigh)) {
+              search ~= e.to;
+              neigh.insert(e.to);
+            }
+            if (search.length >= L) break;
+          }
+
+          auto qs = search.length.to!int;
+          output("? %s %(%s %)", qs, search);
+          foreach(e; scan!int(2 * qs - 2).chunks(2)) {
+            if (uf.same(e[0], e[1])) continue;
+
             uf.unite(e[0], e[1]);
-            rep ~= Edge(e[0], e[1]);
+            edges.insert(Edge(e[0], e[1]));
+            edgesPerGroup[id].insert(Edge(e[0], e[1]));
             rest.removeKey(e[0], e[1]);
+            visited.insert([e[0], e[1]]);
           }
-        }
-
-        if (rep.length == G[id] - 1) {
-          edges.removeKey(edgesPerGroup[id].array);
-          edgesPerGroup[id].clear;
-          edges.insert(rep);
-          edgesPerGroup[id].insert(rep);
         }
       }
     }
@@ -321,7 +335,9 @@ void problem() {
 
   auto state = new State(stepTree);
 
-  auto boundary = -MONT_TIMES * W / 10;
+  foreach(e; state.edges)e.deb;
+
+  auto boundary = -MONT_TIMES * W / 5;
   while(!elapsed(1500)) {
     int tested;
     int globalBest;
@@ -331,7 +347,7 @@ void problem() {
       auto from = state.swappable(swapEdge).choice(RND);
       int bestTo;
       int best = int.max;
-      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 20)]) {
+      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 50)]) {
         if (best.chmin(state.testSwap(from, to))) {
           bestTo = to;
         }
@@ -344,10 +360,8 @@ void problem() {
         break;
       }
 
-      if (++tested >= 20) break;
+      if (++tested >= 5) break;
     }
-    
-    globalBest.deb;
     if (globalBest >= boundary) break;
   }
 
@@ -475,7 +489,7 @@ void runSolver() {
 }
 enum YESNO = [true: "Yes", false: "No"];
 void output(T ...)(T t) {
-  debug stderr.writefln(t);
+  // debug stderr.writefln(t);
   stdout.writefln(t);
   stdout.flush();
 }
