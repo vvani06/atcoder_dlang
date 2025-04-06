@@ -264,8 +264,6 @@ void problem() {
     }
 
     void oraclate() {
-      if (L < 13) return;
-
       bool[] visited = new bool[](N);
       UnionFind uf = UnionFind(N);
 
