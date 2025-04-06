@@ -27,10 +27,14 @@ void problem() {
   int[] G = scan!int(M);
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
 
+  Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
+
+  int[800^^2] distacesArray;
+  foreach(i; 0..N) foreach(j; 0..N) distacesArray[i*N + j] = coords[i].norm(coords[j]);
+
   // モンテカルロで頂点間の距離を推定
   enum MONT_TIMES = 100;
   auto CALC_BOUND = max(3500, W * 2);
-  Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
   int[][] distances = new int[][](N, N); {
     foreach(_; 0..MONT_TIMES) {
       auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
@@ -45,8 +49,6 @@ void problem() {
       distances[j][i] = distances[i][j];
     }
   }
-
-  int[800^^2] distacesArray;
   foreach(i; 0..N) foreach(j; 0..N) distacesArray[i*N + j] = distances[i][j];
 
   struct Edge {
@@ -264,18 +266,16 @@ void problem() {
     }
 
     void oraclate() {
-      if (M < 15) return;
+      // if (M < 15) return;
 
+      auto uf = UnionFind(N);
       foreach(id; 0..M) {
         if (G[id] < 3) continue;
-
-        edges.removeKey(edgesPerGroup[id].array);
-        edgesPerGroup[id].clear;
 
         auto rest = nodes[id].dup;
         auto visited = new int[](0).redBlackTree;
 
-        auto uf = UnionFind(N);
+        Edge[] rep;
         while(!rest.empty) {
           int[] pair;
           if (rest.array.length == 1) {
@@ -323,10 +323,18 @@ void problem() {
             if (uf.same(e[0], e[1])) continue;
 
             uf.unite(e[0], e[1]);
-            edges.insert(Edge(e[0], e[1]));
-            edgesPerGroup[id].insert(Edge(e[0], e[1]));
+            rep ~= Edge(e[0], e[1]);
             rest.removeKey(e[0], e[1]);
             visited.insert([e[0], e[1]]);
+          }
+        }
+
+        if (rep.length == G[id] - 1) {
+          edges.removeKey(edgesPerGroup[id].array);
+          edgesPerGroup[id].clear;
+          foreach(e; rep) {
+            edges.insert(e);
+            edgesPerGroup[id].insert(e);
           }
         }
       }
@@ -334,8 +342,6 @@ void problem() {
   }
 
   auto state = new State(stepTree);
-
-  foreach(e; state.edges)e.deb;
 
   auto boundary = -MONT_TIMES * W / 5;
   while(!elapsed(1500)) {
@@ -367,96 +373,6 @@ void problem() {
 
   state.oraclate();
   state.outputAsAns();
-
-  // Edge[][] edges = new Edge[][](N, 0);
-  // auto partialTree = UnionFind(N);
-  // foreach(n; 0..N) {
-  //   auto g = nodes[n].length.to!int;
-  //   auto heap = allEdges(nodes[n]).heapify!"a > b";
-  //   while(!heap.empty) {
-  //     auto cur = heap.front;
-  //     heap.removeFront;
-  //     if (partialTree.same(cur.from, cur.to)) continue;
-
-  //     edges[n] ~= cur;
-  //     partialTree.unite(cur.from, cur.to);
-  //   }
-  // }
-  
-  // 占い結果で仮装木を上書き
-  // if (M >= 15) foreach(id; ans.values.joiner) {
-  //   auto size = nodes[id].length.to!int;
-  //   if (size < 3) continue;
-
-  //   edges[id].length = 0;
-  //   auto rest = nodes[id].redBlackTree;
-  //   auto visited = new int[](0).redBlackTree;
-
-  //   auto uf = UnionFind(N);
-  //   while(!rest.empty) {
-  //     int[] pair;
-  //     if (rest.array.length == 1) {
-  //       pair = [rest.front];
-  //     } else {
-  //       auto arr = rest.array;
-  //       int nearest = int.max;
-  //       foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
-  //         auto p = arr[i];
-  //         auto q = arr[j];
-  //         if (nearest.chmin(Edge(p, q).norm())) {
-  //           pair = [p, q];
-  //         }
-  //       }
-  //     }
-
-  //     auto heap = new Edge[](0).heapify!"a > b";
-  //     foreach(f; pair) {
-  //       foreach(t; visited.empty ? nodes[id] : visited.array) {
-  //         if (pair.canFind(t)) continue;
-
-  //         heap.insert(Edge(f, t));
-  //       }
-  //     }
-
-  //     auto search = pair;
-  //     auto neigh = pair.redBlackTree;
-  //     foreach(e; heap) {
-  //       if (!(e.from in neigh)) {
-  //         search ~= e.from;
-  //         neigh.insert(e.from);
-  //       }
-  //       if (search.length >= L) break;
-
-  //       if (!(e.to in neigh)) {
-  //         search ~= e.to;
-  //         neigh.insert(e.to);
-  //       }
-  //       if (search.length >= L) break;
-  //     }
-
-  //     auto qs = search.length.to!int;
-  //     output("? %s %(%s %)", qs, search);
-  //     foreach(e; scan!int(2 * qs - 2).chunks(2)) {
-  //       if (uf.same(e[0], e[1])) continue;
-
-  //       uf.unite(e[0], e[1]);
-  //       edges[id] ~= Edge(e[0], e[1]);
-  //       rest.removeKey(e[0], e[1]);
-  //       visited.insert([e[0], e[1]]);
-  //     }
-  //   }
-  // }
-  
-  // output("!");
-  // foreach(g; G) {
-  //   auto id = ans[g].back;
-  //   ans[g].length = ans[g].length - 1;
-
-  //   output("%(%s %)", nodes[id]);
-  //   foreach(e; edges[id]) {
-  //     output("%(%s %)", e.asAns());
-  //   }
-  // }
 }
 
 // ----------------------------------------------
