@@ -264,80 +264,61 @@ void problem() {
     }
 
     void oraclate() {
-      if (M < 15) return;
+      if (L < 13) return;
+
+      bool[] visited = new bool[](N);
+      UnionFind uf = UnionFind(N);
 
       foreach(id; 0..M) {
         if (G[id] < 3) continue;
+        deb("oracle: ", id);
 
-        edges.removeKey(edgesPerGroup[id].array);
-        edgesPerGroup[id].clear;
+        int[][int] graph;
+        foreach(e; edgesPerGroup[id]) {
+          graph[e.from] ~= e.to;
+          graph[e.to] ~= e.from;
+        }
+        
+        int[] route;
+        void dfs(int cur, int pre) {
+          route ~= cur;
+          visited[cur] = true;
+          foreach(next; graph[cur]) {
+            if (next == pre || visited[next]) continue;
 
-        auto rest = nodes[id].dup;
-        auto visited = new int[](0).redBlackTree;
-
-        auto uf = UnionFind(N);
-        while(!rest.empty) {
-          int[] pair;
-          if (rest.array.length == 1) {
-            pair = [rest.front];
-          } else {
-            auto arr = rest.array;
-            int nearest = int.max;
-            foreach(i; 0..arr.length - 1) foreach(j; i + 1..arr.length) {
-              auto p = arr[i];
-              auto q = arr[j];
-              if (nearest.chmin(Edge(p, q).norm())) {
-                pair = [p, q];
-              }
-            }
+            dfs(next, cur);
           }
+        }
 
-          auto heap = new Edge[](0).heapify!"a > b";
-          foreach(f; pair) {
-            foreach(t; visited.empty ? nodes[id] : visited) {
-              if (pair.canFind(t)) continue;
+        dfs(nodes[id].front, nodes[id].front);
+        deb(route);
 
-              heap.insert(Edge(f, t));
-            }
-          }
+        auto step = max(2, L - 5);
+        Edge[] rep;
+        foreach(i; iota(0, max(1, G[id] - 1), step)) {
+          auto qs = route[i..min($, i + L)].length;
+          output("? %s %(%s %)", qs, route[i..min($, i + L)]);
 
-          auto search = pair;
-          auto neigh = pair.redBlackTree;
-          foreach(e; heap) {
-            if (!(e.from in neigh)) {
-              search ~= e.from;
-              neigh.insert(e.from);
-            }
-            if (search.length >= L) break;
-
-            if (!(e.to in neigh)) {
-              search ~= e.to;
-              neigh.insert(e.to);
-            }
-            if (search.length >= L) break;
-          }
-
-          auto qs = search.length.to!int;
-          output("? %s %(%s %)", qs, search);
-          foreach(e; scan!int(2 * qs - 2).chunks(2)) {
+          auto oracled = scan!int(2 * qs - 2).chunks(2);
+          foreach(e; oracled) {
             if (uf.same(e[0], e[1])) continue;
 
             uf.unite(e[0], e[1]);
-            edges.insert(Edge(e[0], e[1]));
-            edgesPerGroup[id].insert(Edge(e[0], e[1]));
-            rest.removeKey(e[0], e[1]);
-            visited.insert([e[0], e[1]]);
+            rep ~= Edge(e[0], e[1]);
           }
         }
+
+        edges.removeKey(edgesPerGroup[id].array);
+        edgesPerGroup[id].clear;
+        edges.insert(rep);
+        edgesPerGroup[id].insert(rep);
       }
     }
   }
 
   auto state = new State(stepTree);
 
-  foreach(e; state.edges)e.deb;
-
-  auto boundary = -MONT_TIMES * W / 5;
+  auto boundary = -MONT_TIMES * W / 10;
   while(!elapsed(1500)) {
     int tested;
     int globalBest;
@@ -347,7 +328,7 @@ void problem() {
       auto from = state.swappable(swapEdge).choice(RND);
       int bestTo;
       int best = int.max;
-      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 50)]) {
+      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 20)]) {
         if (best.chmin(state.testSwap(from, to))) {
           bestTo = to;
         }
@@ -360,8 +341,10 @@ void problem() {
         break;
       }
 
-      if (++tested >= 5) break;
+      if (++tested >= 20) break;
     }
+    
+    globalBest.deb;
     if (globalBest >= boundary) break;
   }
 
@@ -489,7 +472,7 @@ void runSolver() {
 }
 enum YESNO = [true: "Yes", false: "No"];
 void output(T ...)(T t) {
-  // debug stderr.writefln(t);
+  debug stderr.writefln(t);
   stdout.writefln(t);
   stdout.flush();
 }
