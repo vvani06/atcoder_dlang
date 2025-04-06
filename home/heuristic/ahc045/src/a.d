@@ -266,50 +266,55 @@ void problem() {
     void oraclate() {
       bool[] visited = new bool[](N);
       UnionFind uf = UnionFind(N);
+      int oracleCount;
 
-      foreach(id; 0..M) {
+      foreach(id; M.iota.array.sort!((a, b) => G[a] < G[b])) {
+        if (oracleCount >= Q) break;
         if (G[id] < 3) continue;
         deb("oracle: ", id);
-
-        int[][int] graph;
-        foreach(e; edgesPerGroup[id]) {
-          graph[e.from] ~= e.to;
-          graph[e.to] ~= e.from;
-        }
         
-        int[] route;
-        void dfs(int cur, int pre) {
-          route ~= cur;
-          visited[cur] = true;
-          foreach(next; graph[cur]) {
-            if (next == pre || visited[next]) continue;
-
-            dfs(next, cur);
-          }
-        }
-
-        dfs(nodes[id].front, nodes[id].front);
-        deb(route);
-
-        auto step = max(2, L - 5);
         Edge[] rep;
-        foreach(i; iota(0, max(1, G[id] - 1), step)) {
-          auto qs = route[i..min($, i + L)].length;
-          output("? %s %(%s %)", qs, route[i..min($, i + L)]);
+        auto rest = nodes[id].dup;
+        while(uf.size(nodes[id].front) != G[id]) {
+          if (oracleCount >= Q) break;
+          int[] best;
+          int bestCost = int.max;
+          foreach(from; rest.empty ? nodes[id] : rest) {
+            auto heap = new Edge[](0).heapify!"a < b";
+            foreach(to; rest.empty ? nodes[id] : rest) {
+              if (!uf.same(from, to)) heap.insert(Edge(from, to));
+            }
 
-          auto oracled = scan!int(2 * qs - 2).chunks(2);
+            auto targets = heap.array[0..min($, L - 1)];
+            auto cost = targets.map!"a.norm".sum;
+            if (bestCost.chmin(cost)) {
+              best = from ~ targets.map!(e => e.from == from ? e.to : e.from).array;
+            }
+          }
+          
+          foreach(node; nodes[id]) {
+            if (best.length == min(G[id], L)) break;
+
+            if (!best.canFind(node)) best ~= node;
+          }
+          
+          auto qs = best.length.to!int;
+          output("? %s %(%s %)", qs, best);
+          oracleCount++;
+          auto oracled = scan!int(qs * 2 - 2).chunks(2);
           foreach(e; oracled) {
-            if (uf.same(e[0], e[1])) continue;
-
             uf.unite(e[0], e[1]);
             rep ~= Edge(e[0], e[1]);
+            rest.removeKey(e[0], e[1]);
           }
         }
 
-        edges.removeKey(edgesPerGroup[id].array);
-        edgesPerGroup[id].clear;
-        edges.insert(rep);
-        edgesPerGroup[id].insert(rep);
+        if (rep.length == G[id] - 1) {
+          edges.removeKey(edgesPerGroup[id].array);
+          edgesPerGroup[id].clear;
+          edges.insert(rep);
+          edgesPerGroup[id].insert(rep);
+        }
       }
     }
   }
