@@ -153,7 +153,7 @@ void problem() {
   }
 
   // モンテカルロで頂点間の距離を推定
-  enum MONT_TIMES = 200; {
+  int MONT_TIMES = 200; {
     int[][] distances = new int[][](N, N); {
       foreach(_; 0..MONT_TIMES) {
         auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
@@ -234,7 +234,8 @@ void problem() {
   }
 
   // 占いで誤差を吸収する試み。誤差が大きい点から仮想距離が近い順に L - 1 点の集合で占う
-  auto perfectQueryCount = G.count!(g => g >= 3 && g <= L).to!int;
+  enum PERF_LIMIT = 5;
+  auto perfectQueryCount = G.count!(g => g >= PERF_LIMIT && g <= L).to!int;
   foreach(base; N.iota.array.sort!((a, b) => V[a] > V[b])[0..Q - perfectQueryCount]) {
     neighborsByNear[base].sort!((a, b) => Edge(base, a) < Edge(base, b));
     auto qset = base ~ neighborsByNear[base][0..L - 1];
@@ -552,7 +553,7 @@ void problem() {
 
       auto uf = UnionFind(N);
       foreach(id; 0..M) {
-        if (G[id] < 3 || G[id] > L) continue;
+        if (G[id] < PERF_LIMIT || G[id] > L) continue;
         // if (G[id] > L * 5 && W < 1500) continue;
 
         auto rest = nodes[id].dup;
@@ -653,7 +654,7 @@ void problem() {
         break;
       }
 
-      if (++tested >= 320 || elapsed(IMPROVE_LIMIT)) break;
+      if (elapsed(IMPROVE_LIMIT)) break;
     }
     if (globalBest >= boundary || elapsed(IMPROVE_LIMIT)) break;
   }
