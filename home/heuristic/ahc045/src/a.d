@@ -140,7 +140,7 @@ void problem() {
   foreach(i; 0..N) foreach(j; 0..N) distancesArray[i*N + j] = coords[i].dist(coords[j]);
 
   int CALC_BOUND = 8000;
-  enum NEIGHBOR_LIMIT = 15;
+  int NEIGHBOR_LIMIT = L;
   int[][] neighbors = new int[][](N, 0);
   int[][] neighborsByNear = new int[][](N, 0);
   foreach(i; 0..N) foreach(j; i+1..N) {
@@ -241,11 +241,10 @@ void problem() {
     auto ret = oracle(qset).redBlackTree;
     auto pmst = partialMST(qset).redBlackTree;
 
-    auto ratio = W.to!real / 5000.0;
+    auto ratio = W.to!real / 4100.0;
     foreach(e; ret) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
-    foreach(e; ret.array.filter!(e => e in pmst)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
+    // foreach(e; ret.array.filter!(e => e in pmst)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
     foreach(e; pmst.array.filter!(e => e in ret)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 + ratio)).to!int;
-    
   }
   
   UnionFind stepTree;
@@ -443,6 +442,99 @@ void problem() {
       }
     }
 
+    int[] swappable(Edge e) {
+      return [e.from, e.to].filter!(i => degrees[i] == 1).array;
+    }
+
+    int[] nearestOthers(int gid, int except) {
+      int[][] dists;
+      foreach(i; N.iota.filter!(i => !(i in nodes[gid]))) {
+        int mini = int.max;
+        foreach(j; nodes[gid]) {
+          if (j == except) continue;
+
+          mini = min(mini, Edge(i, j).norm());
+        }
+        dists ~= [i, mini];
+      }
+      return dists.sort!"a[1] < b[1]".map!"a[0]".array;
+    }
+
+    int testSwap(int p, int q) {
+      if (at[p] == at[q]) return 0;
+
+      auto np = nodes[at[p]].dup;
+      np.removeKey(p);
+      np.insert(q);
+      auto cp = calcCost(np);
+
+      auto nq = nodes[at[q]].dup;
+      nq.removeKey(q);
+      nq.insert(p);
+      auto cq = calcCost(nq);
+
+      return (cp - costs[at[p]]) + (cq - costs[at[q]]);
+    }
+
+    int calcCost(RedBlackTree!int testNodes) {
+      int ret;
+      int merged;
+      auto size = testNodes.array.length;
+
+      auto uf = UnionFind(N);
+      for(auto heap = allEdges(testNodes.array).heapify!"a > b"; !heap.empty;) {
+        auto cur = heap.front;
+        heap.removeFront;
+        if (uf.same(cur.from, cur.to)) continue;
+
+        uf.unite(cur.from, cur.to);
+        ret += cur.norm();
+        if (++merged == size - 1) break;
+      }
+      return ret;
+    }
+
+    void swap(int p, int q) {
+      auto ap = at[p];
+      auto aq = at[q];
+      if (ap == aq) return;
+
+      nodes[ap].removeKey(p);
+      nodes[ap].insert(q);
+      nodes[aq].removeKey(q);
+      nodes[aq].insert(p);
+      build(ap);
+      build(aq);
+    }
+
+    void build(int gid) {
+      auto arr = nodes[gid].array;
+      foreach(i; arr) {
+        at[i] = gid;
+        degrees[i] = 0;
+      }
+      costs[gid] = 0;
+      
+      edges.removeKey(edgesPerGroup[gid].array);
+      edgesPerGroup[gid].clear;
+
+      int merged;
+      auto uf = UnionFind(N);
+      for(auto heap = allEdges(arr).heapify!"a > b"; !heap.empty;) {
+        auto cur = heap.front;
+        heap.removeFront;
+        if (uf.same(cur.from, cur.to)) continue;
+
+        uf.unite(cur.from, cur.to);
+        edges.insert(cur);
+        edgesPerGroup[gid].insert(cur);
+        degrees[cur.from]++;
+        degrees[cur.to]++;
+        costs[gid] += cur.norm();
+        if (++merged == G[gid] - 1) break;
+      }
+    }
+
     void oraclate() {
       // if (M < 25) return;
 
@@ -522,6 +614,35 @@ void problem() {
 
   deb((MonoTime.currTime() - StartTime).total!"msecs", " msecs");
   auto state = new State(stepTree);
+
+  auto boundary = 0;
+  while(!elapsed(1500)) {
+    int tested;
+    int globalBest;
+    foreach_reverse(swapEdge; state.edges) {
+      if (state.swappable(swapEdge).empty) continue;
+
+      auto from = state.swappable(swapEdge).choice(RND);
+      int bestTo;
+      int best = int.max;
+      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 30)]) {
+        if (best.chmin(state.testSwap(from, to))) {
+          bestTo = to;
+        }
+      }
+
+      globalBest = min(globalBest, best);
+      if (best < boundary) {
+        state.swap(from, bestTo);
+        debf("swap: %s => %s", from, bestTo);
+        break;
+      }
+
+      if (++tested >= 200 || elapsed(1500)) break;
+    }
+    if (globalBest >= boundary || elapsed(1500)) break;
+  }
+  deb((MonoTime.currTime() - StartTime).total!"msecs", " msecs");
 
   state.oraclate();
   state.outputAsAns();
