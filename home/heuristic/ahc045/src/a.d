@@ -140,18 +140,16 @@ void problem() {
   foreach(i; 0..N) foreach(j; 0..N) distancesArray[i*N + j] = coords[i].dist(coords[j]);
 
   int CALC_BOUND = 8000;
-  int NEIGHBOR_LIMIT = L;
+  int NEIGHBOR_LIMIT = 200;
   int[][] neighbors = new int[][](N, 0);
   int[][] neighborsByNear = new int[][](N, 0);
   foreach(i; 0..N) foreach(j; i+1..N) {
-    // if (coords[i].dist(coords[j]) <= CALC_BOUND) {
-      neighbors[i] ~= j;
-      neighbors[j] ~= i;
-    // }
+    neighbors[i] ~= j;
+    neighbors[j] ~= i;
   }
   foreach(i; 0..N) {
     neighborsByNear[i] = neighbors[i].sort!((a, b) => coords[i].dist(coords[a]) < coords[i].dist(coords[b]))[0..NEIGHBOR_LIMIT].array;
-    neighbors[i] = neighborsByNear[i].sort.array;
+    neighbors[i] = neighborsByNear[i].dup.sort.array;
   }
 
   // モンテカルロで頂点間の距離を推定
@@ -215,8 +213,10 @@ void problem() {
   }
 
   Edge[] oracle(int[] set) {
-    output("? %s %(%s %)", set.length, set);
-    return scan!int(set.length * 2 - 2).chunks(2).map!(a => Edge(a[0], a[1])).array;
+    output("? %s %(%s %)", set.length, set.dup.sort);
+    auto ret = scan!int(set.length * 2 - 2).chunks(2).map!(a => Edge(a[0], a[1])).array;
+    ret.deb;
+    return ret;
   }
 
   Edge[] partialMST(int[] set) {
@@ -233,23 +233,33 @@ void problem() {
     return ret;
   }
 
+  // 占いで誤差を吸収する試み。誤差が大きい点から仮想距離が近い順に L - 1 点の集合で占う
   auto perfectQueryCount = G.count!(g => g >= 3 && g <= L).to!int;
-
   foreach(base; N.iota.array.sort!((a, b) => V[a] > V[b])[0..Q - perfectQueryCount]) {
     auto qset = base ~ neighborsByNear[base][0..L - 1];
 
+    auto ratio = W.to!real / 3200.0;
     auto ret = oracle(qset).redBlackTree;
     auto pmst = partialMST(qset).redBlackTree;
-
-    auto ratio = W.to!real / 4100.0;
+    
+    // 占いMSTにある辺を 0.x 倍 して高評価とする
     foreach(e; ret) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
-    // foreach(e; ret.array.filter!(e => e in pmst)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
+    // 仮想MSTにあるのに、占いMSTには無い辺は最悪なので 1.x 倍 して低評価とする
     foreach(e; pmst.array.filter!(e => e in ret)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 + ratio)).to!int;
+
+    // 選ばれなかった辺も若干低評価とする
+    int[] arr = qset.array;
+    foreach(i; 0..L) foreach(j; i + 1..L) {
+      auto e = Edge(arr[i], arr[j]);
+      if (!(e in ret)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 + ratio/1.5)).to!int;
+    }
   }
   
   UnionFind stepTree;
 
   if (M >= 200) {
+    // ブルーフカ法で部分木を作っていく あんまり強くないが、Mが大きい時にはマシな解が出る
+    // 飛地が出来やすいので、後で山登り法によるノード付け替えを頑張る
     stepTree = {
       auto uf = UnionFind(N);
 
@@ -274,6 +284,7 @@ void problem() {
       return uf;
     }();
   } else {
+    // 全体の最小全域木を作って、そこから部分木に分けていくパターン Mが小さい時に強い
     stepTree = {
       auto uf = UnionFind(N);
       auto tree = new int[][](N, 0).map!redBlackTree.array;
