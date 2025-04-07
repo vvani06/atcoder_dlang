@@ -1,5 +1,111 @@
 void main() { runSolver(); }
 
+// ----------------------------------------------
+
+import std;
+import core.memory : GC;
+string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
+T scan(T)(){ return scan.to!T; }
+T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
+T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
+bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
+bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
+string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[])s).sort!S.array)).to!string; }
+ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
+string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!string; }
+void outputForAtCoder(T)(T delegate() fn) {
+  static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
+  else static if (is(T == void)) fn();
+  else static if (is(T == string)) fn().writeln;
+  else static if (isInputRange!T) {
+    static if (!is(string == ElementType!T) && isInputRange!(ElementType!T)) foreach(r; fn()) r.toAnswerString.writeln;
+    else foreach(r; fn()) r.writeln;
+  }
+  else fn().writeln;}
+void runSolver() {
+  problem();}
+void output(T ...)(T t) {
+  // debug stderr.writefln(t);
+  stdout.writefln(t);
+  stdout.flush(); }
+void deb(T ...)(T t){ debug { stderr.write("# "); stderr.writeln(t); }}
+void debf(T ...)(T t){ debug { stderr.write("# "); stderr.writefln(t); }}
+struct UnionFindWith(T = UnionFindExtra) {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+  T[] extras;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = new T[](size);
+  }
+ 
+  this(int size, T[] ex) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = ex.dup;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+
+  T extra(int x) {
+    return extras[root(x)];
+  }
+
+  T setExtra(int x, T t) {
+    return extras[root(x)] = t;
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    extras[rootX] = extras[rootX].merge(extras[rootY]);
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+
+  auto dup() {
+    auto dupe = UnionFindWith!T(roots.length.to!int);
+    dupe.roots = roots.dup;
+    dupe.sizes = sizes.dup;
+    dupe.weights = weights.dup;
+    dupe.extras = extras.dup;
+    return dupe;
+  }}
+struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
+alias UnionFind = UnionFindWith!UnionFindExtra;
+
 // ---------------------------------------------
 
 void problem() {
@@ -26,45 +132,55 @@ void problem() {
   int W = scan!int;
   int[] G = scan!int(M);
   int[][] RECTS = scan!int(4 * N).chunks(4).array;
+  int[] V = RECTS.map!(r => r[1] + r[3] - r[0] - r[2]).array;
 
   Coord[] coords = RECTS.map!(r => Coord(r[0..2].sum / 2, r[2..4].sum / 2)).array;
 
-  int[800^^2] distacesArray;
-  foreach(i; 0..N) foreach(j; 0..N) distacesArray[i*N + j] = coords[i].dist(coords[j]);
+  int[800^^2] distancesArray;
+  foreach(i; 0..N) foreach(j; 0..N) distancesArray[i*N + j] = coords[i].dist(coords[j]);
 
-  enum CALC_BOUND = 5000;
+  int CALC_BOUND = 8000;
+  enum NEIGHBOR_LIMIT = 15;
   int[][] neighbors = new int[][](N, 0);
+  int[][] neighborsByNear = new int[][](N, 0);
   foreach(i; 0..N) foreach(j; i+1..N) {
-    if (coords[i].dist(coords[j]) <= CALC_BOUND) neighbors[i] ~= j;
+    // if (coords[i].dist(coords[j]) <= CALC_BOUND) {
+      neighbors[i] ~= j;
+      neighbors[j] ~= i;
+    // }
   }
-  neighbors.deb;
+  foreach(i; 0..N) {
+    neighborsByNear[i] = neighbors[i].sort!((a, b) => coords[i].dist(coords[a]) < coords[i].dist(coords[b]))[0..NEIGHBOR_LIMIT].array;
+    neighbors[i] = neighborsByNear[i].sort.array;
+  }
 
   // モンテカルロで頂点間の距離を推定
-  enum MONT_TIMES = 200;
-  int[][] distances = new int[][](N, N); {
-    foreach(_; 0..MONT_TIMES) {
-      auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
-      auto ry = RECTS.map!(r => uniform(r[2], r[3] + 1, RND)).array;
-      foreach(i; 0..N) foreach(j; neighbors[i]) {
-        auto dx = abs(rx[i] - rx[j]);
-        auto dy = abs(ry[i] - ry[j]);
-        distances[i][j] += (dx*dx + dy*dy).to!float.sqrt.to!int;
+  enum MONT_TIMES = 200; {
+    int[][] distances = new int[][](N, N); {
+      foreach(_; 0..MONT_TIMES) {
+        auto rx = RECTS.map!(r => uniform(r[0], r[1] + 1, RND)).array;
+        auto ry = RECTS.map!(r => uniform(r[2], r[3] + 1, RND)).array;
+        foreach(i; 0..N) foreach(j; neighbors[i].assumeSorted.upperBound(i)) {
+          auto dx = abs(rx[i] - rx[j]);
+          auto dy = abs(ry[i] - ry[j]);
+          distances[i][j] += (dx*dx + dy*dy).to!float.sqrt.to!int;
+        }
+      }
+      foreach(i; 0..N) foreach(j; i + 1..N) {
+        distances[j][i] = distances[i][j];
       }
     }
-    foreach(i; 0..N) foreach(j; i + 1..N) {
-      distances[j][i] = distances[i][j];
+    foreach(i; 0..N) foreach(j; 0..N) {
+      auto d = distances[min(i, j)][max(i, j)];
+      if (d > 0) distancesArray[i*N + j] = d / MONT_TIMES;
     }
-  }
-  foreach(i; 0..N) foreach(j; 0..N) {
-    auto d = distances[min(i, j)][max(i, j)];
-    if (d > 0) distacesArray[i*N + j] = d / MONT_TIMES;
   }
 
   struct Edge {
     int from, to;
 
     inout int norm() {
-      return distacesArray[from*N + to];
+      return distancesArray[from*N + to];
     }
 
     int[] asAns() {
@@ -81,6 +197,10 @@ void problem() {
     string toString() {
       return format("Edge(%s -> %s) / cost: %s", from, to, norm());
     }
+
+    int asId() {
+      return min(from, to) * N + max(from, to);
+    }
   }
 
   Edge[] allEdges(int[] nodes = [-1]) { 
@@ -93,10 +213,44 @@ void problem() {
     }
     return ret;
   }
+
+  Edge[] oracle(int[] set) {
+    output("? %s %(%s %)", set.length, set);
+    return scan!int(set.length * 2 - 2).chunks(2).map!(a => Edge(a[0], a[1])).array;
+  }
+
+  Edge[] partialMST(int[] set) {
+    auto uf = UnionFind(N);
+    Edge[] ret = new Edge[](0);
+
+    for(auto heap = allEdges(set).heapify!"a > b"; !heap.empty;) {
+      auto cur = heap.front; heap.removeFront;
+      if (uf.same(cur.from, cur.to)) continue;
+
+      uf.unite(cur.from, cur.to);
+      ret ~= cur;
+    }
+    return ret;
+  }
+
+  auto perfectQueryCount = G.count!(g => g >= 3 && g <= L).to!int;
+
+  foreach(base; N.iota.array.sort!((a, b) => V[a] > V[b])[0..Q - perfectQueryCount]) {
+    auto qset = base ~ neighborsByNear[base][0..L - 1];
+
+    auto ret = oracle(qset).redBlackTree;
+    auto pmst = partialMST(qset).redBlackTree;
+
+    auto ratio = W.to!real / 5000.0;
+    foreach(e; ret) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
+    foreach(e; ret.array.filter!(e => e in pmst)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 - ratio)).to!int;
+    foreach(e; pmst.array.filter!(e => e in ret)) distancesArray[e.asId()] = (distancesArray[e.asId()].to!real * (1.0 + ratio)).to!int;
+    
+  }
   
   UnionFind stepTree;
 
-  if (M >= 95) {
+  if (M >= 200) {
     stepTree = {
       auto uf = UnionFind(N);
 
@@ -290,11 +444,12 @@ void problem() {
     }
 
     void oraclate() {
-      if (M < 15) return;
+      // if (M < 25) return;
 
       auto uf = UnionFind(N);
       foreach(id; 0..M) {
-        if (G[id] < 3) continue;
+        if (G[id] < 3 || G[id] > L) continue;
+        // if (G[id] > L * 5 && W < 1500) continue;
 
         auto rest = nodes[id].dup;
         auto visited = new int[](0).redBlackTree;
@@ -371,116 +526,3 @@ void problem() {
   state.oraclate();
   state.outputAsAns();
 }
-
-// ----------------------------------------------
-
-import std;
-import core.memory : GC;
-string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
-T scan(T)(){ return scan.to!T; }
-T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
-void deb(T ...)(T t){ debug { stderr.write("# "); stderr.writeln(t); }}
-void debf(T ...)(T t){ debug { stderr.write("# "); stderr.writefln(t); }}
-T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
-bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
-bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
-string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[])s).sort!S.array)).to!string; }
-ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
-string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!string; }
-void outputForAtCoder(T)(T delegate() fn) {
-  static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
-  else static if (is(T == void)) fn();
-  else static if (is(T == string)) fn().writeln;
-  else static if (isInputRange!T) {
-    static if (!is(string == ElementType!T) && isInputRange!(ElementType!T)) foreach(r; fn()) r.toAnswerString.writeln;
-    else foreach(r; fn()) r.writeln;
-  }
-  else fn().writeln;
-}
-void runSolver() {
-  problem();
-}
-enum YESNO = [true: "Yes", false: "No"];
-void output(T ...)(T t) {
-  // debug stderr.writefln(t);
-  stdout.writefln(t);
-  stdout.flush();
-}
-
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
-
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
-
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
-    }
-
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
-  }
-}
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;
