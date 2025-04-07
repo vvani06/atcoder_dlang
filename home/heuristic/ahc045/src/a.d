@@ -215,7 +215,7 @@ void problem() {
   Edge[] oracle(int[] set) {
     output("? %s %(%s %)", set.length, set.dup.sort);
     auto ret = scan!int(set.length * 2 - 2).chunks(2).map!(a => Edge(a[0], a[1])).array;
-    ret.deb;
+    // ret.deb;
     return ret;
   }
 
@@ -236,6 +236,7 @@ void problem() {
   // 占いで誤差を吸収する試み。誤差が大きい点から仮想距離が近い順に L - 1 点の集合で占う
   auto perfectQueryCount = G.count!(g => g >= 3 && g <= L).to!int;
   foreach(base; N.iota.array.sort!((a, b) => V[a] > V[b])[0..Q - perfectQueryCount]) {
+    neighborsByNear[base].sort!((a, b) => Edge(base, a) < Edge(base, b));
     auto qset = base ~ neighborsByNear[base][0..L - 1];
 
     auto ratio = W.to!real / 3200.0;
@@ -627,7 +628,8 @@ void problem() {
   auto state = new State(stepTree);
 
   auto boundary = 0;
-  while(!elapsed(1500)) {
+  enum IMPROVE_LIMIT = 1600;
+  while(!elapsed(IMPROVE_LIMIT)) {
     int tested;
     int globalBest;
     foreach_reverse(swapEdge; state.edges) {
@@ -636,22 +638,24 @@ void problem() {
       auto from = state.swappable(swapEdge).choice(RND);
       int bestTo;
       int best = int.max;
-      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 30)]) {
+      foreach(to; state.nearestOthers(state.at[from], from)[0..min($, 20)]) {
         if (best.chmin(state.testSwap(from, to))) {
           bestTo = to;
         }
+
+        if (elapsed(IMPROVE_LIMIT)) break;
       }
 
       globalBest = min(globalBest, best);
       if (best < boundary) {
         state.swap(from, bestTo);
-        debf("swap: %s => %s", from, bestTo);
+        // debf("swap: %s => %s", from, bestTo);
         break;
       }
 
-      if (++tested >= 200 || elapsed(1500)) break;
+      if (++tested >= 320 || elapsed(IMPROVE_LIMIT)) break;
     }
-    if (globalBest >= boundary || elapsed(1500)) break;
+    if (globalBest >= boundary || elapsed(IMPROVE_LIMIT)) break;
   }
   deb((MonoTime.currTime() - StartTime).total!"msecs", " msecs");
 
