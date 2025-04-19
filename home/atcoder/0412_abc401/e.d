@@ -9,11 +9,6 @@ void problem() {
     alias Edge = Tuple!(int, "from", int, "to");
     auto edges = M.iota.map!(i => Edge(E[i][0] - 1, E[i][1] - 1)).array;
 
-    auto uf = UnionFind(N);
-    foreach(e; edges) {
-      uf.unite(e.from, e.to);
-    }
-
     Edge[][] edgesPerMaxNode = new Edge[][](N + 1, 0);
     Edge[][] edgesPerMinNode = new Edge[][](N + 1, 0);
     foreach(e; edges) {
@@ -21,45 +16,19 @@ void problem() {
       edgesPerMinNode[min(e.from, e.to)] ~= e;
     }
 
-    struct Nodes {
-      bool[int] nodes;
-
-      Nodes merge(Nodes other) {
-        foreach(i; other.nodes.keys) nodes[i] = true;
-        return Nodes(nodes);
-      }
-    }
-
     bool[int] waitedNodes;
-    auto uf2 = UnionFindWith!Nodes(N);
-    foreach(i; 0..N) uf2.setExtra(i, Nodes([i: true]));
-
-    auto segtree = SegTree!("a & b", int)(new int[](N + 1), 1);
-    segtree.update(0, 1);
+    auto uf = UnionFind(N);
 
     foreach(i; 0..N) {
       foreach(e; edgesPerMaxNode[i]) {
-        auto pf = uf2.same(0, e.from);
-        auto pt = uf2.same(0, e.to);
-        auto fe = uf2.extra(e.from);
-        auto te = uf2.extra(e.to);
-
-        uf2.unite(e.from, e.to);
-        if (!pf && uf2.same(0, e.from)) {
-          foreach(x; fe.nodes.keys) segtree.update(x, true);
-        }
-        if (!pt && uf2.same(0, e.to)) {
-          foreach(x; te.nodes.keys) segtree.update(x, true);
-        }
+        uf.unite(e.from, e.to);
       }
       foreach(e; edgesPerMinNode[i]) {
         waitedNodes[e.from] = true;
         waitedNodes[e.to] = true;
       }
 
-      // (i + 1).iota.map!(x => uf2.same(0, x)).deb;
-      // uf2.extra(0).deb;
-      writeln(segtree.sum(0, i + 1) == 1 ? max(0, waitedNodes.length.to!int - i - 1) : -1);
+      writeln(uf.size(0) == i + 1 ? max(0, waitedNodes.length.to!int - i - 1) : -1);
     }
   }
 
