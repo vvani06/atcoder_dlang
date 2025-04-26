@@ -87,6 +87,10 @@ void problem() {
       }
     }
 
+    if (actions[to.r][to.c].type == -1) {
+      return actions[to.r][to.c].repeat(50).array;
+    }
+
     Action[] ret;
     for(Coord c = to; c != from; c = actions[c.r][c.c].from) {
       ret ~= actions[c.r][c.c];
@@ -95,22 +99,64 @@ void problem() {
     return ret;
   }
 
+  Action[] estimate(int start, bool[][] state) {
+    Action[] ret;
+    foreach(i; start..M) {
+      Coord cur = goals[i - 1];
+      Coord goal = goals[i];
+      
+      ret ~= search(cur, goal, state);
+    }
+    return ret;
+  }
+
+
   bool[][] state = new bool[][](N, N);
+  string[] ans;
+
+  Action[] toggleAround(Coord cur, int sw) {
+    Action[] ret;
+    foreach(dir; 0..4) {
+      if ((sw & (2^^dir)) == 0) continue;
+      
+      auto r = cur.r + DR[dir];
+      auto c = cur.c + DC[dir];
+      if (min(r, c) < 0 || max(r, c) >= N) continue;
+
+      state[r][c] ^= 1;
+      ret ~= Action(MOD, dir);
+    }
+    return ret;
+  }
 
   foreach(i; 1..M) {
     Coord cur = goals[i - 1];
     Coord goal = goals[i];
+
+    int bestToggle;
+    int best = int.max;
+    foreach(toggle; 0..2^^4) {
+      toggleAround(cur, toggle);
+      if (best.chmin(popcnt(toggle) + estimate(i, state).length.to!int)) {
+        bestToggle = toggle;
+      }
+      toggleAround(cur, toggle);
+    }
     
-    Action[] actions = search(cur, goal, state);
+    Action[] actions = toggleAround(cur, bestToggle);
+    actions ~= search(cur, goal, state);
     foreach(act; actions) {
-      writeln(act.asOutput());
+      ans ~= act.asOutput();
     }
   }
+
+  foreach(a; ans) writeln(a);
 }
 
 // ----------------------------------------------
 
 import std;
+import core.bitop;
 import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
