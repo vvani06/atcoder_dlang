@@ -6,24 +6,28 @@ void problem() {
   auto A = scan!int(N);
 
   auto solve() {
-    int[int] counts;
-    int ans;
-
-    foreach(a, s; A.sort.group) {
-      if (D == 0) {
-        ans += s - 1;
-        continue;
-      }
-      
-      int other = counts.get(a - D, 0);
-      if (other > 0 && other > s) {
-        ans += s;
-      } else {
-        counts[a] += s;
-        ans += other;
-      }
+    enum LIM = 10^^6 + 1;
+    int[] counts = new int[](LIM);
+    foreach(a; A) counts[a]++;
+    if (D == 0) {
+      return counts.map!"max(0, a - 1)".sum;
     }
 
+    int[][] md = new int[][](D, 0);
+    foreach(i; 0..LIM) md[i % D] ~= counts[i];
+
+    int ans;
+    foreach(arr; md) {
+      int[] memo = 0.repeat(2).array;
+      int[] pre = 0.repeat(2).array;
+
+      foreach(a; arr) {
+        swap(pre, memo);
+        memo[0] = pre[1];
+        memo[1] = min(pre[1], pre[0]) + a;
+      }
+      ans += memo.minElement;
+    }
     return ans;
   }
 
