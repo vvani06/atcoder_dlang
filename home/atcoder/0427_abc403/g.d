@@ -2,42 +2,21 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto A = scan!long(N);
-  auto LR = scan!int(scan!int * 2).chunks(2).array;
+  auto S = scan!string(N);
 
   auto solve() {
-    struct STValue {
-      int size, dist;
-
-      STValue opBinary(string op: "+")(STValue other) {
-        return STValue(
-          size + other.size,
-          max(dist, other.dist)
-        );
+    auto trie = new TrieTree!char();
+    
+    long ans;
+    foreach(s; S) {
+      foreach(node; trie.search(s)) {
+        ans += node.count;
+        node.deb;
       }
+
+      trie.insert(s);
     }
-
-    auto segtree = {
-      auto stv = new STValue[](N);
-      for (int i, j; i < N; i++) {
-        while (j < N && A[i] * 2 > A[j]) j++;
-        stv[i] = STValue(1, j - i);
-      }
-      // stv.each!deb;
-      return SegTree!("a + b", STValue)(stv, STValue(0, 0));
-    }();
-
-    segtree.sum(0, N).deb;
-
-    foreach(l, r; lockstep(LR.map!"a[0]", LR.map!"a[1]")) {
-      l--;
-      
-      bool isOk(int t) {
-        auto seg = segtree.sum(l, t);
-        return l + seg.size + max(seg.size, seg.dist) <= r;
-      }
-      writeln(binarySearch(&isOk, l, r) - l);
-    }
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -89,82 +68,83 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct SegTree(alias pred = "a + b", T = long) {
-  alias predFun = binaryFun!pred;
-  int size;
-  T[] data;
-  T monoid;
- 
-  this(T[] src, T monoid = T.init) {
-    this.monoid = monoid;
+class TrieTree(T) {
+  class Node {
+    T value;
+    int count;
+    Node[T] children;
+    Node parent;
+    bool last;
 
-    for(int i = 2; i < 2L^^32; i *= 2) {
-      if (src.length <= i) {
-        size = i;
-        break;
+    this(T c, Node p) {
+      value = c;
+      parent = p;
+    }
+
+    Node next(T c) {
+      return children.get(c, null);
+    }
+
+    void insert(T c) {
+      children[c] = new Node(c, this);
+    }
+
+    void remove(T c) {
+      children.remove(c);
+    }
+
+    override string toString() {
+      return "TrieNode: %s (%s) [%(%s %)]".format(value, count, children.keys);
+    }
+  }
+
+  Node root;
+  this() {
+    root = new Node(0, null);
+  }
+
+  Node[] search(S)(S s) {
+    Node[] ret;
+
+    Node cur = root;
+    foreach(c; s) {
+      cur = cur.next(c);
+
+      if (cur is null) break; else ret ~= cur;
+    }
+    return ret;
+  }
+
+  Node remove(S)(S s) {
+    Node cur = root;
+    foreach(i, c; s) {
+      if (i == s.length - 1 && cur.next(c)) {
+        auto target = cur.next(c);
+        cur.remove(c);
+        while(cur !is null) {
+          cur.count -= target.count;
+          cur = cur.parent;
+        }
+        return target;
       }
+
+      if ((cur = cur.next(c)) is null) break;
     }
-    
-    data = new T[](size * 2);
-    foreach(i, s; src) data[i + size] = s;
-    foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
-    }
-  }
- 
-  void update(int index, T value) {
-    int i = index + size;
-    data[i] = value;
-    while(i > 0) {
-      i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
-    }
+    return null;
   }
 
-  void add(int index, T value) {
-    update(index, get(index) + value);
-  }
- 
-  T get(int index) {
-    return data[index + size];
-  }
- 
-  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
-    if (r < 0) r = size;
-    
-    if (r <= a || b <= l) return monoid;
-    if (a <= l && r <= b) return data[k];
- 
-    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
-    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
-  }
-}
+  Node insert(S)(S s) {
+    Node cur = root;
+    foreach(c; s) {
+      if (cur.next(c) is null) {
+        cur.insert(c);
+      }
 
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
+      cur = cur.next(c);
+      cur.count++;
     }
+
+    cur.last = true;
+    return cur;
   }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
 }

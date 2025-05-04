@@ -2,32 +2,32 @@ void main() { runSolver(); }
 
 void problem() {
   auto Q = scan!int;
-
-  auto xTrie = new TrieTree!char();
-  auto yTrie = new TrieTree!char();
+  auto TS = Q.iota.map!(q => tuple(q, scan!int, RollingHash(scan))).array;
 
   auto solve() {
-    int ans;
-    foreach(_; 0..Q) {
-      auto t = scan!int;
-      auto s = scan;
-      auto l = s.length.to!int;
-
-      if (t == 1) {
-        auto removee = yTrie.remove(s);
-        if (removee) ans -= removee.count;
-        xTrie.insert(s);
-      } else {
-        auto nodes = xTrie.search(s);
-        if (!nodes.any!"a.last") {
-          ans++;
-          yTrie.insert(s);
-        }
-      }
-
-      writeln(ans);
+    int[ulong] prefixes;
+    foreach(ts; TS.filter!"a[1] == 1") {
+      auto rh = ts[2].get(0);
+      prefixes[rh] = min(ts[0], prefixes.get(rh, int.max));
     }
 
+    int[] add = new int[](Q + 1);
+    int[] sub = new int[](Q + 1);
+    foreach(ts; TS.filter!"a[1] == 2") {
+      add[ts[0]]++;
+
+      int left = int.max;
+      foreach(i; 0..ts[2].size) {
+        auto h = ts[2].get(0, i + 1);
+        if (h in prefixes) left = min(left, prefixes[h]);
+      }
+      if (left != int.max) sub[max(ts[0], left)]++;
+    }
+    
+    int ans;
+    foreach(i; 0..Q) {
+      writeln(ans = ans + add[i] - sub[i]);
+    }
   }
 
   outputForAtCoder(&solve);
@@ -79,83 +79,37 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-class TrieTree(T) {
-  class Node {
-    T value;
-    int count;
-    Node[T] children;
-    Node parent;
-    bool last;
+struct RollingHash {
+  ulong[] hashes = [0];
+  ulong[] powers = [1];
+  int size;
 
-    this(T c, Node p) {
-      value = c;
-      parent = p;
-    }
+  enum ulong MOD = 2L^^61 - 1;
+  static uint seed;
+  static ulong base;
 
-    Node next(T c) {
-      return children.get(c, null);
-    }
+  static this() {
+    base = uniform(2, MOD - 1);
+    seed = unpredictableSeed;
+  }
 
-    void insert(T c) {
-      children[c] = new Node(c, this);
-    }
+  ulong mul(ulong a, ulong b) {
+    Int128 c = a;
+    c *= b;
+    c %= MOD;
+    return c.data.lo;
+  }
 
-    void remove(T c) {
-      children.remove(c);
-    }
-
-    override string toString() {
-      return "TrieNode: %s (%s) [%(%s %)]".format(value, count, children.keys);
+  this(T)(T[] arr) {
+    size = arr.length.to!int;
+    foreach(i, a; arr) {
+      hashes ~= (mul(hashes[i], base) + a.hashOf(seed)) % MOD;
+      powers ~= mul(powers[i], base) % MOD;
     }
   }
 
-  Node root;
-  this() {
-    root = new Node(0, null);
+  ulong get(size_t l, size_t r) {
+    return (MOD + hashes[r] - mul(powers[r - l], hashes[l])) % MOD;
   }
-
-  Node[] search(S)(S s) {
-    Node[] ret;
-
-    Node cur = root;
-    foreach(c; s) {
-      cur = cur.next(c);
-
-      if (cur is null) break; else ret ~= cur;
-    }
-    return ret;
-  }
-
-  Node remove(S)(S s) {
-    Node cur = root;
-    foreach(i, c; s) {
-      if (i == s.length - 1 && cur.next(c)) {
-        auto target = cur.next(c);
-        cur.remove(c);
-        while(cur !is null) {
-          cur.count -= target.count;
-          cur = cur.parent;
-        }
-        return target;
-      }
-
-      if ((cur = cur.next(c)) is null) break;
-    }
-    return null;
-  }
-
-  Node insert(S)(S s) {
-    Node cur = root;
-    foreach(c; s) {
-      if (cur.next(c) is null) {
-        cur.insert(c);
-      }
-
-      cur = cur.next(c);
-      cur.count++;
-    }
-
-    cur.last = true;
-    return cur;
-  }
+  ulong get(size_t l) { return get(l, size); }
 }
