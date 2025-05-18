@@ -9,49 +9,128 @@ void problem() {
   auto RND = Xorshift(seed);
   enum long INF = long.max / 3;
 
+  struct Target {
+    string s;
+    int p;
+    int[] ids;
+
+    int[] nodes() {
+      int[dchar] dict;
+      foreach(i, c; chars()) dict[c] = i.to!int;
+      return s.map!(c => dict[c]).array;
+    }
+
+    int kind() {
+      return s.array.sort.uniq.walkLength.to!int;
+    }
+
+    int perf() {
+      return p / kind();
+    }
+
+    string chars() {
+      return s.array.sort.uniq.to!string;
+    }
+  }
+
   int N = scan!int;
   int M = scan!int;
   int L = scan!int;
-  auto SP = N.iota.map!(_ => tuple(scan, scan!int)).array;
+  auto SP = N.iota.map!(_ => Target(scan, scan!int, [_])).array;
+
+  Target combine(int[] indicies) {
+    string s = SP[indicies[0]].s;
+    int p = SP[indicies[0]].p;
+    foreach(i; indicies[1..$]) {
+      int intersect;
+      foreach(j, c; SP[i].s) {
+        if (c == s[$ - 1 - j]) intersect++; else break;
+      }
+
+      s ~= SP[i].s[intersect..$];
+      p += SP[i].p / 2;
+    }
+    return Target(s, p, indicies.map!(i => SP[i].ids).joiner.array);
+  }
+
+  // SP.sort!"a.perf > b.perf";
+  // foreach(i; 0..N - 1) {
+  //   foreach(j; i + 1..N) {
+  //     if (SP[i].s[$ - 1] == SP[j].s[0]) SP ~= combine([i, j]);
+  //   }
+  // }
   
+  auto P_MAX = SP.map!"a.p".maxElement;
+  auto P_RATIO = P_MAX / 100;
+
   enum ELM = "abcdef";
-  auto P_MAX = SP.map!"a[1]".maxElement;
-  auto P_RATIO = P_MAX / 5;
+  enum OTHERS_WEIGHT = 1;
 
-  foreach(offset; 0..2) {
-    int[6][6] matrix;
-    int[] start = new int[](6);
-    foreach(sp; SP.sort!"a[1] > b[1]"[offset..offset + 1]) {
-      char pre = sp[0][0];
-      start[pre - 'a'] += max(1, sp[1] / P_RATIO) ^^ 4;
-      foreach(i; 0..6) matrix[i][pre - 'a'] += max(1, sp[1] / P_RATIO) ^^ 4;
-      foreach(next; sp[0][1..$]) {
-        matrix[pre - 'a'][next - 'a'] += max(1, sp[1] / P_RATIO) ^^ 5;
-        pre = next;
-      }
+  int rest = M;
+  int ofs = 0;
+  bool[] used = new bool[](N);
+  int[] headers;
+  
+  foreach(target; SP.sort!"a.perf > b.perf") {
+    auto size = target.kind();
+    if (size > rest) continue;
+    if (target.ids.any!(i => used[i])) continue;
+
+    target.deb;
+    target.nodes.deb;
+    auto ll = target.s.length * 10;
+
+    auto matrix = new real[][](size, size);
+    foreach(ref m; matrix) m[] = 0;
+    int pre = target.nodes[0];
+    foreach(next; target.nodes[1..$]) {
+      matrix[pre][next] += ll;
+      ll--;
+      pre = next;
     }
-    // foreach(m; matrix) m.deb;
 
-    int[][] candidates = new int[][](6, 0);
-    foreach(i; 0..6) {
-      foreach(j; 0..6) {
-        candidates[i] ~= j.repeat(matrix[i][j]).array;
+    auto matrixInt = new int[][](size, size);
+    real scale = 100 - OTHERS_WEIGHT * (M - size);
+    foreach(i; 0..size) {
+      auto rowSum = matrix[i].sum;
+      if (rowSum == 0) {
+        rowSum = matrix[i][target.nodes[0]] = 1; 
       }
+      foreach(j; 0..size) {
+        matrix[i][j] *= scale;
+        matrix[i][j] /= rowSum;
+      }
+      matrix[i].deb;
+      matrixInt[i] = matrix[i].map!"a.to!int".array;
+      while(matrixInt[i].sum < 100 - OTHERS_WEIGHT * (M - size)) {
+        matrixInt[i][uniform(0, size, RND)]++;
+      }
+      matrixInt[i].swapAt(0, target.nodes[0]);
     }
 
-    auto maxi = start.maxIndex;
     string[] ans;
-    foreach(i; 0..6) {
-      auto s = [ELM[i % $]].to!string;
-      auto arr = 1.repeat(M).array;
-      foreach(_; arr.sum..100) {
-        arr[offset * 6 + candidates[i].choice(RND)]++;
-      }
-      arr.swapAt(offset * 6, offset * 6 + maxi);
-      ans ~= format("%s %(%d %)", s, arr);
+    foreach(c, m; zip(target.chars(), matrixInt)) {
+      int[] arr = OTHERS_WEIGHT.repeat(M).array;
+      arr[ofs..ofs + size] = m;
+      ans ~= "%s %(%d %)".format(c, arr);
     }
-    ans.swapAt(0, maxi);
-    foreach(s; ans) writeln(s);
+    ans.swapAt(0, target.nodes[0]);
+
+    foreach(s; ans) {
+      writeln(s);
+    }
+
+    headers ~= ofs;
+    ofs += size;
+    rest -= size;
+    foreach(u; target.ids) used[u] = true;
+  }
+
+  foreach(_; 0..rest) {
+    int[] arr = 3.repeat(M).array;
+    foreach(i; headers) arr[i] = (50.0 / headers.length).to!int;
+    while(arr.sum < 100) arr[uniform(0, M, RND)]++;
+    writefln("%s %(%d %)", ELM[_ % $], arr);
   }
 }
 
