@@ -15,12 +15,14 @@ void problem() {
   auto SP = N.iota.map!(_ => tuple(scan, scan!int)).array;
   
   enum ELM = "abcdef";
+  auto P_MAX = SP.map!"a[1]".maxElement;
+  auto P_RATIO = P_MAX / 10;
 
   int[6][6] matrix;
   foreach(sp; SP) {
     char pre = sp[0][0];
     foreach(next; sp[0][1..$]) {
-      matrix[pre - 'a'][next - 'a'] += max(1, sp[1] / 300) ^^ 3;
+      matrix[pre - 'a'][next - 'a'] += max(1, sp[1] / P_RATIO) ^^ 4;
       pre = next;
     }
   }
@@ -35,8 +37,10 @@ void problem() {
 
   foreach(i; 0..6) {
     auto s = [ELM[i % $]].to!string;
-    auto arr = 9.repeat(M).array;
-    arr[i] = 1;
+    auto arr = 0.repeat(6).array ~ 1.repeat(6).array;
+    foreach(_; arr.sum..100) {
+      arr[0 + candidates[i].choice(RND)]++;
+    }
 
     writefln("%s %(%d %)", s, arr);
   }
