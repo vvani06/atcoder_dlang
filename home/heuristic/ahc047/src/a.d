@@ -12,15 +12,40 @@ void problem() {
   int N = scan!int;
   int M = scan!int;
   int L = scan!int;
-  auto S = N.iota.map!(_ => tuple(scan, scan!int)).array;
+  auto SP = N.iota.map!(_ => tuple(scan, scan!int)).array;
   
   enum ELM = "abcdef";
 
-  foreach(i; 0..M) {
+  int[6][6] matrix;
+  foreach(sp; SP) {
+    char pre = sp[0][0];
+    foreach(next; sp[0][1..$]) {
+      matrix[pre - 'a'][next - 'a'] += max(1, sp[1] / 300) ^^ 3;
+      pre = next;
+    }
+  }
+  foreach(m; matrix) m.deb;
+
+  int[][] candidates = new int[][](6, 0);
+  foreach(i; 0..6) {
+    foreach(j; 0..6) {
+      candidates[i] ~= j.repeat(matrix[i][j]).array;
+    }
+  }
+
+  foreach(i; 0..6) {
     auto s = [ELM[i % $]].to!string;
-    auto arr = new int[](M);
-    foreach(_; 0..100) {
-      arr[uniform(0, M, RND)]++;
+    auto arr = 9.repeat(M).array;
+    arr[i] = 1;
+
+    writefln("%s %(%d %)", s, arr);
+  }
+
+  foreach(i; 0..6) {
+    auto s = [ELM[i % $]].to!string;
+    auto arr = 1.repeat(6).array ~ 0.repeat(6).array;
+    foreach(_; arr.sum..100) {
+      arr[6 + candidates[i].choice(RND)]++;
     }
 
     writefln("%s %(%d %)", s, arr);
