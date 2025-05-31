@@ -30,7 +30,7 @@ void problem() {
   struct WeightedColor {
     int[] colorIds;
     Color color;
-    double weight;
+    double weight = 0;
 
     this(int[] cids) {
       colorIds = cids.dup;
@@ -40,6 +40,11 @@ void problem() {
         cids.map!(a => OWN[a].m).mean,
         cids.map!(a => OWN[a].y).mean,
       );
+    }
+
+    this(Color c, double w) {
+      weight = w;
+      color = c;
     }
 
     double delta(Color other) { return color.delta(other); }
@@ -187,9 +192,19 @@ void problem() {
     }
   }
   
+  WeightedColor[] palette = new WeightedColor[](N);
   foreach(target; TARGET) {
-    int wi;
+    int reuse;
     double bestScore = int.max;
+    foreach(i; 0..N) {
+      if (palette[i].weight < 1.0) continue;
+
+      if (bestScore.chmin(target.delta(palette[i].color))) {
+        reuse = i;
+      }
+    }
+ 
+    int wi = -1;
     foreach(times, tree; kdTree[1..$].enumerate(1)) {
       auto nearest = *(tree.nearest(target.asArray.kdPoint));
       auto nci = WCI[times][Color(nearest[0], nearest[1], nearest[2])];
@@ -199,11 +214,26 @@ void problem() {
       score += times * D;
       if (bestScore.chmin(score)) wi = nci;
     }
-    
-    auto wc = WC[wi];
-    foreach(c; wc.colorIds) writefln("1 0 0 %s", c);
-    writefln("2 0 0");
-    foreach(_; 0..wc.colorIds.length - 1) writefln("3 0 0");
+
+    if (wi == -1) {
+      writefln("2 %s 0", reuse);
+      auto c = palette[reuse];
+      palette[reuse] = WeightedColor(c.color, c.weight - 1);
+    } else {
+      int use;
+      double mini = int.max;
+      foreach(i; 0..N) {
+        if (mini.chmin(palette[i].weight)) use = i;
+      }
+      while(mini > 0) {
+        writefln("3 %s 0", use);
+        mini -= 1;
+      }
+      auto wc = WC[wi];
+      foreach(c; wc.colorIds) writefln("1 %s 0 %s", use, c);
+      writefln("2 %s 0", use);
+      palette[use] = WeightedColor(wc.color, wc.colorIds.length - 1);
+    }
   }
 }
 
