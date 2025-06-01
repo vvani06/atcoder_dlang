@@ -27,7 +27,7 @@ void problem() {
   Color[] OWN = K.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
   Color[] TARGET = H.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
 
-  struct WeightedColor {
+  struct CompositeColor {
     int[] colorIds;
     Color color;
     double weight = 0;
@@ -50,57 +50,89 @@ void problem() {
     double delta(Color other) { return color.delta(other); }
   }
 
-  WeightedColor[] WC;
-  int[Color][] WCI;
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
 
-  {
-    DList!int picked;
-    void dfs(int depth, int index, int maxDepth) {
-      if (!picked.empty) {
-        auto pa = picked.array;
-        WC ~= WeightedColor(picked.array);
-        WCI[pa.length].require(WC[$ - 1].color, WC.length.to!int - 1);
-      } else {
-        WCI.length = maxDepth + 1;
-      }
-      if (depth >= maxDepth) return;
+  final class ColorServer {
+    int maxCompositeCount;
 
-      foreach(i; index..K) {
-        picked.insertBack(i);
-        dfs(depth + 1, i, maxDepth);
-        picked.removeBack();
-      }
+    this(int mcc) {
+      maxCompositeCount = mcc;
+      build();
     }
-    
-    dfs(0, 0, min(6, max(2, T / 1600)));
+
+    CompositeColor[] colors;
+    int[Color][] idBySize;
+    KDNode!(3LU, double)*[] kdTrees;
+
+    void build() {
+      DList!int picked;
+      void dfs(int depth, int index, int maxDepth) {
+        if (!picked.empty) {
+          auto pa = picked.array;
+          colors ~= CompositeColor(picked.array);
+          idBySize[pa.length].require(colors[$ - 1].color, colors.length.to!int - 1);
+        } else {
+          idBySize.length = maxDepth + 1;
+        }
+        if (depth >= maxDepth) return;
+
+        foreach(i; index..K) {
+          picked.insertBack(i);
+          dfs(depth + 1, i, maxDepth);
+          picked.removeBack();
+        }
+      }
+      dfs(0, 0, maxCompositeCount);
+      kdTrees = idBySize.length.iota.map!(i => KDNode!(3, double).build(idBySize[i].keys.map!"a.asArray".array)).array;
+    }
+
+    int nearest(Color target, int[] specifiedSize = []) {
+      double bestDelta = int.max;
+      int ret;
+
+      foreach(colorSize, tree; kdTrees[1..$].enumerate(1)) {
+        if (!specifiedSize.empty && !specifiedSize.canFind(colorSize)) continue;
+
+        auto nearest = *(tree.nearest(target.asArray.kdPoint));
+        auto nci = idBySize[colorSize][Color(nearest[0], nearest[1], nearest[2])];
+        if (bestDelta.chmin(target.delta(colors[nci].color))) ret = nci;
+      }
+      return ret;
+    }
+
+    CompositeColor serve(int colorId) {
+      return colors[colorId];
+    }
+    int[] serveOwnColors(int colorId) {
+      return colors[colorId].colorIds;
+    }
   }
 
-  WC.length.deb;
-  auto kdTree = WCI.length.iota.map!(i => KDNode!(3, double).build(WCI[i].keys.map!"a.asArray".array)).array;
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
 
-  foreach(_; 0..N) {
-    writefln("%(%s %)", 1.repeat(N - 1));
-  }
-  foreach(_; 1..N) {
-    writefln("%(%s %)", 0.repeat(N));
-  }
-
-  struct Well {
+  class Well {
     int id;
     double size;
     Color color;
+
+    this(int id) {
+      this.id = id;
+      size = 0.0;
+      color = Color(0, 0, 0);
+    }
     
-    Well add(double otherSize, Color otherColor) {
+    void add(double otherSize, Color otherColor) {
       auto newSize = size + otherSize;
-      return Well(
-        id,
-        newSize,
-        Color(
-          (color.c * size + otherColor.c * otherSize) / newSize,
-          (color.m * size + otherColor.m * otherSize) / newSize,
-          (color.y * size + otherColor.y * otherSize) / newSize,
-        ),
+      color = Color(
+        (color.c * size + otherColor.c * otherSize) / newSize,
+        (color.m * size + otherColor.m * otherSize) / newSize,
+        (color.y * size + otherColor.y * otherSize) / newSize,
       );
+      size = newSize;
     }
 
     inout int opCmp(inout Well other) {
@@ -111,16 +143,30 @@ void problem() {
     }
   }
 
-  class State {
+  final class State {
+    int wellSize;
+
     Well[int] palette;
     int nextWellId;
     int nextTargetIndex;
     long useColorCount;
     double colorDeltaSum;
     string[] commands;
+    State preState;
 
-    this() {
+    this(int wellSize = 10) {
+      this.wellSize = wellSize;
       colorDeltaSum = sqrt(3.0) * H;
+      foreach(i; 0..N^^2 / wellSize) {
+        palette[i] = new Well(i);
+      }
+
+      foreach(_; 0..N)  commands ~= format("%(%s %)", 1.repeat(N - 1));
+      foreach(_; 1..N)  commands ~= format("%(%s %)", (_ % wellSize == 0 ? 1 : 0).repeat(N));
+    }
+
+    int fixedPaletteSize() {
+      return ((N / wellSize) - 1) * N;
     }
 
     State dup() {
@@ -130,21 +176,39 @@ void problem() {
       ret.nextTargetIndex = nextTargetIndex;
       ret.useColorCount = useColorCount;
       ret.colorDeltaSum = colorDeltaSum;
-      ret.commands = commands.dup;
+      ret.preState = this;
       return ret;
     }
 
-    void newWell(int colorId) {
-      palette[nextWellId] = Well(nextWellId, 1, OWN[colorId]);
-      commands ~= "1 %s %s %s".format(nextWellId / N, nextWellId % N, colorId);
-      nextWellId = (nextWellId + 1) % N;
-      useColorCount++;
+    int wellRow(int wellId) {
+      return (wellId / N) * wellSize;
+    }
+
+    int wellCol(int wellId) {
+      return (wellId % N);
     }
 
     void addWell(int wellId, int colorId) {
-      palette[wellId] = palette[wellId].add(1, OWN[colorId]);
-      commands ~= "1 %s %s %s".format(wellId / N, wellId % N, colorId);
+      palette[wellId].add(1, OWN[colorId]);
+      commands ~= "1 %s %s %s".format(wellRow(wellId), wellCol(wellId), colorId);
       useColorCount++;
+    }
+
+    void clearWell(int wellId) {
+      while (palette[wellId].size > 0) {
+        commands ~= "3 %s %s".format(wellRow(wellId), wellCol(wellId));
+        palette[wellId].size -= 1.0;
+      }
+    }
+
+    int provisionWell() {
+      int use;
+      double mini = int.max;
+      foreach(i; 0..N) {
+        if (mini.chmin(palette[i].size)) use = i;
+      }
+      clearWell(use);
+      return use;
     }
 
     void submitBestColor() {
@@ -160,82 +224,96 @@ void problem() {
       if (bestDelta == int.max) return;
 
       palette[bestWell].size -= 1.0;
-      if (palette[bestWell].size <= 0.001) palette.remove(bestWell);
       nextTargetIndex++;
       colorDeltaSum += sqrt(bestDelta) - sqrt(3.0);
-      commands ~= "2 %s %s".format(bestWell / N, bestWell % N);
+      commands ~= "2 %s %s".format(wellRow(bestWell), wellCol(bestWell));
     }
 
     double calcScore() {
+      if (commands.length > T + 39) return int.max;
+
       return 1
         + (useColorCount - H) * D 
         + colorDeltaSum * 10^^4
       ;
     }
+  }
 
-    State[] simulateStep(bool addOnly = false) {
-      State[] ret;
-      if (!addOnly) foreach(i; 0..K) {
-        auto state = this.dup();
-        state.newWell(i);
-        ret ~= state;
-      }
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------------------------------
 
-      foreach(to; palette.keys) {
-        foreach(i; 0..K) {
-          auto state = this.dup();
-          state.addWell(to, i);
-          ret ~= state;
+  auto bestState = new State(1);
+  auto server = new ColorServer(6);
+  CompositeColor[] WC = server.colors;
+  
+  foreach(wellSize; [2, 3, 4, 5, 6, 10]) {
+    auto state = new State(wellSize);
+    
+    int[int] bestColorFreq;
+    int[] bestColors = new int[](H);
+    foreach(i, target; TARGET) {
+      int bestColor = server.nearest(target, iota(1, wellSize + 1).array);
+      bestColorFreq[bestColor]++;
+      bestColors[i] = bestColor;
+    }
+
+    int[int] bestPalette;
+    {
+      int tt;
+      foreach(k; bestColorFreq.keys.sort!((a, b) => bestColorFreq[a] > bestColorFreq[b])) {
+        if (WC[k].weight.to!int > 1) {
+          if (tt < state.fixedPaletteSize) {
+            bestPalette[k] = 20 + tt;
+            [tt, k, bestColorFreq[k], WC[k].weight.to!int].deb;
+            tt++;
+          }
         }
       }
-      return ret;
     }
-  }
-  
-  WeightedColor[] palette = new WeightedColor[](N);
-  foreach(target; TARGET) {
-    int reuse;
-    double bestScore = int.max;
-    foreach(i; 0..N) {
-      if (palette[i].weight < 1.0) continue;
 
-      if (bestScore.chmin(target.delta(palette[i].color))) {
-        reuse = i;
+    foreach(target, bestColor; zip(TARGET, bestColors)) {
+      if (bestColor in bestPalette) {
+        auto use = bestPalette[bestColor];
+        if (state.palette[use].size <= 0) {
+          foreach(c; WC[bestColor].colorIds) state.addWell(use, c);
+        }
+        state.submitBestColor();
+        continue;
       }
-    }
-    bestScore = bestScore.sqrt * 10^^4;
- 
-    int wi = -1;
-    foreach(times, tree; kdTree[1..$].enumerate(1)) {
-      auto nearest = *(tree.nearest(target.asArray.kdPoint));
-      auto nci = WCI[times][Color(nearest[0], nearest[1], nearest[2])];
-      auto nc = WC[nci];
 
-      auto score = target.delta(nc.color).sqrt * 10^^4;
-      score += times * D;
-      if (bestScore.chmin(score)) wi = nci;
-    }
-
-    if (wi == -1) {
-      writefln("2 0 %s", reuse);
-      auto c = palette[reuse];
-      palette[reuse] = WeightedColor(c.color, c.weight - 1);
-    } else {
-      int use;
-      double mini = int.max;
+      double bestScore = int.max;
       foreach(i; 0..N) {
-        if (mini.chmin(palette[i].weight)) use = i;
+        if (state.palette[i].size < 1.0) continue;
+        
+        bestScore.chmin(target.delta(state.palette[i].color));
       }
-      while(mini > 0) {
-        writefln("3 0 %s", use);
-        mini -= 1;
+      bestScore = bestScore.sqrt * 10^^4;
+
+      int efficientColor = -1;
+      foreach(times; 1..state.wellSize + 1) {
+        auto compositeColorId = server.nearest(target, [times]);
+        auto score = target.delta(server.serve(compositeColorId).color).sqrt * 10^^4;
+        score += times * D;
+        if (bestScore.chmin(score)) efficientColor = compositeColorId;
       }
-      auto wc = WC[wi];
-      foreach(c; wc.colorIds) writefln("1 0 %s %s", use, c);
-      writefln("2 0 %s", use);
-      palette[use] = WeightedColor(wc.color, wc.colorIds.length - 1);
+
+      if (efficientColor == -1) {
+        state.submitBestColor();
+      } else {
+        auto use = state.provisionWell();
+        foreach(c; server.serveOwnColors(efficientColor)) state.addWell(use, c);
+        state.submitBestColor();
+      }
+    }
+
+    if (bestState.calcScore() > state.calcScore()) {
+      bestState = state;
     }
   }
+
+  foreach(c; bestState.commands) writeln(c);
+  bestState.calcScore.deb;
 }
 
 // ----------------------------------------------
