@@ -12,7 +12,7 @@ void problem() {
   struct Color {
     double c, m, y;
 
-    double[3] asArray() { return [c, m, y]; }
+    double[] asArray() { return [c, m, y]; }
 
     double delta(Color other) {
       return pow(c - other.c, 2) + pow(m - other.m, 2) + pow(y - other.y, 2);
@@ -26,57 +26,6 @@ void problem() {
   int D = scan!int;
   Color[] OWN = K.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
   Color[] TARGET = H.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
-
-  struct WeightedColor {
-    int[] colorIds;
-    Color color;
-    double weight = 0;
-
-    this(int[] cids) {
-      colorIds = cids.dup;
-      weight = cids.length;
-      color = Color(
-        cids.map!(a => OWN[a].c).mean,
-        cids.map!(a => OWN[a].m).mean,
-        cids.map!(a => OWN[a].y).mean,
-      );
-    }
-
-    this(Color c, double w) {
-      weight = w;
-      color = c;
-    }
-
-    double delta(Color other) { return color.delta(other); }
-  }
-
-  WeightedColor[] WC;
-  int[Color][] WCI;
-
-  {
-    DList!int picked;
-    void dfs(int depth, int index, int maxDepth) {
-      if (!picked.empty) {
-        auto pa = picked.array;
-        WC ~= WeightedColor(picked.array);
-        WCI[pa.length].require(WC[$ - 1].color, WC.length.to!int - 1);
-      } else {
-        WCI.length = maxDepth + 1;
-      }
-      if (depth >= maxDepth) return;
-
-      foreach(i; index..K) {
-        picked.insertBack(i);
-        dfs(depth + 1, i, maxDepth);
-        picked.removeBack();
-      }
-    }
-    
-    dfs(0, 0, T <= 5000 ? 2 : 5);
-  }
-
-  WC.length.deb;
-  auto kdTree = WCI.length.iota.map!(i => KDNode!(3, double).build(WCI[i].keys.map!"a.asArray".array)).array;
 
   foreach(_; 0..N) {
     writefln("%(%s %)", 1.repeat(N - 1));
@@ -118,19 +67,25 @@ void problem() {
     long useColorCount;
     double colorDeltaSum;
     string[] commands;
+    State preState;
 
     this() {
       colorDeltaSum = sqrt(3.0) * H;
     }
 
-    State dup() {
+    State dup(bool deep = false) {
       State ret = new State();
       ret.palette = palette.dup;
       ret.nextWellId = nextWellId;
       ret.nextTargetIndex = nextTargetIndex;
       ret.useColorCount = useColorCount;
       ret.colorDeltaSum = colorDeltaSum;
-      ret.commands = commands.dup;
+      if (deep) {
+        ret.preState = this.preState;
+        ret.commands = commands.dup;
+      } else {
+        ret.preState = this;
+      }
       return ret;
     }
 
@@ -160,16 +115,39 @@ void problem() {
       if (bestDelta == int.max) return;
 
       palette[bestWell].size -= 1.0;
-      if (palette[bestWell].size <= 0.001) palette.remove(bestWell);
+      if (palette[bestWell].size.isClose(0, 0.00001)) palette.remove(bestWell);
       nextTargetIndex++;
       colorDeltaSum += sqrt(bestDelta) - sqrt(3.0);
       commands ~= "2 %s %s".format(bestWell / N, bestWell % N);
     }
 
+    double potential() {
+      double ret = 0;
+      int[] used = new int[](N);
+      for(auto t = nextTargetIndex; t < min(H, nextTargetIndex + 2); t++) {
+        auto target = TARGET[t];
+        double bestDelta = int.max;
+        int bestWell;
+        foreach(w, well; palette) {
+          if (well.size - used[w] >= 1.0 && bestDelta.chmin(target.delta(well.color))) bestWell = w;
+        }
+
+        if (bestDelta == int.max) break;
+        ret += sqrt(bestDelta) - sqrt(3.0);
+        used[bestWell]++;
+      }
+
+      return ret;
+    }
+
+
+    double calcedScore;
     double calcScore() {
-      return 1
-        + (useColorCount - H) * D 
+      if (calcedScore !is double.nan) return calcedScore;
+      return calcedScore = 1
+        + useColorCount * D
         + colorDeltaSum * 10^^4
+        + potential() * 10^^4
       ;
     }
 
@@ -191,49 +169,44 @@ void problem() {
       return ret;
     }
   }
-  
-  WeightedColor[] palette = new WeightedColor[](N);
-  foreach(target; TARGET) {
-    int reuse;
-    double bestScore = int.max;
-    foreach(i; 0..N) {
-      if (palette[i].weight < 1.0) continue;
 
-      if (bestScore.chmin(target.delta(palette[i].color))) {
-        reuse = i;
+  State ans = new State();
+  ans.useColorCount = 10^^5;
+  auto states = [new State()];
+  auto states2 = [new State()];
+
+  enum BEAM_BANDWIDTH = 2;
+
+  foreach(_; 0..H * 3) {
+    State[] nextStates;
+    foreach(ref fromStates; [states, states2]) {
+      foreach(preState; fromStates.sort!"a.calcScore < b.calcScore"[0..min($, BEAM_BANDWIDTH)]) {
+        auto sim = preState.simulateStep();
+        nextStates ~= sim;
       }
     }
- 
-    int wi = -1;
-    foreach(times, tree; kdTree[1..$].enumerate(1)) {
-      auto nearest = *(tree.nearest(target.asArray.kdPoint));
-      auto nci = WCI[times][Color(nearest[0], nearest[1], nearest[2])];
-      auto nc = WC[nci];
 
-      auto score = target.delta(nc.color).sqrt * 10^^4;
-      score += times * D;
-      if (bestScore.chmin(score)) wi = nci;
+    nextStates.length.deb;
+    states2 = nextStates.map!"a.dup(true)".array;
+    foreach(i; 0..nextStates.length) {
+      nextStates[i].submitBestColor();
+      if (nextStates[i].nextTargetIndex == H && ans.calcScore() > nextStates[i].calcScore()) {
+        ans = nextStates[i];
+      }
     }
 
-    if (wi == -1) {
-      writefln("2 %s 0", reuse);
-      auto c = palette[reuse];
-      palette[reuse] = WeightedColor(c.color, c.weight - 1);
-    } else {
-      int use;
-      double mini = int.max;
-      foreach(i; 0..N) {
-        if (mini.chmin(palette[i].weight)) use = i;
-      }
-      while(mini > 0) {
-        writefln("3 %s 0", use);
-        mini -= 1;
-      }
-      auto wc = WC[wi];
-      foreach(c; wc.colorIds) writefln("1 %s 0 %s", use, c);
-      writefln("2 %s 0", use);
-      palette[use] = WeightedColor(wc.color, wc.colorIds.length - 1);
-    }
+    states = nextStates;
+  }
+
+  ans.calcScore().deb;
+  string[][] commands;
+  while(ans !is null) {
+    commands ~= ans.commands;
+    ans = ans.preState;
+  }
+
+  foreach(cs; commands.retro) {
+    foreach(c; cs) writeln(c);
   }
 }
 
@@ -269,156 +242,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
-
-
-struct KDNode(size_t k, T) if(k > 0)
-{
-    KDPoint!(k, T) point;
-
-    KDNode!(k, T) *left  = null;
-    KDNode!(k, T) *right = null;
-
-    this(KDPoint!(k, T) point)
-    {
-        this.point = point;
-    }
-
-    static KDNode!(k, T) *build(T[k][] points...)
-    {
-        return build(KDPoint!(k, T).build(points));
-    }
-
-    static KDNode!(k, T) *build(KDPoint!(k, T)[] points, size_t depth = 0)
-    {
-        if(points.length > 1)
-        {
-            auto axis = depth % k;
-
-            auto sorted = points.sortedOn(axis);
-            auto median = sorted[$ / 2];
-
-            auto node = new KDNode!(k, T)(median);
-
-            if(sorted.length / 2 > 0)
-            {
-                node.left = build(sorted[0 .. $ / 2], depth + 1);
-            }
-            if(sorted.length / 2 + 1 < sorted.length)
-            {
-                node.right = build(sorted[$ / 2 + 1 .. $], depth + 1);
-            }
-
-            return node;
-        }
-        else if(points.length == 1)
-        {
-            return new KDNode!(k, T)(points[0]);
-        }
-        else
-        {
-            return null;
-        }
-    }
-
-    @property
-    bool leaf() const
-    {
-        return left is null && right is null;
-    }
-}
-
-KDPoint!(k, T) *nearest(size_t k, T)(KDNode!(k, T) *root, KDPoint!(k, T) neighbour) if(k > 0)
-{
-    KDPoint!(k, T) *nearest = null;
-    double nearestDistance = double.max;
-
-    void nearestImpl(KDNode!(k, T) *current, KDPoint!(k, T) point, size_t depth = 0)
-    {
-        if(current !is null)
-        {
-            auto axis = depth % k;
-
-            double distance = current.point.distanceSq(point);
-            double distanceAxis = (current.point[axis] - point[axis]) ^^ 2;
-
-            if(nearest is null || distance < nearestDistance)
-            {
-                nearestDistance = distance;
-                nearest = &current.point;
-            }
-
-            if(nearestDistance > 0)
-            {
-                auto next = distanceAxis > 0 ? current.left : current.right;
-                nearestImpl(next, point, depth + 1);
-
-                if(distanceAxis <= nearestDistance)
-                {
-                    next = distanceAxis > 0 ? current.right : current.left;
-                    nearestImpl(next, point, depth + 1);
-                }
-            }
-        }
-    }
-    nearestImpl(root, neighbour);
-    return nearest;
-}
-
-struct KDPoint(size_t k, T) if(k > 0)
-{
-    T[k] state;
-
-    this(T[k] state...)
-    {
-        this.state = state;
-    }
-
-    static KDPoint!(k, T)[] build(T[k][] points...)
-    {
-        return points.map!(p => KDPoint!(k, T)(p)).array;
-    }
-
-    double distanceSq(KDPoint!(k, T) other) const
-    {
-        return iota(0, k)
-            .map!(i => state[i] - other.state[i])
-            .map!"a ^^ 2"
-            .sum;
-    }
-
-    @property
-    enum size_t length = k;
-
-    T opIndex(size_t axis)
-    {
-        return state[axis];
-    }
-
-    T[] opSlice(size_t start, size_t stop)
-    {
-        return state[start .. stop];
-    }
-
-    bool opEquals(KDPoint!(k, T) other) const
-    {
-        return state == other.state;
-    }
-}
-
-@property
-KDPoint!(k, T) kdPoint(size_t k, T)(T[k] point) if(k > 0)
-{
-    return KDPoint!(k, T)(point);
-}
-
-@property
-KDPoint!(k, T) kdPoint(size_t k, T)(T[] point) if(k > 0)
-{
-    return KDPoint!(k, T)(point[0 .. k]);
-}
-
-@property
-KDPoint!(k, T)[] sortedOn(size_t k, T)(KDPoint!(k, T)[] points, size_t axis) if(k > 0)
-{
-    return points.sort!((a, b) => a[axis] < b[axis]).array;
-}
