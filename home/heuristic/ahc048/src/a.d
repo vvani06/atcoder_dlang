@@ -31,10 +31,12 @@ void problem() {
     int[] colorIds;
     Color color;
     double weight = 0;
+    int weightI = 0;
 
     this(int[] cids) {
       colorIds = cids.dup;
       weight = cids.length;
+      weightI = cids.length.to!int;
       color = Color(
         cids.map!(a => OWN[a].c).mean,
         cids.map!(a => OWN[a].m).mean,
@@ -42,7 +44,8 @@ void problem() {
       );
     }
 
-    this(Color c, double w) {
+    this(Color c, int w) {
+      weightI = w;
       weight = w;
       color = c;
     }
@@ -245,9 +248,8 @@ void problem() {
 
   auto bestState = new State(1);
   auto server = new ColorServer(6);
-  CompositeColor[] WC = server.colors;
   
-  foreach(wellSize; [2, 3, 4, 5, 6, 10]) {
+  foreach(wellSize; [3, 4, 5, 6]) {
     auto state = new State(wellSize);
     
     int[int] bestColorFreq;
@@ -262,10 +264,12 @@ void problem() {
     {
       int tt;
       foreach(k; bestColorFreq.keys.sort!((a, b) => bestColorFreq[a] > bestColorFreq[b])) {
-        if (WC[k].weight.to!int > 1) {
+        auto weight = server.colors[k].weightI;
+        auto rem = bestColorFreq[k] % weight;
+        if (weight > 1) {
           if (tt < state.fixedPaletteSize) {
-            bestPalette[k] = 20 + tt;
-            [tt, k, bestColorFreq[k], WC[k].weight.to!int].deb;
+            bestPalette[k] = N + tt;
+            [tt, k, bestColorFreq[k], weight].deb;
             tt++;
           }
         }
@@ -275,11 +279,15 @@ void problem() {
     foreach(target, bestColor; zip(TARGET, bestColors)) {
       if (bestColor in bestPalette) {
         auto use = bestPalette[bestColor];
-        if (state.palette[use].size <= 0) {
-          foreach(c; WC[bestColor].colorIds) state.addWell(use, c);
+
+        if (state.palette[use].size > 0 || bestColorFreq[bestColor] > server.colors[bestColor].weightI / 2) {
+          bestColorFreq[bestColor]--;
+          if (state.palette[use].size <= 0) {
+            foreach(c; server.colors[bestColor].colorIds) state.addWell(use, c);
+          }
+          state.submitBestColor();
+          continue;
         }
-        state.submitBestColor();
-        continue;
       }
 
       double bestScore = int.max;
@@ -314,6 +322,9 @@ void problem() {
 
   foreach(c; bestState.commands) writeln(c);
   bestState.calcScore.deb;
+  double extra = 0;
+  foreach(w; bestState.palette) extra += w.size;
+  (extra * D).deb;
 }
 
 // ----------------------------------------------
