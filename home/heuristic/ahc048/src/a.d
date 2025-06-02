@@ -32,8 +32,9 @@ void problem() {
     Color color;
     double weight = 0;
     int weightI = 0;
+    int index;
 
-    this(int[] cids) {
+    this(int[] cids, int idx) {
       colorIds = cids.dup;
       weight = cids.length;
       weightI = cids.length.to!int;
@@ -42,6 +43,7 @@ void problem() {
         cids.map!(a => OWN[a].m).mean,
         cids.map!(a => OWN[a].y).mean,
       );
+      index = idx;
     }
 
     this(Color c, int w) {
@@ -67,15 +69,19 @@ void problem() {
 
     CompositeColor[] colors;
     int[Color][] idBySize;
+    CompositeColor[][] colorsBySize;
     KDNode!(3LU, double)*[] kdTrees;
 
     void build() {
+      colorsBySize = new CompositeColor[][](maxCompositeCount + 1, 0);
       DList!int picked;
       void dfs(int depth, int index, int maxDepth) {
         if (!picked.empty) {
           auto pa = picked.array;
-          colors ~= CompositeColor(picked.array);
-          idBySize[pa.length].require(colors[$ - 1].color, colors.length.to!int - 1);
+          auto toAdd = CompositeColor(picked.array, colors.length.to!int);
+          colors ~= toAdd;
+          idBySize[pa.length].require(toAdd.color, colors.length.to!int - 1);
+          colorsBySize[pa.length] ~= toAdd;
         } else {
           idBySize.length = maxDepth + 1;
         }
@@ -111,6 +117,10 @@ void problem() {
     int[] serveOwnColors(int colorId) {
       return colors[colorId].colorIds;
     }
+
+    CompositeColor[] serveBySize(int size) {
+      return colorsBySize[size];
+    }
   }
 
   // ---------------------------------------------------------------------------------------------------------
@@ -136,6 +146,15 @@ void problem() {
         (color.y * size + otherColor.y * otherSize) / newSize,
       );
       size = newSize;
+    }
+
+    Color testAdd(CompositeColor other) {
+      auto newSize = size + other.weight;
+      return Color(
+        (color.c * size + other.color.c * other.weight) / newSize,
+        (color.m * size + other.color.m * other.weight) / newSize,
+        (color.y * size + other.color.y * other.weight) / newSize,
+      );
     }
 
     inout int opCmp(inout Well other) {
@@ -276,14 +295,14 @@ void problem() {
       }
     }
 
-    foreach(target, bestColor; zip(TARGET, bestColors)) {
-      if (bestColor in bestPalette) {
-        auto use = bestPalette[bestColor];
+    foreach(target, fixedColor; zip(TARGET, bestColors)) {
+      if (fixedColor in bestPalette) {
+        auto use = bestPalette[fixedColor];
 
-        if (state.palette[use].size > 0 || bestColorFreq[bestColor] > server.colors[bestColor].weightI / 2) {
-          bestColorFreq[bestColor]--;
+        if (state.palette[use].size > 0 || bestColorFreq[fixedColor] > server.colors[fixedColor].weightI / 2) {
+          bestColorFreq[fixedColor]--;
           if (state.palette[use].size <= 0) {
-            foreach(c; server.colors[bestColor].colorIds) state.addWell(use, c);
+            foreach(c; server.colors[fixedColor].colorIds) state.addWell(use, c);
           }
           state.submitBestColor();
           continue;
@@ -291,26 +310,58 @@ void problem() {
       }
 
       double bestScore = int.max;
+      int bestMode = -1;
+      int bestColor, reusePalette;
+
+      // 既存色をそのまま提出
       foreach(i; 0..N) {
         if (state.palette[i].size < 1.0) continue;
         
-        bestScore.chmin(target.delta(state.palette[i].color));
+        if (bestScore.chmin(target.delta(state.palette[i].color).asScore())) {
+          bestMode = 0;
+          reusePalette = i;
+        }
       }
-      bestScore = bestScore.sqrt * 10^^4;
 
-      int efficientColor = -1;
+      // 既存色に CompositeColor を加えて提出
+      foreach(i; 0..N) {
+        if (state.palette[i].size < 1.0) continue;
+
+        foreach(addSize; [1, 2]) {
+          if (state.palette[i].size + addSize > state.wellSize) continue;
+
+          auto cost = D * addSize;
+          foreach(compositeColor; server.serveBySize(addSize)) {
+            auto addedColor = state.palette[i].testAdd(compositeColor);
+            
+            if (bestScore.chmin(cost + target.delta(addedColor).asScore())) {
+              bestMode = 1;
+              reusePalette = i;
+              bestColor = compositeColor.index;
+            }
+          }
+        }
+      }
+
+      // 新規に CompositeColor を作成して提出。場合によっては廃棄を伴う
       foreach(times; 1..state.wellSize + 1) {
         auto compositeColorId = server.nearest(target, [times]);
-        auto score = target.delta(server.serve(compositeColorId).color).sqrt * 10^^4;
+        auto score = target.delta(server.serve(compositeColorId).color).asScore();
         score += times * D;
-        if (bestScore.chmin(score)) efficientColor = compositeColorId;
+        if (bestScore.chmin(score)) {
+          bestMode = 2;
+          bestColor = compositeColorId;
+        }
       }
 
-      if (efficientColor == -1) {
+      if (bestMode == 0) {
+        state.submitBestColor();
+      } else if (bestMode == 1) {
+        foreach(c; server.serveOwnColors(bestColor)) state.addWell(reusePalette, c);
         state.submitBestColor();
       } else {
         auto use = state.provisionWell();
-        foreach(c; server.serveOwnColors(efficientColor)) state.addWell(use, c);
+        foreach(c; server.serveOwnColors(bestColor)) state.addWell(use, c);
         state.submitBestColor();
       }
     }
@@ -357,6 +408,7 @@ void runSolver() {
   problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
+double asScore(double d) { return d.sqrt * 10^^4; }
 
 // -----------------------------------------------
 
