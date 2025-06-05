@@ -303,73 +303,9 @@ void problem() {
 
   auto bestState = new State(1);
   auto server = new ColorServer(6);
-
-  if (D <= 50_000) {
-    auto state = new State(20);
-    enum RAND_TIMES = 5000;
-
-    foreach(i; 0..N) {
-      state.addWell(i, i % K);
-    }
-    
-    double penaltySum = 0;
-    foreach(target; TARGET) {
-      auto pal = 0;
-      double bestDelta = int.max;
-      foreach(i; 0..N) {
-        if (state.palette[i].size < 1) continue;
-        if (bestDelta.chmin(state.palette[i].color.delta(target))) pal = i;
-      }
-
-      pal = uniform(0, N, RND);
-      if (state.palette[pal].size < 1) {
-        state.addWell(pal, pal % K);
-      }
-
-      int[] currentColorsToAdd;
-      int[] bestColorsToAdd;
-      auto bestScore = state.palette[pal].color.delta(target).asScore();
-      auto currentWell = state.palette[pal].dup();
-      auto bestWell = state.palette[pal].dup();
-
-      foreach(_; 0..RAND_TIMES) {
-        if (currentWell.size >= state.wellSize) {
-          currentWell.size -= 1.0;
-        }
-
-        auto randomColor = uniform(0, K, RND);
-        currentColorsToAdd ~= randomColor;
-        currentWell.add(1.0, OWN[randomColor]);
-
-        if (bestScore.chmin(currentWell.color.delta(target).asScore() + currentColorsToAdd.length*D)) {
-          bestWell = currentWell.dup;
-          bestColorsToAdd = currentColorsToAdd.dup;
-        } else if (uniform(0, 10, RND) > 2) {
-          currentWell = bestWell.dup;
-          currentColorsToAdd = bestColorsToAdd.dup;
-        }
-      }
-
-      foreach(color; bestColorsToAdd) {
-        if (state.palette[pal].size >= state.wellSize) state.decrease(pal);
-        state.addWell(pal, color);
-      }
-      state.submit(pal);
-
-      bestColorsToAdd.length.deb;
-      penaltySum += bestWell.color.delta(target).asScore();
-    }
-    [penaltySum].deb;
-    state.commands.length.deb;
-    state.calcScore.deb;
-
-    if (bestState.calcScore() > state.calcScore()) {
-      bestState = state;
-    }
-  }
   
-  foreach(wellSize; [-1]) {
-  // foreach(wellSize; [3, 4, 5, 6]) {
+  // foreach(wellSize; [-1]) {
+  foreach(wellSize; [3, 4, 5, 6]) {
     if (wellSize < 0) break;
     auto state = new State(wellSize);
     
