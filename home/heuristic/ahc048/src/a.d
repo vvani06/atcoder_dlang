@@ -303,9 +303,65 @@ void problem() {
 
   auto bestState = new State(1);
   auto server = new ColorServer(6);
+
+  foreach(wellSize; [20]) {
+    int[] paletteIndicies = new int[](H);
+    auto graph = new int[][](N, 0); {
+      double testScore = 0;
+      foreach(t, target; TARGET.enumerate(0)) {
+        double bestDelta = int.max;
+        int pal;
+        foreach(i; 0..N) {
+          if (graph[i].empty) continue;
+
+          if (bestDelta.chmin(TARGET[graph[i].back].delta(target))) {
+            pal = i;
+          }
+        }
+
+        if (bestDelta > 0.01) {
+          auto newPal = graph.countUntil!(g => g.empty()).to!int;
+          if (newPal != -1) pal = newPal;
+        }
+        if (!graph[pal].empty) {
+          testScore += TARGET[graph[pal].back].delta(target).asScore();
+        }
+        graph[pal] ~= t;
+        paletteIndicies[t] = pal;
+      }
+      graph.each!(g => g.map!(c => TARGET[c]).deb);
+      testScore.deb;
+    }
+    
+    auto state = new State(wellSize);
+    foreach(t, palette, target; zip(H.iota, paletteIndicies, TARGET)) {
+      auto pal = state.palette[palette];
+      auto size = pal.size;
+
+      if (size <= 0) {
+        int bestColor = server.nearest(target, iota(1, wellSize + 1).array);
+        foreach(c; server.serveOwnColors(bestColor)) {
+          state.addWell(palette, c);
+        }
+      } else if (size < state.wellSize - 3.0) {
+        double baseDelta = pal.color.delta(target);
+        auto bestDelta = 1000.iota.map!(k => tuple(pal.testAdd(server.serve(k)).delta(target), k)).minElement!"a[0] < b[0]";
+        [baseDelta.asScore, bestDelta[0].asScore].deb;
+
+        if (bestDelta[0] < baseDelta * 0.6) {
+          foreach(c; server.serve(bestDelta[1]).colorIds) state.addWell(palette, c);
+        }
+      }
+      state.submit(palette);
+    }
+
+    if (bestState.calcScore() > state.calcScore()) {
+      bestState = state;
+    }
+  }
   
-  // foreach(wellSize; [-1]) {
-  foreach(wellSize; [3, 4, 5, 6]) {
+  foreach(wellSize; [-1]) {
+  // foreach(wellSize; [3, 4, 5, 6]) {
     if (wellSize < 0) break;
     auto state = new State(wellSize);
     
