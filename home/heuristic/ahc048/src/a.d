@@ -425,6 +425,9 @@ void problem() {
     auto paletteCount = N^^2 / state.wellSize;
 
     foreach(t, target; zip(H.iota, TARGET)) {
+      const turnD = pow(t.to!double / H.to!double, 4) * D;
+      const decD = D.to!double;
+
       if (elapsed(2800)) break;
       int bestPalette, bestDecrease, bestColor;
       double bestScore = int.max;
@@ -440,14 +443,18 @@ void problem() {
         }
 
         auto baseSize = well.size;
-        foreach(dec; 0..min(2, well.size.to!int + 1)) {
+        foreach(dec; 0..min(3, well.size.to!int + 1)) {
+          if (decD*dec >= bestScore) break;
+
           well.size = baseSize - dec;
           foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
+            if (turnD*addSize + decD*dec >= bestScore) break;
+
             auto ideal = well.calcIdealColor(target, addSize);
             auto adder = server.nearest(ideal, [addSize]);
             auto mixed = well.testAdd(server.serve(adder));
             auto delta = mixed.delta(target);
-            auto score = delta.asScore() + D*dec + D*t/H;
+            auto score = delta.asScore() + decD*dec + turnD*addSize;
             
             if (bestScore.chmin(score)) {
               bestPalette = pal;
