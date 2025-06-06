@@ -12,6 +12,7 @@ void problem() {
   struct Color {
     double c, m, y;
 
+    double[] asArrayD() { return [c, m, y]; }
     double[3] asArray() { return [c, m, y]; }
 
     double delta(Color other) {
@@ -176,6 +177,16 @@ void problem() {
       );
     }
 
+    Color calcIdealColor(Color target, int anotherSize) {
+      double s = size;
+      double t = anotherSize;
+      double[] calced;
+      foreach(a, c; zip(color.asArrayD(), target.asArrayD())) {
+        calced ~= (c * (s + t) - s * a) / t;
+      }
+      return Color(calced[0], calced[1], calced[2]);
+    }
+
     inout int opCmp(inout Well other) {
       return cmp(
         [id, size],
@@ -303,65 +314,9 @@ void problem() {
 
   auto bestState = new State(1);
   auto server = new ColorServer(6);
-
-  foreach(wellSize; [20]) {
-    int[] paletteIndicies = new int[](H);
-    auto graph = new int[][](N, 0); {
-      double testScore = 0;
-      foreach(t, target; TARGET.enumerate(0)) {
-        double bestDelta = int.max;
-        int pal;
-        foreach(i; 0..N) {
-          if (graph[i].empty) continue;
-
-          if (bestDelta.chmin(TARGET[graph[i].back].delta(target))) {
-            pal = i;
-          }
-        }
-
-        if (bestDelta > 0.01) {
-          auto newPal = graph.countUntil!(g => g.empty()).to!int;
-          if (newPal != -1) pal = newPal;
-        }
-        if (!graph[pal].empty) {
-          testScore += TARGET[graph[pal].back].delta(target).asScore();
-        }
-        graph[pal] ~= t;
-        paletteIndicies[t] = pal;
-      }
-      graph.each!(g => g.map!(c => TARGET[c]).deb);
-      testScore.deb;
-    }
-    
-    auto state = new State(wellSize);
-    foreach(t, palette, target; zip(H.iota, paletteIndicies, TARGET)) {
-      auto pal = state.palette[palette];
-      auto size = pal.size;
-
-      if (size <= 0) {
-        int bestColor = server.nearest(target, iota(1, wellSize + 1).array);
-        foreach(c; server.serveOwnColors(bestColor)) {
-          state.addWell(palette, c);
-        }
-      } else if (size < state.wellSize - 3.0) {
-        double baseDelta = pal.color.delta(target);
-        auto bestDelta = 1000.iota.map!(k => tuple(pal.testAdd(server.serve(k)).delta(target), k)).minElement!"a[0] < b[0]";
-        [baseDelta.asScore, bestDelta[0].asScore].deb;
-
-        if (bestDelta[0] < baseDelta * 0.6) {
-          foreach(c; server.serve(bestDelta[1]).colorIds) state.addWell(palette, c);
-        }
-      }
-      state.submit(palette);
-    }
-
-    if (bestState.calcScore() > state.calcScore()) {
-      bestState = state;
-    }
-  }
   
-  foreach(wellSize; [-1]) {
-  // foreach(wellSize; [3, 4, 5, 6]) {
+  // foreach(wellSize; [-1]) {
+  foreach(wellSize; [3, 4, 5, 6]) {
     if (wellSize < 0) break;
     auto state = new State(wellSize);
     
@@ -382,7 +337,7 @@ void problem() {
         if (weight > 1) {
           if (tt < state.fixedPaletteSize) {
             bestPalette[k] = N + tt;
-            [tt, k, bestColorFreq[k], weight].deb;
+            // [tt, k, bestColorFreq[k], weight].deb;
             tt++;
           }
         }
@@ -460,6 +415,59 @@ void problem() {
       }
     }
 
+    if (bestState.calcScore() > state.calcScore()) {
+      bestState = state;
+    }
+  }
+
+  foreach(wellSize; T <= 5000 ? [4]: [5]) {
+    auto state = new State(wellSize);
+    auto paletteCount = N^^2 / state.wellSize;
+
+    foreach(t, target; zip(H.iota, TARGET)) {
+      if (elapsed(2800)) break;
+      int bestPalette, bestDecrease, bestColor;
+      double bestScore = int.max;
+
+      foreach(pal; 0..paletteCount) {
+        auto well = state.palette[pal];
+
+        if (well.size >= 1) {
+          if (bestScore.chmin(well.color.delta(target).asScore())) {
+            bestPalette = pal;
+            bestColor = -1;
+          }
+        }
+
+        auto baseSize = well.size;
+        foreach(dec; 0..min(2, well.size.to!int + 1)) {
+          well.size = baseSize - dec;
+          foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
+            auto ideal = well.calcIdealColor(target, addSize);
+            auto adder = server.nearest(ideal, [addSize]);
+            auto mixed = well.testAdd(server.serve(adder));
+            auto delta = mixed.delta(target);
+            auto score = delta.asScore() + D*dec + D*t/H;
+            
+            if (bestScore.chmin(score)) {
+              bestPalette = pal;
+              bestDecrease = dec;
+              bestColor = adder;
+            }
+          }
+        }
+        well.size = baseSize;
+      }
+
+      if (bestColor >= 0) {
+        foreach(_; 0..bestDecrease) state.decrease(bestPalette);
+        foreach(c; server.serve(bestColor).colorIds) state.addWell(bestPalette, c);
+      }
+      state.submit(bestPalette);
+    }
+
+    if (elapsed(2800)) break;
+    bestState.calcScore().deb;
     if (bestState.calcScore() > state.calcScore()) {
       bestState = state;
     }
