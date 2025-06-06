@@ -98,29 +98,15 @@ void problem() {
       kdTrees = idBySize.length.iota.map!(i => KDNode!(3, double).build(idBySize[i].keys.map!"a.asArray".array)).array;
     }
 
-    int nearest(Color target, int[] specifiedSize = []) {
-      double bestDelta = int.max;
-      int ret;
-
-      foreach(colorSize, tree; kdTrees[1..$].enumerate(1)) {
-        if (!specifiedSize.empty && !specifiedSize.canFind(colorSize)) continue;
-
-        auto nearest = *(tree.nearest(target.asArray.kdPoint));
-        auto nci = idBySize[colorSize][Color(nearest[0], nearest[1], nearest[2])];
-        if (bestDelta.chmin(target.delta(colors[nci].color))) ret = nci;
-      }
-      return ret;
+    int nearest(Color target, int specifiedSize) {
+      if (kdTrees.length < specifiedSize + 1) return -1;
+      
+      auto nearest = *(kdTrees[specifiedSize].nearest(target.asArray.kdPoint));
+      return idBySize[specifiedSize][Color(nearest[0], nearest[1], nearest[2])];
     }
 
-    CompositeColor serve(int colorId) {
-      return colors[colorId];
-    }
-    int[] serveOwnColors(int colorId) {
-      return colors[colorId].colorIds;
-    }
-
-    CompositeColor[] serveBySize(int size) {
-      return colorsBySize[size];
+    CompositeColor* serve(int colorId) {
+      return &(colors[colorId]);
     }
   }
 
@@ -168,7 +154,7 @@ void problem() {
       );
     }
 
-    Color testAdd(CompositeColor other) {
+    Color testAdd(CompositeColor* other) {
       auto newSize = size + other.weight;
       return Color(
         (color.c * size + other.color.c * other.weight) / newSize,
@@ -253,41 +239,6 @@ void problem() {
       }
     }
 
-    void clearWell(int wellId) {
-      while (palette[wellId].size > 0) {
-        commands ~= "3 %s %s".format(wellRow(wellId), wellCol(wellId));
-        palette[wellId].size -= 1.0;
-      }
-    }
-
-    int provisionWell() {
-      int use;
-      double mini = int.max;
-      foreach(i; 0..N) {
-        if (mini.chmin(palette[i].size)) use = i;
-      }
-      clearWell(use);
-      return use;
-    }
-
-    void submitBestColor() {
-      if (nextTargetIndex == H) return;
-      auto target = TARGET[nextTargetIndex];
-
-      double bestDelta = int.max;
-      int bestWell;
-      foreach(w, well; palette) {
-        if (well.size >= 1.0 && bestDelta.chmin(target.delta(well.color))) bestWell = w;
-      }
-
-      if (bestDelta == int.max) return;
-
-      palette[bestWell].size -= 1.0;
-      nextTargetIndex++;
-      colorDeltaSum += sqrt(bestDelta) - sqrt(3.0);
-      commands ~= "2 %s %s".format(wellRow(bestWell), wellCol(bestWell));
-    }
-
     void submit(int paletteId) {
       if (nextTargetIndex == H) return;
       auto target = TARGET[nextTargetIndex];
@@ -320,7 +271,10 @@ void problem() {
   auto bestState = new State(1);
   //                       0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
   auto maxCompositeSize = [9, 9, 9, 9, 8, 8, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5][K];
+  auto maxDecreaseTry   = [5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2][K];
   auto server = new ColorServer(maxCompositeSize);
+
+  if (T <= 4500) D = max(D, 25);
 
   foreach(wellSize; iota(min(6, maxCompositeSize), 1, -1)) {
     auto state = new State(wellSize);
@@ -345,7 +299,7 @@ void problem() {
         }
 
         auto baseSize = well.size;
-        foreach(dec; 0..min(3, well.size.to!int + 1)) {
+        foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
           if (decD*dec >= bestScore) break;
 
           well.size = baseSize - dec;
@@ -354,7 +308,7 @@ void problem() {
             if (turnD*addSize + decD*dec >= bestScore) break;
 
             auto ideal = well.calcIdealColor(target, addSize);
-            auto adder = server.nearest(ideal, [addSize]);
+            auto adder = server.nearest(ideal, addSize);
             auto mixed = well.testAdd(server.serve(adder));
             auto delta = mixed.delta(target);
             auto score = delta.asScore() + decD*dec + turnD*addSize;
