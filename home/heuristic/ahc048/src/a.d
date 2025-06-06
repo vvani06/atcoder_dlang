@@ -299,136 +299,38 @@ void problem() {
     }
 
     double calcScore() {
-      if (commands.length > T + 39) return int.max;
+      if (commands.length > T + 39) return int.max / 2;
 
       return 1
         + (useColorCount - H) * D 
         + colorDeltaSum * 10^^4
       ;
     }
+
+    override string toString() {
+      return "State(submit: %s, score: %s, turns: %s)".format(nextTargetIndex, calcScore, commands.length - 39);
+    }
   }
 
   // ---------------------------------------------------------------------------------------------------------
   // ---------------------------------------------------------------------------------------------------------
   // ---------------------------------------------------------------------------------------------------------
 
+  enum LIMIT_MSEC = 2900;
   auto bestState = new State(1);
-  auto server = new ColorServer(6);
-  
-  // foreach(wellSize; [-1]) {
-  foreach(wellSize; [3, 4, 5, 6]) {
-    if (wellSize < 0) break;
+  //                       0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+  auto maxCompositeSize = [9, 9, 9, 9, 8, 8, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5][K];
+  auto server = new ColorServer(maxCompositeSize);
+
+  foreach(wellSize; iota(min(6, maxCompositeSize), 1, -1)) {
     auto state = new State(wellSize);
-    
-    int[int] bestColorFreq;
-    int[] bestColors = new int[](H);
-    foreach(i, target; TARGET) {
-      int bestColor = server.nearest(target, iota(1, wellSize + 1).array);
-      bestColorFreq[bestColor]++;
-      bestColors[i] = bestColor;
-    }
-
-    int[int] bestPalette;
-    {
-      int tt;
-      foreach(k; bestColorFreq.keys.sort!((a, b) => bestColorFreq[a] > bestColorFreq[b])) {
-        auto weight = server.colors[k].weightI;
-        auto rem = bestColorFreq[k] % weight;
-        if (weight > 1) {
-          if (tt < state.fixedPaletteSize) {
-            bestPalette[k] = N + tt;
-            // [tt, k, bestColorFreq[k], weight].deb;
-            tt++;
-          }
-        }
-      }
-    }
-
-    foreach(target, fixedColor; zip(TARGET, bestColors)) {
-      if (fixedColor in bestPalette) {
-        auto use = bestPalette[fixedColor];
-
-        if (state.palette[use].size > 0 || bestColorFreq[fixedColor] > server.colors[fixedColor].weightI / 2) {
-          bestColorFreq[fixedColor]--;
-          if (state.palette[use].size <= 0) {
-            foreach(c; server.colors[fixedColor].colorIds) state.addWell(use, c);
-          }
-          state.submitBestColor();
-          continue;
-        }
-      }
-
-      double bestScore = int.max;
-      int bestMode = -1;
-      int bestColor, reusePalette;
-
-      // 既存色をそのまま提出
-      foreach(i; 0..N) {
-        if (state.palette[i].size < 1.0) continue;
-        
-        if (bestScore.chmin(target.delta(state.palette[i].color).asScore())) {
-          bestMode = 0;
-          reusePalette = i;
-        }
-      }
-
-      // 既存色に CompositeColor を加えて提出
-      foreach(i; 0..N) {
-        if (state.palette[i].size < 1.0) continue;
-
-        foreach(addSize; [1, 2]) {
-          if (state.palette[i].size + addSize > state.wellSize) continue;
-
-          auto cost = D * addSize;
-          foreach(compositeColor; server.serveBySize(addSize)) {
-            auto addedColor = state.palette[i].testAdd(compositeColor);
-            
-            if (bestScore.chmin(cost + target.delta(addedColor).asScore())) {
-              bestMode = 1;
-              reusePalette = i;
-              bestColor = compositeColor.index;
-            }
-          }
-        }
-      }
-
-      // 新規に CompositeColor を作成して提出。場合によっては廃棄を伴う
-      foreach(times; 1..state.wellSize + 1) {
-        auto compositeColorId = server.nearest(target, [times]);
-        auto score = target.delta(server.serve(compositeColorId).color).asScore();
-        score += times * D;
-        if (bestScore.chmin(score)) {
-          bestMode = 2;
-          bestColor = compositeColorId;
-        }
-      }
-
-      if (bestMode == 0) {
-        state.submitBestColor();
-      } else if (bestMode == 1) {
-        foreach(c; server.serveOwnColors(bestColor)) state.addWell(reusePalette, c);
-        state.submitBestColor();
-      } else {
-        auto use = state.provisionWell();
-        foreach(c; server.serveOwnColors(bestColor)) state.addWell(use, c);
-        state.submitBestColor();
-      }
-    }
-
-    if (bestState.calcScore() > state.calcScore()) {
-      bestState = state;
-    }
-  }
-
-  foreach(wellSize; T <= 5000 ? [4]: [5]) {
-    auto state = new State(wellSize);
-    auto paletteCount = N^^2 / state.wellSize;
+    auto paletteCount = N * (N / wellSize);
 
     foreach(t, target; zip(H.iota, TARGET)) {
-      const turnD = pow(t.to!double / H.to!double, 4) * D;
-      const decD = D.to!double;
+      const turnD = max(0.0, pow(t.to!double / H.to!double, 8) * D);
+      const decD = max(0.0, D.to!double);
 
-      if (elapsed(2800)) break;
+      if (elapsed(LIMIT_MSEC)) break;
       int bestPalette, bestDecrease, bestColor;
       double bestScore = int.max;
 
@@ -448,6 +350,7 @@ void problem() {
 
           well.size = baseSize - dec;
           foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
+            if (addSize > maxCompositeSize) break;
             if (turnD*addSize + decD*dec >= bestScore) break;
 
             auto ideal = well.calcIdealColor(target, addSize);
@@ -472,9 +375,9 @@ void problem() {
       }
       state.submit(bestPalette);
     }
+    if (elapsed(LIMIT_MSEC)) break;
 
-    if (elapsed(2800)) break;
-    bestState.calcScore().deb;
+    state.deb;
     if (bestState.calcScore() > state.calcScore()) {
       bestState = state;
     }
