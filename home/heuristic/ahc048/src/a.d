@@ -343,120 +343,129 @@ void problem() {
 
   if (T <= 4500) D = max(D, 25);
 
-  foreach(wellSize; iota(min(6, maxCompositeSize), 2, -1)) {
-    auto state = new State(wellSize);
-    auto paletteCount = N * (N / wellSize);
-
-    foreach(t, target; zip(H.iota, TARGET)) {
-      auto turnD = D <= 2400 ?
-        max(0.0, pow(t.to!double / H.to!double, 10) * D) :
-        max(state.inkTotal - (H - t), 0) * D;
-      const decD = max(0.0, D.to!double);
-
+  void simulate(int maxAddAfterToggle) {
+    foreach(wellSize; iota(min(6, maxCompositeSize), 2, -1)) {
       if (elapsed(LIMIT_MSEC)) break;
-      int bestPalette, bestDecrease, bestColor, bestToggle, bestColorToggle;
-      double bestScore = int.max;
+      auto state = new State(wellSize);
+      auto paletteCount = N * (N / wellSize);
 
-      double toggleBestScore = int.max;
-      foreach(tid, toggle; state.togglePairs.enumerate(0)) {
-        if (state.containsToggleEmpty(tid)) continue;
+      foreach(t, target; zip(H.iota, TARGET)) {
+        if (elapsed(LIMIT_MSEC)) break;
+        auto turnD = D <= 2400 ?
+          max(0.0, pow(t.to!double / H.to!double, 10) * D) :
+          max(state.inkTotal - (H - t), 0) * D;
+        const decD = max(0.0, D.to!double);
 
-        auto merged = state.testMerge(tid);
-        {
-          auto score = merged.delta(target).asScore();
-          if (bestScore.chmin(score)) {
-            toggleBestScore = bestScore;
-            bestToggle = tid;
-            bestPalette = toggle[0];
-            bestColorToggle = -1;
-          }
-        }
+        int bestPalette, bestDecrease, bestColor, bestToggle, bestColorToggle;
+        double bestScore = int.max;
 
-        // auto well = state.palette[bestPalette].dup();
-        // well.color = merged;
-        // well.size += state.palette[state.togglePairs[tid][1]].size;
-        // foreach(addSize; [1]) {
-        //   auto ideal = well.calcIdealColor(target, addSize);
-        //   auto adder = server.nearest(ideal, addSize);
-        //   auto mixed = well.testAdd(server.serve(adder));
-        //   auto delta = mixed.delta(target);
-        //   auto score = delta.asScore() + turnD*addSize;
-          
-        //   if (bestScore.chmin(score)) {
-        //     toggleBestScore = bestScore;
-        //     bestToggle = tid;
-        //     bestPalette = toggle[0];
-        //     bestColorToggle = adder;
-        //   }
-        // }
-      }
+        double toggleBestScore = int.max;
+        foreach(tid, toggle; state.togglePairs.enumerate(0)) {
+          if (state.containsToggleEmpty(tid)) continue;
 
-      bool visitedEmpty;
-      foreach(pal; 0..paletteCount) {
-        auto well = state.palette[pal];
-
-        if (well.size <= 0) {
-          if (visitedEmpty) continue; else visitedEmpty = true;
-        }
-
-        if (well.size >= 1) {
-          if (bestScore.chmin(well.color.delta(target).asScore())) {
-            bestPalette = pal;
-            bestColor = -1;
-          }
-        }
-
-        auto baseSize = well.size;
-        foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
-          if (decD*dec >= bestScore) break;
-
-          well.size = baseSize - dec;
-          foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
-            if (addSize > maxCompositeSize) break;
-            if (turnD*addSize + decD*dec >= bestScore) break;
-
-            auto ideal = well.calcIdealColor(target, addSize);
-            auto adder = server.nearest(ideal, addSize);
-            auto mixed = well.testAdd(server.serve(adder));
-            auto delta = mixed.delta(target);
-            auto score = delta.asScore() + decD*dec + turnD*addSize;
-            
+          auto merged = state.testMerge(tid);
+          {
+            auto score = merged.delta(target).asScore();
             if (bestScore.chmin(score)) {
-              bestPalette = pal;
-              bestDecrease = dec;
-              bestColor = adder;
+              toggleBestScore = bestScore;
+              bestToggle = tid;
+              bestPalette = toggle[0];
+              bestColorToggle = -1;
+            }
+          }
+
+          if (maxAddAfterToggle > 0) {
+            auto well = state.palette[bestPalette].dup();
+            well.color = merged;
+            well.size += state.palette[state.togglePairs[tid][1]].size;
+            foreach(addSize; 1..min(maxAddAfterToggle, state.wellSize - well.size.to!int) + 1) {
+              auto ideal = well.calcIdealColor(target, addSize);
+              auto adder = server.nearest(ideal, addSize);
+              auto mixed = well.testAdd(server.serve(adder));
+              auto delta = mixed.delta(target);
+              auto score = delta.asScore() + turnD*addSize;
+              
+              if (bestScore.chmin(score)) {
+                toggleBestScore = bestScore;
+                bestToggle = tid;
+                bestPalette = toggle[0];
+                bestColorToggle = adder;
+              }
             }
           }
         }
-        well.size = baseSize;
-      }
 
-      bool isBestToggle = toggleBestScore == bestScore;
-      int toggleOdd;
+        bool visitedEmpty;
+        foreach(pal; 0..paletteCount) {
+          auto well = state.palette[pal];
 
-      if (isBestToggle) {
-        state.toggle(bestToggle);
-        if (bestColorToggle != -1) {
-          foreach(c; server.serve(bestColorToggle).colorIds) state.addWell(bestPalette, c);
+          if (well.size <= 0) {
+            if (visitedEmpty) continue; else visitedEmpty = true;
+          }
+
+          if (well.size >= 1) {
+            if (bestScore.chmin(well.color.delta(target).asScore())) {
+              bestPalette = pal;
+              bestColor = -1;
+            }
+          }
+
+          auto baseSize = well.size;
+          foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
+            if (decD*dec >= bestScore) break;
+
+            well.size = baseSize - dec;
+            foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
+              if (addSize > maxCompositeSize) break;
+              if (turnD*addSize + decD*dec >= bestScore) break;
+
+              auto ideal = well.calcIdealColor(target, addSize);
+              auto adder = server.nearest(ideal, addSize);
+              auto mixed = well.testAdd(server.serve(adder));
+              auto delta = mixed.delta(target);
+              auto score = delta.asScore() + decD*dec + turnD*addSize;
+              
+              if (bestScore.chmin(score)) {
+                bestPalette = pal;
+                bestDecrease = dec;
+                bestColor = adder;
+              }
+            }
+          }
+          well.size = baseSize;
         }
-        // deb("* toggle: ", bestScore);
-        toggleOdd = state.palette[bestPalette].size.to!int % 2;
-      } else if (bestColor >= 0) {
-        foreach(_; 0..bestDecrease) state.decrease(bestPalette);
-        foreach(c; server.serve(bestColor).colorIds) state.addWell(bestPalette, c);
+
+        bool isBestToggle = toggleBestScore == bestScore;
+        int toggleOdd;
+
+        if (isBestToggle) {
+          state.toggle(bestToggle);
+          if (bestColorToggle != -1) {
+            foreach(c; server.serve(bestColorToggle).colorIds) state.addWell(bestPalette, c);
+          }
+          // deb("* toggle: ", bestScore);
+          toggleOdd = state.palette[bestPalette].size.to!int % 2;
+        } else if (bestColor >= 0) {
+          foreach(_; 0..bestDecrease) state.decrease(bestPalette);
+          foreach(c; server.serve(bestColor).colorIds) state.addWell(bestPalette, c);
+        }
+
+        if (isBestToggle && !toggleOdd) state.toggle(bestToggle);
+        state.submit(bestPalette);
+        if (isBestToggle && toggleOdd) state.toggle(bestToggle);
       }
+      if (elapsed(LIMIT_MSEC)) break;
 
-      if (isBestToggle && !toggleOdd) state.toggle(bestToggle);
-      state.submit(bestPalette);
-      if (isBestToggle && toggleOdd) state.toggle(bestToggle);
+      state.deb;
+      "---------------------------------------------------------------------------------------".deb;
+      if (bestState.calcScore() > state.calcScore()) {
+        bestState = state;
+      }
     }
-    if (elapsed(LIMIT_MSEC)) break;
+  }
 
-    state.deb;
-    "---------------------------------------------------------------------------------------".deb;
-    if (bestState.calcScore() > state.calcScore()) {
-      bestState = state;
-    }
+  foreach(maxAddAfterToggle; [0, 1, 2, 3]) {
+    simulate(maxAddAfterToggle);
   }
 
   foreach(c; bestState.commands) writeln(c);
