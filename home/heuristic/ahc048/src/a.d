@@ -280,7 +280,8 @@ void problem() {
       auto a = palette[togglePairs[toggleId][0]];
       auto b = palette[togglePairs[toggleId][1]];
       int t = a.size.to!int + b.size.to!int;
-      return t % 2 == 0;
+      // return t % 2 == 0;
+      return t < 2;
     }
 
     void toggle(int toggleId) {
@@ -401,19 +402,21 @@ void problem() {
         well.size = baseSize;
       }
 
-      if (toggleBestScore == bestScore) {
+      bool isBestToggle = toggleBestScore == bestScore;
+      int toggleOdd;
+
+      if (isBestToggle) {
         state.toggle(bestToggle);
-        deb("* toggle: ", bestScore);
+        // deb("* toggle: ", bestScore);
+        toggleOdd = state.palette[bestPalette].size.to!int % 2;
       } else if (bestColor >= 0) {
         foreach(_; 0..bestDecrease) state.decrease(bestPalette);
         foreach(c; server.serve(bestColor).colorIds) state.addWell(bestPalette, c);
       }
 
+      if (isBestToggle && !toggleOdd) state.toggle(bestToggle);
       state.submit(bestPalette);
-
-      if (toggleBestScore == bestScore) {
-        state.toggle(bestToggle);
-      }
+      if (isBestToggle && toggleOdd) state.toggle(bestToggle);
     }
     if (elapsed(LIMIT_MSEC)) break;
 
