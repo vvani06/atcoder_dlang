@@ -25,6 +25,7 @@ void problem() {
   int H = scan!int;
   int T = scan!int;
   int D = scan!int;
+  auto D_ORG = D;
   Color[] OWN = K.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
   Color[] TARGET = H.iota.map!(_ => Color(scan!double, scan!double, scan!double)).array;
 
@@ -163,6 +164,15 @@ void problem() {
       );
     }
 
+    Color testAdd(Well other) {
+      auto newSize = size + other.size;
+      return Color(
+        (color.c * size + other.color.c * other.size) / newSize,
+        (color.m * size + other.color.m * other.size) / newSize,
+        (color.y * size + other.color.y * other.size) / newSize,
+      );
+    }
+
     Color calcIdealColor(Color target, int anotherSize) {
       double s = size;
       double t = anotherSize;
@@ -184,7 +194,8 @@ void problem() {
   final class State {
     int wellSize;
 
-    Well[int] palette;
+    int paletteSize;
+    Well[] palette;
     int nextWellId;
     int nextTargetIndex;
     long useColorCount;
@@ -192,15 +203,35 @@ void problem() {
     string[] commands;
     State preState;
 
+    int[][] togglePairs;
+    int[][] togglePairsCell;
+    bool[] closed;
+
     this(int wellSize = 10) {
       this.wellSize = wellSize;
+      this.paletteSize = N * (N / wellSize);
       colorDeltaSum = sqrt(3.0) * H;
-      foreach(i; 0..N^^2 / wellSize) {
-        palette[i] = new Well(i);
+      foreach(i; 0..this.paletteSize) {
+        palette ~= new Well(i);
       }
 
       foreach(_; 0..N)  commands ~= format("%(%s %)", 1.repeat(N - 1));
       foreach(_; 1..N)  commands ~= format("%(%s %)", (_ % wellSize == 0 ? 1 : 0).repeat(N));
+
+      const limR = N / this.wellSize;
+      const limC = N;
+      foreach(a; 0..this.paletteSize - 1) {
+        auto ar = a / N;
+        auto ac = a % N;
+        
+        foreach(br, bc; zip([ar, ar + 1], [ac + 1, ac])) {
+          if (br >= limR || bc >= limC) continue;
+
+          togglePairs ~= [a, ar == br ? a + 1 : a + N];
+          togglePairsCell ~= ar == br ? [ar * wellSize, ac, br * wellSize, bc] : [ar * wellSize + wellSize - 1, ac, br * wellSize, bc];
+          closed ~= true;
+        }
+      }
     }
 
     int fixedPaletteSize() {
@@ -226,6 +257,12 @@ void problem() {
       return (wellId % N);
     }
 
+    Color testMerge(int toggleId) {
+      auto a = palette[togglePairs[toggleId][0]];
+      auto b = palette[togglePairs[toggleId][1]];
+      return a.testAdd(b);
+    }
+
     void addWell(int wellId, int colorId) {
       palette[wellId].add(1, OWN[colorId]);
       commands ~= "1 %s %s %s".format(wellRow(wellId), wellCol(wellId), colorId);
@@ -239,6 +276,30 @@ void problem() {
       }
     }
 
+    bool containsToggleEmpty(int toggleId) {
+      auto a = palette[togglePairs[toggleId][0]];
+      auto b = palette[togglePairs[toggleId][1]];
+      int t = a.size.to!int + b.size.to!int;
+      return t % 2 == 0;
+    }
+
+    void toggle(int toggleId) {
+      auto cell = togglePairsCell[toggleId];
+      commands ~= "4 %s %s %s %s".format(cell[0], cell[1], cell[2], cell[3]);
+
+      auto a = palette[togglePairs[toggleId][0]];
+      auto b = palette[togglePairs[toggleId][1]];
+      if (closed[toggleId]) {
+        a.add(b.size, b.color);
+        b.color = a.color;
+        b.size = a.size;
+      } else {
+        b.color = a.color;
+        b.size = a.size = a.size / 2;
+      }
+      closed[toggleId] ^= true;
+    }
+
     void submit(int paletteId) {
       if (nextTargetIndex == H) return;
       auto target = TARGET[nextTargetIndex];
@@ -246,20 +307,21 @@ void problem() {
       palette[paletteId].size -= 1.0;
       nextTargetIndex++;
       colorDeltaSum += target.delta(palette[paletteId].color).sqrt() - sqrt(3.0);
+      // deb("submit: ", target.delta(palette[paletteId].color).asScore());
       commands ~= "2 %s %s".format(wellRow(paletteId), wellCol(paletteId));
     }
 
     double calcScore() {
-      if (commands.length > T + 39) return int.max / 2;
+      if (commands.length > T + 39) return int.max / 8;
 
       return 1
-        + (useColorCount - H) * D 
+        + (useColorCount - H) * D_ORG 
         + colorDeltaSum * 10^^4
       ;
     }
 
     override string toString() {
-      return "State(submit: %s, score: %s, turns: %s)".format(nextTargetIndex, calcScore, commands.length - 39);
+      return "State(submit: %s, score: %9.0f, turns: %s, deltas: %9.0f, costs: %8d, used: %s)".format(nextTargetIndex, calcScore, commands.length - 39, colorDeltaSum * 10^^4, (useColorCount - H)*D_ORG, useColorCount);
     }
   }
 
@@ -276,7 +338,7 @@ void problem() {
 
   if (T <= 4500) D = max(D, 25);
 
-  foreach(wellSize; iota(min(6, maxCompositeSize), 1, -1)) {
+  foreach(wellSize; iota(min(6, maxCompositeSize), 2, -1)) {
     auto state = new State(wellSize);
     auto paletteCount = N * (N / wellSize);
 
@@ -285,10 +347,21 @@ void problem() {
       const decD = max(0.0, D.to!double);
 
       if (elapsed(LIMIT_MSEC)) break;
-      int bestPalette, bestDecrease, bestColor;
+      int bestPalette, bestDecrease, bestColor, bestToggle;
       double bestScore = int.max;
-      bool visitedEmpty;
 
+      double toggleBestScore = int.max;
+      foreach(tid, toggle; state.togglePairs.enumerate(0)) {
+        if (state.containsToggleEmpty(tid)) continue;
+
+        if (bestScore.chmin(state.testMerge(tid).delta(target).asScore())) {
+          toggleBestScore = bestScore;
+          bestToggle = tid;
+          bestPalette = toggle[0];
+        }
+      }
+
+      bool visitedEmpty;
       foreach(pal; 0..paletteCount) {
         auto well = state.palette[pal];
 
@@ -306,7 +379,6 @@ void problem() {
         auto baseSize = well.size;
         foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
           if (decD*dec >= bestScore) break;
-
 
           well.size = baseSize - dec;
           foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
@@ -329,15 +401,24 @@ void problem() {
         well.size = baseSize;
       }
 
-      if (bestColor >= 0) {
+      if (toggleBestScore == bestScore) {
+        state.toggle(bestToggle);
+        deb("* toggle: ", bestScore);
+      } else if (bestColor >= 0) {
         foreach(_; 0..bestDecrease) state.decrease(bestPalette);
         foreach(c; server.serve(bestColor).colorIds) state.addWell(bestPalette, c);
       }
+
       state.submit(bestPalette);
+
+      if (toggleBestScore == bestScore) {
+        state.toggle(bestToggle);
+      }
     }
     if (elapsed(LIMIT_MSEC)) break;
 
     state.deb;
+    "---------------------------------------------------------------------------------------".deb;
     if (bestState.calcScore() > state.calcScore()) {
       bestState = state;
     }
