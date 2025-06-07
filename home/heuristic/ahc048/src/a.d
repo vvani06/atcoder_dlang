@@ -317,6 +317,7 @@ void problem() {
     }
 
     double calcScore() {
+      if (nextTargetIndex != H) return int.max;
       if (commands.length > T + 39) return int.max / 8;
 
       return 1
@@ -339,9 +340,8 @@ void problem() {
   //                       0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
   auto maxCompositeSize = [9, 9, 9, 9, 8, 8, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5][K];
   auto maxDecreaseTry   = [5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2][K];
+  if (T < 5000) maxDecreaseTry = 2;
   auto server = new ColorServer(maxCompositeSize);
-
-  if (T <= 4500) D = max(D, 25);
 
   void simulate(int maxAddAfterToggle) {
     foreach(wellSize; iota(min(6, maxCompositeSize), 2, -1)) {
@@ -354,7 +354,11 @@ void problem() {
         auto turnD = D <= 2400 ?
           max(0.0, pow(t.to!double / H.to!double, 10) * D) :
           max(state.inkTotal - (H - t), 0) * D;
-        const decD = max(0.0, D.to!double);
+        auto decD = max(0.0, D.to!double);
+
+        auto extraTurn = min(20, T - state.commands.length.to!int - (H - t));
+        decD = max(decD, 25 * (20 - extraTurn) / 20);
+        turnD = max(turnD, 25 * (20 - extraTurn) / 20);
 
         int bestPalette, bestDecrease, bestColor, bestToggle, bestColorToggle;
         double bestScore = int.max;
@@ -378,7 +382,7 @@ void problem() {
             auto well = state.palette[bestPalette].dup();
             well.color = merged;
             well.size += state.palette[state.togglePairs[tid][1]].size;
-            foreach(addSize; 1..min(maxAddAfterToggle, state.wellSize - well.size.to!int) + 1) {
+            foreach(addSize; 1..min(maxAddAfterToggle, state.wellSize*2 - 2 - well.size.to!int) + 1) {
               auto ideal = well.calcIdealColor(target, addSize);
               auto adder = server.nearest(ideal, addSize);
               auto mixed = well.testAdd(server.serve(adder));
@@ -464,7 +468,7 @@ void problem() {
     }
   }
 
-  foreach(maxAddAfterToggle; [0, 1, 2, 3]) {
+  foreach(maxAddAfterToggle; [0, 1, 2, 3, 4, 5]) {
     simulate(maxAddAfterToggle);
   }
 
