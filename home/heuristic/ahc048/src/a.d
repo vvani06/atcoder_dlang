@@ -202,6 +202,7 @@ void problem() {
     double colorDeltaSum;
     string[] commands;
     State preState;
+    double inkTotal = 0;
 
     int[][] togglePairs;
     int[][] togglePairsCell;
@@ -267,12 +268,14 @@ void problem() {
       palette[wellId].add(1, OWN[colorId]);
       commands ~= "1 %s %s %s".format(wellRow(wellId), wellCol(wellId), colorId);
       useColorCount++;
+      inkTotal += 1;
     }
 
     void decrease(int wellId) {
       if (palette[wellId].size > 0) {
         commands ~= "3 %s %s".format(wellRow(wellId), wellCol(wellId));
         palette[wellId].size -= 1.0;
+        inkTotal -= 1;
       }
     }
 
@@ -310,6 +313,7 @@ void problem() {
       colorDeltaSum += target.delta(palette[paletteId].color).sqrt() - sqrt(3.0);
       // deb("submit: ", target.delta(palette[paletteId].color).asScore());
       commands ~= "2 %s %s".format(wellRow(paletteId), wellCol(paletteId));
+      inkTotal -= 1;
     }
 
     double calcScore() {
@@ -344,22 +348,47 @@ void problem() {
     auto paletteCount = N * (N / wellSize);
 
     foreach(t, target; zip(H.iota, TARGET)) {
-      const turnD = max(0.0, pow(t.to!double / H.to!double, 8) * D);
+      auto turnD = D <= 2400 ?
+        max(0.0, pow(t.to!double / H.to!double, 10) * D) :
+        max(state.inkTotal - (H - t), 0) * D;
       const decD = max(0.0, D.to!double);
 
       if (elapsed(LIMIT_MSEC)) break;
-      int bestPalette, bestDecrease, bestColor, bestToggle;
+      int bestPalette, bestDecrease, bestColor, bestToggle, bestColorToggle;
       double bestScore = int.max;
 
       double toggleBestScore = int.max;
       foreach(tid, toggle; state.togglePairs.enumerate(0)) {
         if (state.containsToggleEmpty(tid)) continue;
 
-        if (bestScore.chmin(state.testMerge(tid).delta(target).asScore())) {
-          toggleBestScore = bestScore;
-          bestToggle = tid;
-          bestPalette = toggle[0];
+        auto merged = state.testMerge(tid);
+        {
+          auto score = merged.delta(target).asScore();
+          if (bestScore.chmin(score)) {
+            toggleBestScore = bestScore;
+            bestToggle = tid;
+            bestPalette = toggle[0];
+            bestColorToggle = -1;
+          }
         }
+
+        // auto well = state.palette[bestPalette].dup();
+        // well.color = merged;
+        // well.size += state.palette[state.togglePairs[tid][1]].size;
+        // foreach(addSize; [1]) {
+        //   auto ideal = well.calcIdealColor(target, addSize);
+        //   auto adder = server.nearest(ideal, addSize);
+        //   auto mixed = well.testAdd(server.serve(adder));
+        //   auto delta = mixed.delta(target);
+        //   auto score = delta.asScore() + turnD*addSize;
+          
+        //   if (bestScore.chmin(score)) {
+        //     toggleBestScore = bestScore;
+        //     bestToggle = tid;
+        //     bestPalette = toggle[0];
+        //     bestColorToggle = adder;
+        //   }
+        // }
       }
 
       bool visitedEmpty;
@@ -407,6 +436,9 @@ void problem() {
 
       if (isBestToggle) {
         state.toggle(bestToggle);
+        if (bestColorToggle != -1) {
+          foreach(c; server.serve(bestColorToggle).colorIds) state.addWell(bestPalette, c);
+        }
         // deb("* toggle: ", bestScore);
         toggleOdd = state.palette[bestPalette].size.to!int % 2;
       } else if (bestColor >= 0) {
