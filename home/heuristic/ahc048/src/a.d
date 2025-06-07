@@ -287,9 +287,14 @@ void problem() {
       if (elapsed(LIMIT_MSEC)) break;
       int bestPalette, bestDecrease, bestColor;
       double bestScore = int.max;
+      bool visitedEmpty;
 
       foreach(pal; 0..paletteCount) {
         auto well = state.palette[pal];
+
+        if (well.size <= 0) {
+          if (visitedEmpty) continue; else visitedEmpty = true;
+        }
 
         if (well.size >= 1) {
           if (bestScore.chmin(well.color.delta(target).asScore())) {
@@ -301,6 +306,7 @@ void problem() {
         auto baseSize = well.size;
         foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
           if (decD*dec >= bestScore) break;
+
 
           well.size = baseSize - dec;
           foreach(addSize; 1..state.wellSize - well.size.to!int + 1) {
