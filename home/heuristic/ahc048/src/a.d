@@ -176,9 +176,9 @@ void problem() {
     Color calcIdealColor(Color target, int anotherSize) {
       double s = size;
       double t = anotherSize;
-      double[] calced;
-      foreach(a, c; zip(color.asArrayD(), target.asArrayD())) {
-        calced ~= (c * (s + t) - s * a) / t;
+      double[3] calced;
+      foreach(i, a, c; zip(3.iota, color.asArrayD(), target.asArrayD())) {
+        calced[i] = (c * (s + t) - s * a) / t;
       }
       return Color(calced[0], calced[1], calced[2]);
     }
@@ -338,13 +338,15 @@ void problem() {
   enum LIMIT_MSEC = 2900;
   auto bestState = new State(1);
   //                       0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
-  auto maxCompositeSize = [9, 9, 9, 9, 8, 8, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5][K];
-  auto maxDecreaseTry   = [5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2][K];
+  auto maxCompositeSize = [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5][K];
+  auto maxDecreaseTry   = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 3, 3, 3, 2, 2][K];
   if (T < 5000) maxDecreaseTry = 2;
   auto server = new ColorServer(maxCompositeSize);
 
-  void simulate(int maxAddAfterToggle) {
-    foreach(wellSize; iota(min(6, maxCompositeSize), 2, -1)) {
+  void simulate(int maxAddAfterToggle, int[] wellSizes) {
+    foreach(wellSize; wellSizes) {
+      if (wellSize > maxCompositeSize) continue;
+
       if (elapsed(LIMIT_MSEC)) break;
       auto state = new State(wellSize);
       auto paletteCount = N * (N / wellSize);
@@ -379,10 +381,10 @@ void problem() {
           }
 
           if (maxAddAfterToggle > 0) {
-            auto well = state.palette[bestPalette].dup();
+            auto well = state.palette[toggle[0]].dup();
             well.color = merged;
             well.size += state.palette[state.togglePairs[tid][1]].size;
-            foreach(addSize; 1..min(maxAddAfterToggle, state.wellSize*2 - 2 - well.size.to!int) + 1) {
+            foreach(addSize; 1..min(maxAddAfterToggle, state.wellSize*2 - well.size.to!int) + 1) {
               auto ideal = well.calcIdealColor(target, addSize);
               auto adder = server.nearest(ideal, addSize);
               auto mixed = well.testAdd(server.serve(adder));
@@ -394,6 +396,7 @@ void problem() {
                 bestToggle = tid;
                 bestPalette = toggle[0];
                 bestColorToggle = adder;
+                deb("** ", well.size, " : ", state.palette[bestPalette].size, "|", state.palette[state.togglePairs[tid][1]].size, );
               }
             }
           }
@@ -415,7 +418,7 @@ void problem() {
           }
 
           auto baseSize = well.size;
-          foreach(dec; 0..min(maxDecreaseTry, well.size.to!int + 1)) {
+          foreach(dec; 0..max(1, min(maxDecreaseTry, well.size.to!int))) {
             if (decD*dec >= bestScore) break;
 
             well.size = baseSize - dec;
@@ -443,8 +446,11 @@ void problem() {
         int toggleOdd;
 
         if (isBestToggle) {
+          deb("* ", state.palette[bestPalette].size);
+          deb("* ", state.palette[state.togglePairs[bestToggle][1]].size);
           state.toggle(bestToggle);
           if (bestColorToggle != -1) {
+            deb("* ", state.palette[bestPalette].size, " + ", server.serve(bestColorToggle).colorIds.length);
             foreach(c; server.serve(bestColorToggle).colorIds) state.addWell(bestPalette, c);
           }
           // deb("* toggle: ", bestScore);
@@ -468,8 +474,13 @@ void problem() {
     }
   }
 
-  foreach(maxAddAfterToggle; [0, 1, 2, 3, 4, 5]) {
-    simulate(maxAddAfterToggle);
+  simulate(0, [2]);
+  foreach(maxAddAfterToggle; [0, 1, 2]) {
+    int[] wellSizes = [6, 5];
+    if (D >= 40) wellSizes = [4, 5, 6];
+    if (D >= 100) wellSizes = [3, 4];
+
+    simulate(maxAddAfterToggle, wellSizes);
   }
 
   foreach(c; bestState.commands) writeln(c);
