@@ -279,12 +279,10 @@ void problem() {
       }
     }
 
-    bool containsToggleEmpty(int toggleId) {
+    int toggledSize(int toggleId) {
       auto a = palette[togglePairs[toggleId][0]];
       auto b = palette[togglePairs[toggleId][1]];
-      int t = a.size.to!int + b.size.to!int;
-      // return t % 2 == 0;
-      return t < 2;
+      return a.size.to!int + b.size.to!int;
     }
 
     void toggle(int toggleId) {
@@ -367,10 +365,11 @@ void problem() {
 
         double toggleBestScore = int.max;
         foreach(tid, toggle; state.togglePairs.enumerate(0)) {
-          if (state.containsToggleEmpty(tid)) continue;
+          auto ts = state.toggledSize(tid);
+          if (ts < 1) continue;
 
           auto merged = state.testMerge(tid);
-          {
+          if (ts >= 1) {
             auto score = merged.delta(target).asScore();
             if (bestScore.chmin(score)) {
               toggleBestScore = bestScore;
@@ -475,7 +474,7 @@ void problem() {
   }
 
   simulate(0, [2]);
-  foreach(maxAddAfterToggle; [0, 1, 2]) {
+  foreach(maxAddAfterToggle; [0, 1, 5]) {
     int[] wellSizes = [6, 5];
     if (D >= 40) wellSizes = [4, 5, 6];
     if (D >= 100) wellSizes = [3, 4];
