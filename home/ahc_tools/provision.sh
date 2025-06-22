@@ -30,6 +30,7 @@ declare -A TOOLS_URLS=(
   ["AHC046"]="https://img.atcoder.jp/ahc046/EuNd3uow.zip"
   ["AHC047"]="https://img.atcoder.jp/ahc047/cHmFekjC.zip"
   ["AHC048"]="https://img.atcoder.jp/ahc048/lI5DXOAV.zip"
+  ["AHC049"]="https://img.atcoder.jp/ahc049/LDUZCjLO.zip"
 )
 
 rm -rf tools tools.zip
