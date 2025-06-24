@@ -2,41 +2,44 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto C = 0 ~ scan!int(N - 1);
-  auto A = 1 ~ scan!int(N - 1);
+  auto M = scan!int;
+  auto E = scan!int(3 * M).chunks(3).array;
 
   auto solve() {
-    alias Cursor = Tuple!(int, "index", int, "cost");
-
-    int search(int from) {
-      auto queue = new Cursor[](0).heapify!"a.cost > b.cost";
-      queue.insert(Cursor(from, 0));
-
-      Cursor[] froms = Cursor(-1, int.max).repeat(N).array;
-      froms[from].cost = 0;
-
-      while(!queue.empty) {
-        auto cur = queue.front;
-        queue.removeFront;
-        if (froms[cur.index].cost != cur.cost) continue;
-
-        if (cur.index != from && A[cur.index] > 0) {
-          return cur.cost;
-        }
-
-        foreach(left; cur.index - C[cur.index]..cur.index) {
-          auto nc = cur.cost + 1;
-          if (froms[left].cost > nc) {
-            froms[left] = Cursor(cur.index, nc);
-            queue.insert(Cursor(left, nc));
-          }
-        }
-      }
-      
-      return int.max;
+    bool[][] visited = new bool[][](N, 2^^10);
+    bool[][] queued = new bool[][](N, 2^^10);
+    
+    alias Item = Tuple!(int, int);
+    auto graph = new Item[][](N, 0);
+    foreach(i, e; E) {
+      e[0]--;
+      e[1]--;
+      graph[e[0]] ~= Item(e[1], e[2]);
     }
 
-    return iota(1, N).filter!(i => A[i] > 0).map!(i => search(i)).sum;
+    queued[0][0] = true;
+    for(auto queue = DList!Item([Item(0, 0)]); !queue.empty;) {
+      auto cur = queue.front;
+      queue.removeFront;
+      
+      if (visited[cur[0]][cur[1]]) continue;
+      visited[cur[0]][cur[1]] = true;
+
+      foreach(e; graph[cur[0]]) {
+        auto t = e[0];
+        auto v = cur[1] ^ e[1];
+        if (queued[t][v]) continue;
+
+        queued[t][v] = true;
+        queue.insertBack(Item(t, v));
+      }
+    }
+
+    int ans = int.max;
+    foreach(i; 0..2^^10) {
+      if (visited[N - 1][i]) ans = min(ans, i);
+    }
+    return ans == int.max ? -1 : ans;
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +90,15 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
- 
+
+long[][] basePacks(long base, long size) {
+  auto ret = new long[][](base^^size, size);
+  foreach(i; 0..base^^size) {
+    long x = i;
+    foreach(b; 0..size) {
+      ret[i][b] = x % base;
+      x /= base;
+    }
+  }
+  return ret;
+}

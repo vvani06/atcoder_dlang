@@ -2,41 +2,27 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto C = 0 ~ scan!int(N - 1);
-  auto A = 1 ~ scan!int(N - 1);
+  auto Q = scan!int;
 
   auto solve() {
-    alias Cursor = Tuple!(int, "index", int, "cost");
+    auto arr = iota(1, N + 1).array;
+    int offset;
 
-    int search(int from) {
-      auto queue = new Cursor[](0).heapify!"a.cost > b.cost";
-      queue.insert(Cursor(from, 0));
+    foreach(_; 0..Q) {
+      auto t = scan!int;
 
-      Cursor[] froms = Cursor(-1, int.max).repeat(N).array;
-      froms[from].cost = 0;
-
-      while(!queue.empty) {
-        auto cur = queue.front;
-        queue.removeFront;
-        if (froms[cur.index].cost != cur.cost) continue;
-
-        if (cur.index != from && A[cur.index] > 0) {
-          return cur.cost;
-        }
-
-        foreach(left; cur.index - C[cur.index]..cur.index) {
-          auto nc = cur.cost + 1;
-          if (froms[left].cost > nc) {
-            froms[left] = Cursor(cur.index, nc);
-            queue.insert(Cursor(left, nc));
-          }
-        }
+      if (t == 1) {
+        auto p = scan!int - 1;
+        auto x = scan!int;
+        arr[(offset + p) % N] = x;
+      } else if (t == 2) {
+        auto p = scan!int - 1;
+        writeln(arr[(offset + p) % N]);
+      } else {
+        auto k = scan!int;
+        offset = (offset + k) % N;
       }
-      
-      return int.max;
     }
-
-    return iota(1, N).filter!(i => A[i] > 0).map!(i => search(i)).sum;
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +73,3 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
- 

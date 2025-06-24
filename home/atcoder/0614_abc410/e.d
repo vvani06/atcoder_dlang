@@ -2,41 +2,40 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto C = 0 ~ scan!int(N - 1);
-  auto A = 1 ~ scan!int(N - 1);
+  auto H = scan!int;
+  auto M = scan!int;
+  auto AB = scan!int(2 * N).chunks(2).array;
 
   auto solve() {
-    alias Cursor = Tuple!(int, "index", int, "cost");
+    int[int] maxM, maxH;
+    maxM[H] = M;
+    // maxM[M] = H;
 
-    int search(int from) {
-      auto queue = new Cursor[](0).heapify!"a.cost > b.cost";
-      queue.insert(Cursor(from, 0));
-
-      Cursor[] froms = Cursor(-1, int.max).repeat(N).array;
-      froms[from].cost = 0;
-
-      while(!queue.empty) {
-        auto cur = queue.front;
-        queue.removeFront;
-        if (froms[cur.index].cost != cur.cost) continue;
-
-        if (cur.index != from && A[cur.index] > 0) {
-          return cur.cost;
+    int ans;
+    foreach(a, b; zip(AB.map!"a[0]", AB.map!"a[1]")) {
+      int[int] nextM, nextH;
+      foreach(h, m; maxM) {
+        if (h >= a) {
+          nextM.require(h - a, 0);
+          nextM[h - a].chmax(m);
+          // nextH.require(m, 0);
+          // nextH[m].chmax(h - a);
         }
-
-        foreach(left; cur.index - C[cur.index]..cur.index) {
-          auto nc = cur.cost + 1;
-          if (froms[left].cost > nc) {
-            froms[left] = Cursor(cur.index, nc);
-            queue.insert(Cursor(left, nc));
-          }
+        if (m >= b) {
+          nextM.require(h, 0);
+          nextM[h].chmax(m - b);
+          // nextH.require(m - b, 0);
+          // nextH[m - b].chmax(h);
         }
       }
-      
-      return int.max;
+
+      swap(maxM, nextM);
+      swap(maxH, nextH);
+      if (maxM.empty && maxH.empty) break;
+      ans++;
     }
 
-    return iota(1, N).filter!(i => A[i] > 0).map!(i => search(i)).sum;
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +86,15 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
- 
+
+long[][] basePacks(long base, long size) {
+  auto ret = new long[][](base^^size, size);
+  foreach(i; 0..base^^size) {
+    long x = i;
+    foreach(b; 0..size) {
+      ret[i][b] = x % base;
+      x /= base;
+    }
+  }
+  return ret;
+}
