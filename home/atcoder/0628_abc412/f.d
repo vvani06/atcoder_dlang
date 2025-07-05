@@ -3,30 +3,32 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto C = scan!int - 1;
-  auto A = scan!int(N).map!(a => MInt9(a)).array;
+  auto A = scan!int(N);
 
   auto solve() {
-    auto total = A.sum;
-    A[C] += MInt9(1);
+    A[C]++;
+    int[int] counts;
+    foreach(a; A) counts[a]++;
+    // counts.deb;
 
+    auto total = MInt9(A.sum - 1);
     MInt9[int] memo;
-    MInt9 calc(int color) {
-      if (color in memo) return memo[color];
-
-      auto ret = MInt9(1);
-      foreach(i; 0..N) {
-        if (i == color) {
-          ret *= (A[color] - MInt9(1)) / total;
-        } else {
-          if (A[i].v > A[color].v) {
-            ret *= calc(i) * A[i] / total;
-          }
-        }
+    MInt9[int] uppers;
+    foreach(k; counts.keys.sort!"a > b") {
+      auto right = MInt9(1);
+      auto rest = total - MInt9(k - 1);
+      foreach(uk, uv; uppers) {
+        right += uv * memo[uk] / total;
+        rest -= uv;
       }
-      return memo[color] = ret;
+
+      auto recRatio = rest / total;
+      memo[k] = right / (MInt9(1) - recRatio);
+      uppers[k] = MInt9(k * counts[k]);
     }
 
-    return calc(C);
+    memo.deb;
+    return memo[A[C]];
   }
 
   outputForAtCoder(&solve);

@@ -5,7 +5,31 @@ void problem() {
   auto R = scan!long;
 
   auto solve() {
+    const limit = R.to!real.sqrt.to!int + 1;
+    auto erat = Eratosthenes(limit);
+
+    long[] spf = new long[](R - L + 1);
+    spf[] = long.max;
     
+    foreach(p; erat.rawPrimes) {
+      const l = p * ((L + p - 1) / p);
+      foreach(t; iota(l, R + 1, p)) {
+        spf[t - L] = min(spf[t - L], p);
+      }
+    }
+    
+    int ans;
+    foreach(i; 1..R - L + 1) {
+      if (spf[i] == long.max) {
+        ans++;
+        continue;
+      }
+      
+      long x = L + i;
+      while(x % spf[i] == 0) x /= spf[i];
+      if (x == 1) ans++;
+    }
+    return 1 + ans;
   }
 
   outputForAtCoder(&solve);
@@ -56,3 +80,72 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+struct Eratosthenes {
+  bool[] isPrime;
+  int[] rawPrimes;
+  int[] spf;
+
+  this(int lim) {
+    isPrime = new bool[](lim + 1);
+    isPrime[2..$] = true;
+    spf = new int[](lim + 1);
+    spf[] = int.max;
+    spf[0..2] = 1;
+    memo = new int[][](lim + 1, 0);
+
+    foreach (i; 2..lim+1) {
+      if (isPrime[i]) {
+        spf[i] = i;
+
+        auto x = i*2;
+        while (x <= lim) {
+          isPrime[x] = false;
+          spf[x].chmin(i);
+          x += i;
+        }
+      }
+    }
+
+    foreach(p; 2..lim + 1) {
+      if (isPrime[p]) rawPrimes ~= p;
+    }
+  }
+
+  auto primes() { return rawPrimes.assumeSorted; }
+
+  int[int] factorize(int x) {
+    int[int] ret;
+    while(x > 1) {
+      ret[spf[x]]++;
+      x /= spf[x];
+    }
+    return ret;
+  }
+
+  int lpf(int x) {
+    int ret = 1;
+    while(x > 1) {
+      ret = max(ret, spf[x]);
+      x /= spf[x];
+    }
+    return ret;
+  }
+
+  int[][] memo;
+  int[] divisors(int num) {
+    if (num <= 1) return [1];
+    if (!memo[num].empty) return memo[num];
+
+    auto p = lpf(num);
+    int t; for(auto n = num; n % p == 0; n /= p) t++;
+    auto pres = this.divisors(num / (p ^^ t));
+    
+    int[] ret;
+    foreach(c; 0..t + 1) {
+      ret ~= pres.map!(pre => pre * (p ^^ c)).array;
+    }
+    ret.sort!"a > b";
+    return memo[num] = ret;
+  }
+}
