@@ -14,44 +14,29 @@ void problem() {
     }
 
     auto degs = new int[](N);
-    int ans = int.max;
     BitArray state = BitArray(false.repeat(64).array);
+    void toggle(int u, int v) {
+      state.flip(u * 8 + v);
+      degs[u] += state[u * 8 + v] ? 1 : -1;
+      degs[v] += state[u * 8 + v] ? 1 : -1;
+    }
 
+    int ans = int.max;
     void dfs(int cur) {
       if (cur == N) {
-        if (degs.all!(d => d == 2)) {
-          ans = min(ans, (init ^ state).count);
-          // init.deb;
-          // state.deb;
-        }
+        if (degs.all!(d => d == 2)) ans = min(ans, (init ^ state).count);
         return;
       }
 
-      if (degs[cur] == 0) {
-        degs[cur] += 2;
-        foreach(i; cur + 1..N - 1) foreach(j; i + 1..N) {
-          // [cur, i, j].deb;
-          degs[i]++;
-          degs[j]++;
-          state[cur * 8 + i] = state[cur * 8 + i] ^ true;
-          state[cur * 8 + j] = state[cur * 8 + j] ^ true;
-          dfs(cur + 1);
-          state[cur * 8 + j] = state[cur * 8 + j] ^ true;
-          state[cur * 8 + i] = state[cur * 8 + i] ^ true;
-          degs[j]--;
-          degs[i]--;
+      auto add = 2 - degs[cur];
+      if (add > 0) {
+        if (N - cur > add)  {
+          foreach(comb; combinations(iota(cur + 1, N).array, add)) {
+            comb.each!(e => toggle(cur, e));
+            dfs(cur + 1);
+            comb.each!(e => toggle(cur, e));
+          }
         }
-        degs[cur] -= 2;
-      } else if (degs[cur] == 1) {
-        degs[cur]++;
-        foreach(i; cur + 1..N) {
-          degs[i]++;
-          state[cur * 8 + i] = state[cur * 8 + i] ^ true;
-          dfs(cur + 1);
-          state[cur * 8 + i] = state[cur * 8 + i] ^ true;
-          degs[i]--;
-        }
-        degs[cur]--;
       } else {
         dfs(cur + 1);
       }
@@ -109,3 +94,56 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+
+struct CombinationRange(T) {
+  private {
+    int combinationSize;
+    int elementSize;
+    int pointer;
+    int[] cursor;
+    T[] elements;
+    T[] current;
+  }
+
+  public:
+
+  this(T[] t, int combinationSize) {
+    this.combinationSize = combinationSize;
+    this.elementSize = cast(int)t.length;
+    pointer = combinationSize - 1;
+    cursor = new int[combinationSize];
+    current = new T[combinationSize];
+    elements = t.dup;
+    foreach(i; 0..combinationSize) {
+      cursor[i] = i;
+      current[i] = elements[i];
+    }
+  }
+
+  @property T[] front() {
+    return current;
+  }
+
+  void popFront() {
+    if (pointer == -1) return;
+
+    if (cursor[pointer] == elementSize + pointer - combinationSize) {
+      pointer--;
+      popFront();
+      if (pointer < 0) return;
+
+      pointer++;
+      cursor[pointer] = cursor[pointer - 1];
+      current[pointer] = elements[cursor[pointer]];
+    }
+
+    cursor[pointer]++;
+    current[pointer] = elements[cursor[pointer]];
+  }
+
+  bool empty() {
+    return pointer == -1;
+  }
+}
+CombinationRange!T combinations(T)(T[] t, int size) { return CombinationRange!T(t, size); }
