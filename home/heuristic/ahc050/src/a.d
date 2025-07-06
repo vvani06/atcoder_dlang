@@ -13,10 +13,37 @@ void problem() {
   int M = scan!int;
   bool[][] G = scan!string(N).map!(s => s.map!(c => c == '#').array).array;
 
+  // int[][] aroundWalls = new int[][](N, N);
+  int aroundWall(int r, int c) {
+    int ret = 4;
+    foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+      auto nr = r + dr;
+      auto nc = c + dc;
+      if (min(nr, nc) < 0 || max(nr, nc) >= N) continue;
+      if (G[nr][nc]) continue;
+
+      ret--;
+    }
+    return ret;
+  }
+
+  void block(int r, int c) {
+    G[r][c] = true;
+    writefln("%s %s", r, c);
+  }
+
   foreach(r; 0..N) foreach(c; 0..N) {
     if (G[r][c]) continue;
 
-    writefln("%s %s", r, c);
+    if (aroundWall(r, c) == 0) {
+      block(r, c);
+    }
+  }
+
+  foreach(r; 0..N) foreach(c; 0..N) {
+    if (G[r][c]) continue;
+
+    block(r, c);
   }
 }
 
