@@ -18,18 +18,18 @@ void problem() {
   final class State {
     bool[][] G;
     int rest;
-    real[][] prob;
+    float[][] prob;
     Coord[] ans;
-    real score = 0;
-    real liveProb = 1;
+    float score = 0;
+    float liveProb = 1;
 
     this(bool[][] grid) {
       G = grid.map!"a.dup".array;
       rest = N^^2 - grid.map!(g => g.count(true)).sum.to!int;
 
-      prob = new real[][](N, N);
+      prob = new float[][](N, N);
       foreach(r; 0..N) foreach(c; 0..N) {
-        prob[r][c] = G[r][c] ? int.max : 1.0L / (N^^2 - M);
+        prob[r][c] = G[r][c] ? float.max / 100 : 1.0L / (N^^2 - M);
       }
       prob = calcProb(prob);
     }
@@ -38,10 +38,10 @@ void problem() {
       return min(nr, nc) < 0 || max(nr, nc) >= N || G[nr][nc];
     }
 
-    real[][] calcProb(real[][] p) {
-      real[][] ret = new real[][](N, N);
+    float[][] calcProb(float[][] p) {
+      float[][] ret = new float[][](N, N);
       foreach(r; 0..N) foreach(c; 0..N) {
-        ret[r][c] = G[r][c] ? int.max : 0;
+        ret[r][c] = G[r][c] ? float.max / 100 : 0;
       }
 
       foreach(r; 0..N) foreach(c; 0..N) {
@@ -104,7 +104,7 @@ void problem() {
     safeCoords = state.ans.dup;
   }
 
-  while(!elapsed(1500)) {
+  while(!elapsed(1800)) {
     auto state = new State(GRID);
 
     int distC(Coord coord) {
@@ -112,16 +112,19 @@ void problem() {
     }
 
     bool distCmp(Coord a, Coord b) {
-      return distC(a) < distC(b);
+      return distC(a) > distC(b);
     }
 
-    foreach(coord; safeCoords.randomShuffle) {
+    // safeCoords.sort!distCmp;
+    safeCoords.randomShuffle(RND);
+    foreach(coord; safeCoords) {
       state.block(coord.r, coord.c);
     }
+    
 
     while(state.rest > 0) {
       int minR, minC;
-      real minProb = int.max;
+      float minProb = float.max / 100;
 
       foreach(r; 0..N) foreach(c; 0..N) {
         if (state.blocked(r, c)) continue;
@@ -161,7 +164,7 @@ string charSort(alias S = "a < b")(string s) { return (cast(char[])((cast(byte[]
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
 string toAnswerString(R)(R r) { return r.map!"a.to!string".joiner(" ").array.to!string; }
 void outputForAtCoder(T)(T delegate() fn) {
-  static if (is(T == float) || is(T == double) || is(T == real)) "%.16f".writefln(fn());
+  static if (is(T == float) || is(T == double) || is(T == float)) "%.16f".writefln(fn());
   else static if (is(T == void)) fn();
   else static if (is(T == string)) fn().writeln;
   else static if (isInputRange!T) {
