@@ -4,41 +4,16 @@ void problem() {
   auto T = scan!int;
 
   auto subSolve(int N, int[] A) {
-    int[][] flip = new int[][](N, 0);
     foreach(b; iota(N, 0, -1)) {
       auto size = 2^^b;
-      foreach(offset; iota(0, 2^^N, size)) flip[b - 1] ~= 0;
-    }
-    
-    int[] indicies = new int[](2^^N + 1);
-    foreach(i, a; A.enumerate(0)) indicies[a] = i;
-
-    foreach(a, i; indicies[1..$].enumerate(1)) {
-      bool toggle;
-      foreach(b; iota(N, 0, -1)) {
-        auto size = 2^^b;
-        auto offset = i / size;
-        
-        if (flip[b - 1][offset] == 0) {
-          if (i % size >= size / 2) {
-            flip[b - 1][offset] = toggle ? -1 : 1;
-          } else {
-            flip[b - 1][offset] = toggle ? 1 : -1;
-          }
-        }
-
-        if (flip[b - 1][offset] == 1) toggle ^= true;
-        // [a, i, flip[b - 1][offset], toggle].deb;
-      }
-    }
-
-    // flip.deb;
-    foreach_reverse(b; iota(N, 0, -1)) {
-      auto size = 2^^b;
       foreach(offset; iota(0, 2^^N, size)) {
-        if (flip[b - 1][offset / size] == 1) A[offset..offset + size].reverse();
+        auto half = size / 2;
+        if (A[offset..offset + half].minElement > A[offset + half..offset + size].minElement) {
+          A[offset..offset + size].reverse();
+        }
       }
     }
+
     return A;
   }
 
