@@ -13,37 +13,86 @@ void problem() {
   int M = scan!int;
   bool[][] G = scan!string(N).map!(s => s.map!(c => c == '#').array).array;
 
+  bool blocked(int nr, int nc) {
+    return min(nr, nc) < 0 || max(nr, nc) >= N || G[nr][nc];
+  }
+
+  real[][] calcProb(real[][] p) {
+    real[][] ret = new real[][](N, N);
+    foreach(r; 0..N) foreach(c; 0..N) {
+      ret[r][c] = G[r][c] ? int.max : 0;
+    }
+
+    foreach(r; 0..N) foreach(c; 0..N) {
+      if (blocked(r, c)) continue;
+      
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto nr = r;
+        auto nc = c;
+        while(!blocked(nr + dr, nc + dc)) {
+          nr += dr;
+          nc += dc;
+        }
+        ret[nr][nc] += p[r][c] / 4;
+      }
+    }
+    return ret;
+  }
+  
+
   // int[][] aroundWalls = new int[][](N, N);
   int aroundWall(int r, int c) {
     int ret = 4;
     foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
       auto nr = r + dr;
       auto nc = c + dc;
-      if (min(nr, nc) < 0 || max(nr, nc) >= N) continue;
-      if (G[nr][nc]) continue;
+      if (blocked(nr, nc)) continue;
 
       ret--;
     }
     return ret;
   }
 
+  real[][] prob = new real[][](N, N); {
+    foreach(r; 0..N) foreach(c; 0..N) {
+      prob[r][c] = G[r][c] ? int.max : 1.0L / (N^^2 - M);
+    }
+    prob = calcProb(prob);
+  }
+
+  prob.each!deb;
+  
+  int rest = N^^2 - M;
   void block(int r, int c) {
     G[r][c] = true;
     writefln("%s %s", r, c);
+    rest--;
+    prob = calcProb(prob);
   }
 
   foreach(r; 0..N) foreach(c; 0..N) {
-    if (G[r][c]) continue;
+    if (blocked(r, c)) continue;
 
     if (aroundWall(r, c) == 0) {
       block(r, c);
     }
   }
 
-  foreach(r; 0..N) foreach(c; 0..N) {
-    if (G[r][c]) continue;
+  calcProb(prob).each!deb;
 
-    block(r, c);
+  while(rest > 0) {
+    int minR, minC;
+    real minProb = int.max;
+
+    foreach(r; 0..N) foreach(c; 0..N) {
+      if (blocked(r, c)) continue;
+
+      if (minProb.chmin(prob[r][c])) {
+        minR = r;
+        minC = c;
+      }
+    }
+    block(minR, minC);
   }
 }
 
