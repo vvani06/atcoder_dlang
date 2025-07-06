@@ -13,11 +13,15 @@ void problem() {
   int M = scan!int;
   bool[][] GRID = scan!string(N).map!(s => s.map!(c => c == '#').array).array;
 
+  alias Coord = Tuple!(int, "r", int, "c");
+
   final class State {
     bool[][] G;
     int rest;
     real[][] prob;
-    int[][] ans;
+    Coord[] ans;
+    real score = 0;
+    real liveProb = 1;
 
     this(bool[][] grid) {
       G = grid.map!"a.dup".array;
@@ -70,8 +74,12 @@ void problem() {
     
     void block(int r, int c) {
       G[r][c] = true;
-      ans ~= [r, c];
+      ans ~= Coord(r, c);
       rest--;
+      
+      liveProb -= prob[r][c];
+      score += liveProb;
+
       prob = calcProb(prob);
     }
 
@@ -82,31 +90,57 @@ void problem() {
     }
   }
 
-  auto state = new State(GRID);
-  foreach(r; 0..N) foreach(c; 0..N) {
-    if (state.blocked(r, c)) continue;
-
-    if (state.countAroundWall(r, c) == 0) {
-      state.block(r, c);
-    }
-  }
-
-  while(state.rest > 0) {
-    int minR, minC;
-    real minProb = int.max;
-
+  State bestState = new State(GRID);
+  
+  Coord[] safeCoords; {
+    auto state = new State(GRID);
     foreach(r; 0..N) foreach(c; 0..N) {
       if (state.blocked(r, c)) continue;
 
-      if (minProb.chmin(state.prob[r][c])) {
-        minR = r;
-        minC = c;
+      if (state.countAroundWall(r, c) == 0) {
+        state.block(r, c);
       }
     }
-    state.block(minR, minC);
+    safeCoords = state.ans.dup;
   }
 
-  state.outputAsAns();
+  while(!elapsed(1500)) {
+    auto state = new State(GRID);
+
+    int distC(Coord coord) {
+      return abs(coord.r - N/2) + abs(coord.c - N/2);
+    }
+
+    bool distCmp(Coord a, Coord b) {
+      return distC(a) < distC(b);
+    }
+
+    foreach(coord; safeCoords.randomShuffle) {
+      state.block(coord.r, coord.c);
+    }
+
+    while(state.rest > 0) {
+      int minR, minC;
+      real minProb = int.max;
+
+      foreach(r; 0..N) foreach(c; 0..N) {
+        if (state.blocked(r, c)) continue;
+
+        if (minProb.chmin(state.prob[r][c])) {
+          minR = r;
+          minC = c;
+        }
+      }
+      state.block(minR, minC);
+    }
+
+    if (bestState.score < state.score) {
+      bestState = state;
+    }
+  }
+
+  bestState.outputAsAns();
+  (bestState.score * 1_000_000 / (N^^2 - M - 1)).deb;
 }
 
 // ----------------------------------------------
