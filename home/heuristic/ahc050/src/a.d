@@ -11,89 +11,102 @@ void problem() {
 
   int N = scan!int;
   int M = scan!int;
-  bool[][] G = scan!string(N).map!(s => s.map!(c => c == '#').array).array;
+  bool[][] GRID = scan!string(N).map!(s => s.map!(c => c == '#').array).array;
 
-  bool blocked(int nr, int nc) {
-    return min(nr, nc) < 0 || max(nr, nc) >= N || G[nr][nc];
-  }
+  final class State {
+    bool[][] G;
+    int rest;
+    real[][] prob;
+    int[][] ans;
 
-  real[][] calcProb(real[][] p) {
-    real[][] ret = new real[][](N, N);
-    foreach(r; 0..N) foreach(c; 0..N) {
-      ret[r][c] = G[r][c] ? int.max : 0;
+    this(bool[][] grid) {
+      G = grid.map!"a.dup".array;
+      rest = N^^2 - grid.map!(g => g.count(true)).sum.to!int;
+
+      prob = new real[][](N, N);
+      foreach(r; 0..N) foreach(c; 0..N) {
+        prob[r][c] = G[r][c] ? int.max : 1.0L / (N^^2 - M);
+      }
+      prob = calcProb(prob);
     }
 
-    foreach(r; 0..N) foreach(c; 0..N) {
-      if (blocked(r, c)) continue;
-      
-      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-        auto nr = r;
-        auto nc = c;
-        while(!blocked(nr + dr, nc + dc)) {
-          nr += dr;
-          nc += dc;
+    bool blocked(int nr, int nc) {
+      return min(nr, nc) < 0 || max(nr, nc) >= N || G[nr][nc];
+    }
+
+    real[][] calcProb(real[][] p) {
+      real[][] ret = new real[][](N, N);
+      foreach(r; 0..N) foreach(c; 0..N) {
+        ret[r][c] = G[r][c] ? int.max : 0;
+      }
+
+      foreach(r; 0..N) foreach(c; 0..N) {
+        if (blocked(r, c)) continue;
+        
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          auto nr = r;
+          auto nc = c;
+          while(!blocked(nr + dr, nc + dc)) {
+            nr += dr;
+            nc += dc;
+          }
+          ret[nr][nc] += p[r][c] / 4;
         }
-        ret[nr][nc] += p[r][c] / 4;
+      }
+      return ret;
+    }
+
+    int countAroundWall(int r, int c) {
+      int ret = 4;
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto nr = r + dr;
+        auto nc = c + dc;
+        if (blocked(nr, nc)) continue;
+
+        ret--;
+      }
+      return ret;
+    }
+    
+    void block(int r, int c) {
+      G[r][c] = true;
+      ans ~= [r, c];
+      rest--;
+      prob = calcProb(prob);
+    }
+
+    void outputAsAns() {
+      foreach(a; ans) {
+        writefln("%s %s", a[0], a[1]);
       }
     }
-    return ret;
-  }
-  
-
-  // int[][] aroundWalls = new int[][](N, N);
-  int aroundWall(int r, int c) {
-    int ret = 4;
-    foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-      auto nr = r + dr;
-      auto nc = c + dc;
-      if (blocked(nr, nc)) continue;
-
-      ret--;
-    }
-    return ret;
   }
 
-  real[][] prob = new real[][](N, N); {
-    foreach(r; 0..N) foreach(c; 0..N) {
-      prob[r][c] = G[r][c] ? int.max : 1.0L / (N^^2 - M);
-    }
-    prob = calcProb(prob);
-  }
-
-  prob.each!deb;
-  
-  int rest = N^^2 - M;
-  void block(int r, int c) {
-    G[r][c] = true;
-    writefln("%s %s", r, c);
-    rest--;
-    prob = calcProb(prob);
-  }
-
+  auto state = new State(GRID);
   foreach(r; 0..N) foreach(c; 0..N) {
-    if (blocked(r, c)) continue;
+    if (state.blocked(r, c)) continue;
 
-    if (aroundWall(r, c) == 0) {
-      block(r, c);
+    if (state.countAroundWall(r, c) == 0) {
+      state.block(r, c);
     }
   }
 
-  calcProb(prob).each!deb;
-
-  while(rest > 0) {
+  while(state.rest > 0) {
     int minR, minC;
     real minProb = int.max;
 
     foreach(r; 0..N) foreach(c; 0..N) {
-      if (blocked(r, c)) continue;
+      if (state.blocked(r, c)) continue;
 
-      if (minProb.chmin(prob[r][c])) {
+      if (minProb.chmin(state.prob[r][c])) {
         minR = r;
         minC = c;
       }
     }
-    block(minR, minC);
+    state.block(minR, minC);
   }
+
+  state.outputAsAns();
 }
 
 // ----------------------------------------------
