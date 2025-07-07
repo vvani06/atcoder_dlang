@@ -104,7 +104,7 @@ void problem() {
     safeCoords = state.ans.dup;
   }
 
-  while(!elapsed(1800)) {
+  while(!elapsed(100)) {
     auto state = new State(GRID);
 
     int distC(Coord coord) {
@@ -116,11 +116,10 @@ void problem() {
     }
 
     // safeCoords.sort!distCmp;
-    safeCoords.randomShuffle(RND);
-    foreach(coord; safeCoords) {
-      state.block(coord.r, coord.c);
-    }
-    
+    // safeCoords.randomShuffle(RND);
+    // foreach(coord; safeCoords) {
+    //   state.block(coord.r, coord.c);
+    // }
 
     while(state.rest > 0) {
       int minR, minC;
@@ -129,7 +128,16 @@ void problem() {
       foreach(r; 0..N) foreach(c; 0..N) {
         if (state.blocked(r, c)) continue;
 
-        if (minProb.chmin(state.prob[r][c])) {
+        float p = state.prob[r][c] * (2^^16);
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          if (!state.blocked(dr + r, dc + c)) {
+            p -= state.prob[dr + r][dc + c];
+          } else {
+            // p += 0.125;
+          }
+        }
+
+        if (minProb.chmin(p)) {
           minR = r;
           minC = c;
         }
