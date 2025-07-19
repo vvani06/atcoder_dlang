@@ -3,6 +3,12 @@ struct SegTree(alias pred = "a + b", T = long) {
   int size;
   T[] data;
   T monoid;
+
+  T op(T a, T b) {
+    if (a == monoid) return b;
+    if (b == monoid) return a;
+    return predFun(a, b);
+  }
  
   this(T[] src, T monoid = T.init) {
     this.monoid = monoid;
@@ -17,7 +23,7 @@ struct SegTree(alias pred = "a + b", T = long) {
     data = new T[](size * 2);
     foreach(i, s; src) data[i + size] = s;
     foreach_reverse(b; 1..size) {
-      data[b] = predFun(data[b * 2], data[b * 2 + 1]);
+      data[b] = op(data[b * 2], data[b * 2 + 1]);
     }
   }
  
@@ -26,12 +32,12 @@ struct SegTree(alias pred = "a + b", T = long) {
     data[i] = value;
     while(i > 0) {
       i /= 2;
-      data[i] = predFun(data[i * 2], data[i * 2 + 1]);
+      data[i] = op(data[i * 2], data[i * 2 + 1]);
     }
   }
 
   void add(int index, T value) {
-    update(index, get(index) + value);
+    update(index, op(get(index), value));
   }
  
   T get(int index) {
@@ -46,19 +52,21 @@ struct SegTree(alias pred = "a + b", T = long) {
  
     T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
     T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
-    return predFun(leftValue, rightValue);
+    return op(leftValue, rightValue);
   }
 
   T[] array() {
     return size.iota.map!(i => get(i)).array;
   }
 
-  int lowerBound(T border) {
-    return binarySearch((int t) => sum(0, t) < border, 0, size + 1);
-  }
+  static if (__traits(hasMember, T, "opCmp")) {
+    int lowerBound(T border) {
+      return binarySearch((int t) => sum(0, t) < border, 0, size + 1);
+    }
 
-  int upperBound(T border) {
-    return binarySearch((int t) => sum(t, size) < border, size, -1);
+    int upperBound(T border) {
+      return binarySearch((int t) => sum(t, size) < border, size, -1);
+    }
   }
 
   private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }

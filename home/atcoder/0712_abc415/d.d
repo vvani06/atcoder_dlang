@@ -1,20 +1,23 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int();
-  auto Q = scan!int(N * 3).chunks(3).array;
+  auto N = scan!long();
+  auto M = scan!int();
+  auto AB = scan!long(M * 2).chunks(2).array;
 
   auto solve() {
-    int preT, preX, preY;
-    foreach(t, x, y; asTuples!3(Q)) {
-      auto dist = abs(preX - x) + abs(preY - y);
-      auto duration = t - preT;
+    long rest = N;
+    long ans;
+    foreach(a, b; AB.sort!"a[0] - a[1] < b[0] - b[1]".array.asTuples!2) {
+      long delta = a - b;
+      long times = (rest - a + delta) / delta;
+      if (times < 0) continue;
 
-      if (dist > duration || dist % 2 != duration % 2) return false;
-      preT = t, preX = x, preY = y;
+      ans += times;
+      rest -= delta * times;
     }
 
-    return true;
+    return ans;
   }
 
   outputForAtCoder(&solve);

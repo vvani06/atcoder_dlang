@@ -1,20 +1,45 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int();
-  auto Q = scan!int(N * 3).chunks(3).array;
+  auto H = scan!int();
+  auto W = scan!int();
+  auto A = scan!long(H * W).chunks(W).array;
+  auto P = scan!long(H + W - 1);
 
   auto solve() {
-    int preT, preX, preY;
-    foreach(t, x, y; asTuples!3(Q)) {
-      auto dist = abs(preX - x) + abs(preY - y);
-      auto duration = t - preT;
+    alias Coord = Tuple!(int, "r", int, "c");
 
-      if (dist > duration || dist % 2 != duration % 2) return false;
-      preT = t, preX = x, preY = y;
+    Coord[][] coords = new Coord[][](H + W, 0);
+    foreach(r; 0..H) foreach(c; 0..W) {
+      auto d = r + c;
+      coords[d] ~= Coord(r, c);
     }
 
-    return true;
+    bool isOk(long buffer) {
+      long[][] memo = (long.min / 3).repeat(H * W).array.chunks(W).array;
+      memo[0][0] = buffer + A[0][0] - P[0];
+
+      bool[Coord] pre = [Coord(0, 0): true];
+      foreach(cost, step; zip(P[1..$], iota(0, H + W - 1))) {
+        foreach(from; coords[step]) {
+          auto cur = memo[from.r][from.c];
+          if (cur < 0) continue;
+
+          if (from.r < H - 1) {
+            auto t = from.r + 1;
+            memo[t][from.c].chmax(cur - cost + A[t][from.c]);
+          }
+          if (from.c < W - 1) {
+            auto t = from.c + 1;
+            memo[from.r][t].chmax(cur - cost + A[from.r][t]);
+          }
+        }
+      }
+
+      return memo[H - 1][W - 1] >= 0;
+    }
+    
+    return binarySearch(&isOk, long.max / 2, -1);
   }
 
   outputForAtCoder(&solve);
@@ -72,4 +97,61 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
 }

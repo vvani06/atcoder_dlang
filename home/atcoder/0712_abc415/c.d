@@ -1,20 +1,32 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int();
-  auto Q = scan!int(N * 3).chunks(3).array;
+  auto T = scan!int();
+
+  auto subSolve(int N, string S) {
+    bool[] memo = new bool[](2^^N);
+    memo[0] = true;
+
+    foreach(from; 0..2^^N) {
+      if (!memo[from]) continue;
+
+      foreach(add; 0..N) {
+        auto an = 2^^add;
+        if ((from & an) != 0) continue;
+
+        auto to = from | an;
+        if (S[to] == '1') continue;
+
+        memo[to] = true;
+      }
+    }
+    return memo[$ - 1];
+  }
 
   auto solve() {
-    int preT, preX, preY;
-    foreach(t, x, y; asTuples!3(Q)) {
-      auto dist = abs(preX - x) + abs(preY - y);
-      auto duration = t - preT;
-
-      if (dist > duration || dist % 2 != duration % 2) return false;
-      preT = t, preX = x, preY = y;
+    foreach(_; 0..T) {
+      writeln(subSolve(scan!int, "0" ~ scan!string) ? "Yes" : "No");
     }
-
-    return true;
   }
 
   outputForAtCoder(&solve);

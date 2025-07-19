@@ -2,19 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int();
-  auto Q = scan!int(N * 3).chunks(3).array;
+  auto A = scan!int(N);
+  auto X = scan!int();
 
   auto solve() {
-    int preT, preX, preY;
-    foreach(t, x, y; asTuples!3(Q)) {
-      auto dist = abs(preX - x) + abs(preY - y);
-      auto duration = t - preT;
-
-      if (dist > duration || dist % 2 != duration % 2) return false;
-      preT = t, preX = x, preY = y;
-    }
-
-    return true;
+    return A.canFind(X);
   }
 
   outputForAtCoder(&solve);
