@@ -124,7 +124,7 @@ void problem() {
 
   State state = new State();
   string[] ans;
-  enum UNIT_ROW = 5;
+  enum UNIT_ROW = 20;
 
   auto candidatesRow = new Coord[](0).redBlackTree;
   foreach(r; 0..UNIT_ROW) candidatesRow.insert(N.iota.map!(c => Coord(r, c)));
