@@ -47,40 +47,58 @@ void problem() {
   real bestAnsScore = 0;
 
   LIMIT: foreach(graphHeight; 1..4) {
-    int[][] graph = new int[][](M + N, 0);
-    foreach(i; 0..2^^graphHeight - 1) graph[i + N] = [i*2 + 1 + N, i*2 + 2 + N];
-    foreach(i; 2^^(graphHeight - 1) - 1..2^^graphHeight - 1) graph[i + N] = graph[i + N].map!(a => a % N).array; 
+    if (M + N < 2^^graphHeight) break;
+
+    const totalNodeSize = 2^^(graphHeight + 1) - 1;
+    const lastNodeSize = 2^^graphHeight;
+    const sorterNodeSize = totalNodeSize - lastNodeSize;
+
+    int[] bestLastGraph;
+    int[][] graph = new int[][](totalNodeSize, 0);
+    foreach(i; 0..2^^graphHeight - 1) graph[i] = [i*2 + 1, i*2 + 2];
+    // foreach(i; 2^^(graphHeight - 1) - 1..2^^graphHeight - 1) graph[i + N] = graph[i + N].map!(a => a % N).array; 
 
     real bestScore = 0;
-    real[] bestScores;
     int[] bestAssign;
     foreach(_; 0..50000) {
       if (elapsed(1500)) break;
-      auto assign = (-1).repeat(N).array ~ M.iota.map!(_ => uniform(0, K, RND)).array;
+      auto assign = iota(sorterNodeSize).map!(_ => uniform(0, K, RND)).array;
 
-      real[] scores;
+      real[][] matrix = new real[][](lastNodeSize, N);
       foreach(item; 0..N) {
-        real[] p = (0.0L).repeat(N + M).array;
-        p[N] = 1.0;
+        real[] p = (0.0L).repeat(totalNodeSize).array;
+        p[0] = 1.0;
 
-        foreach(node, nexts, sorter; zip(iota(N + M), graph, assign)) {
+        foreach(node, nexts, sorter; zip(iota(sorterNodeSize), graph, assign)) {
           if (nexts.empty) continue;
 
           p[nexts[0]] += p[node] * P[sorter][item];
           p[nexts[1]] += p[node] * (1.0 - P[sorter][item]);
         }
-        scores ~= p[item];
+
+        foreach(node; 0..lastNodeSize) {
+          matrix[node][item] = p[sorterNodeSize + node];
+        }
+      }
+
+      real score = 0;
+      int[] lastGraph;
+      foreach(node; 0..lastNodeSize) {
+        lastGraph ~= matrix[node].maxIndex.to!int;
+        score += matrix[node].maxElement;
       }
         
-      if (bestScore.chmax(scores.sum)) {
+      if (bestScore.chmax(score)) {
         bestAssign = assign;
-        bestScores = scores;
+        bestLastGraph = lastGraph;
       }
     }
 
     bestScore.deb;
-    bestScores.deb;
-    bestAssign[N..$].deb;
+    bestAssign.deb;
+    graph = (new int[](0)).repeat(N).array ~ graph[0..sorterNodeSize].map!(s => s.map!(n => n < sorterNodeSize ? n + N : bestLastGraph[n - sorterNodeSize]).array).array;
+    graph ~= (new int[](0)).repeat(N + M - graph.length).array;
+    graph.deb;
 
     Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
     int[] nodeMap = iota(N + M).array;
@@ -121,7 +139,7 @@ void problem() {
         if (graph[i].empty) continue;
         
         auto m = nodeMap[i];
-        sorts[m - N] = [bestAssign[i], nodeMap[graph[i][0]], nodeMap[graph[i][1]]];
+        sorts[m - N] = [bestAssign[i - N], nodeMap[graph[i][0]], nodeMap[graph[i][1]]];
       }
       bestAns ~= sorts;
     }
