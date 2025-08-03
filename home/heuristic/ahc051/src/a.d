@@ -81,14 +81,94 @@ void problem() {
   real[] sortabilities = iota(N).map!(item => sortersFor[item][0..4].fold!((a, b) => a * P[b][item])(1.0L)).array;
   int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
 
-  // sortabilities.deb;
-  // sortees.deb;
+  Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
+  Node[] goalNodes = allNodes[0..N];
+  Node[] sortNodes = allNodes[N..$ - 1];
+
+  struct Ans {
+    Node startNode;
+    int[] assigns;
+    int[][] graph;
+
+    this(Node startNode, int[] assigns, Edge[] edges) {
+      this.startNode = startNode;
+      this.assigns = assigns;
+      fixUnassigned();
+
+      graph = new int[][](N + M, 0);
+      foreach(e; edges[1..$]) graph[e.a] ~= e.b;
+      foreach(e; edges[1..$]) graph[e.a] ~= e.b;
+    }
+
+    void fixUnassigned() {
+      auto restGoals = iota(N).redBlackTree;
+      foreach(a; assigns[0..N]) restGoals.removeKey(a);
+      foreach(i; 0..N) {
+        if (assigns[i] != -1) continue;
+
+        assigns[i] = restGoals.front;
+        restGoals.removeFront();
+      }
+    }
+
+    real score() {
+      auto sorted = topologicalSort(graph);
+      real ret = 0;
+
+      foreach(item; 0..N) {
+        real[] p = new real[](N + M);
+        p[] = 0;
+        p[startNode.id] = 1;
+        foreach(cur; sorted) {
+          if (cur < N) continue;
+          if (graph[cur].empty) {
+            if (p[cur] == 0) continue; else return -1;
+          }
+
+          auto v1 = graph[cur][0];
+          auto v2 = graph[cur][1];
+          p[v1] += p[cur] * P[assigns[cur]][item];
+          p[v2] += p[cur] * (1.0 - P[assigns[cur]][item]);
+        }
+        ret += p[assigns[0..N].countUntil(item)];
+      }
+      return ret;
+    }
+
+    void outputAsAns() {
+      if (score >= 0) {
+        writefln("%(%s %)", assigns[0..N]);
+        writefln("%(%s %)", [startNode.id]);
+
+        foreach(_; 0..N - 3) writeln();
+        foreach(k, sw; zip(assigns[N..$], graph[N..$])) {
+          if (sw.empty) {
+            writeln("-1");
+          } else {
+            writefln("%s %(%s %)", k % K, k < K ? sw[0..2] : sw[0..2].retro.array);
+          }
+        }
+      } else {
+        writefln("%(%s %)", iota(N));
+        writefln("%(%s %)", [0]);
+        writefln("%(%s %)", (-1).repeat(M));
+      }
+    }
+  }
+
+  class Graph {
+    Node startNode;
+    int[] assigns;
+    Edge[] edges;
+
+    this() {
+      startNode = sortNodes.minElement!"a.sum";
+      assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
+      edges = [Edge(startNode.id, N + M)];
+    }
+  }
 
   {
-    Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
-    Node[] goalNodes = allNodes[0..N];
-    Node[] sortNodes = allNodes[N..$ - 1];
-
     Edge[] edges;
     Node startNode;
     int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
@@ -202,59 +282,9 @@ void problem() {
         }
       }
     }
-
-    int[][] graph = new int[][](N + M, 0);
-    foreach(e; edges[1..$]) graph[e.a] ~= e.b;
-    foreach(e; edges[1..$]) graph[e.a] ~= e.b;
-
-    auto restGoals = iota(N).redBlackTree;
-    foreach(a; assigns[0..N]) restGoals.removeKey(a);
-    foreach(i; 0..N) {
-      if (assigns[i] != -1) continue;
-
-      assigns[i] = restGoals.front;
-      restGoals.removeFront();
-    }
-
-    auto sorted = topologicalSort(graph);
-    real score = 0;
-
-    foreach(item; 0..N) {
-      real[] p = new real[](N + M);
-      p[] = 0;
-      p[startNode.id] = 1;
-      foreach(cur; sorted) {
-        if (cur < N) continue;
-        if (graph[cur].empty) {
-          if (p[cur] == 0) continue; else { score = real.init; break; }
-        }
-
-        auto v1 = graph[cur][0];
-        auto v2 = graph[cur][1];
-        p[v1] += p[cur] * P[assigns[cur]][item];
-        p[v2] += p[cur] * (1.0 - P[assigns[cur]][item]);
-      }
-      score += p[assigns[0..N].countUntil(item)];
-    }
-    deb((N - score) * 1000 / N);
-
-    if (!score.isNaN()) {
-      writefln("%(%s %)", assigns[0..N]);
-      writefln("%(%s %)", [startNode.id]);
-
-      foreach(_; 0..N - 3) writeln();
-      foreach(k, sw; zip(assigns[N..$], graph[N..$])) {
-        if (sw.empty) {
-          writeln("-1");
-        } else {
-          writefln("%s %(%s %)", k % K, k < K ? sw[0..2] : sw[0..2].retro.array);
-        }
-      }
-    } else {
-      writefln("%(%s %)", iota(N));
-      writefln("%(%s %)", [0]);
-      writefln("%(%s %)", (-1).repeat(M));
-    }
+    
+    Ans ans = Ans(startNode, assigns, edges);
+    ans.outputAsAns();
   }
 }
 
