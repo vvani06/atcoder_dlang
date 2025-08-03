@@ -11,6 +11,10 @@ void problem() {
 
   struct Coord {
     int x, y;
+
+    int dist(Coord other) {
+      return (x - other.x)^^2 + (y - other.y)^^2;
+    }
   }
 
   bool intersect(ref Coord p1, ref Coord p2, ref Coord q1, ref Coord q2) {
@@ -46,8 +50,10 @@ void problem() {
   int[][] bestAns;
   real bestAnsScore = 0;
 
-  LIMIT: foreach(graphHeight; 1..4) {
-    if (M + N < 2^^graphHeight) break;
+  enum TIME_LIMIT = 0;
+
+  LIMIT: foreach(graphHeight; 1..8) {
+    if (M < 2^^graphHeight) break;
 
     const totalNodeSize = 2^^(graphHeight + 1) - 1;
     const lastNodeSize = 2^^graphHeight;
@@ -61,7 +67,7 @@ void problem() {
     real bestScore = 0;
     int[] bestAssign;
     foreach(_; 0..50000) {
-      if (elapsed(1500)) break;
+      if (elapsed(TIME_LIMIT)) break;
       auto assign = iota(sorterNodeSize).map!(_ => uniform(0, K, RND)).array;
 
       real[][] matrix = new real[][](lastNodeSize, N);
@@ -94,18 +100,20 @@ void problem() {
       }
     }
 
-    bestScore.deb;
-    bestAssign.deb;
+    if (bestScore <= 0) continue;
+
+    // deb((N - bestScore) * (10000 / N));
+    // bestAssign.deb;
     graph = (new int[](0)).repeat(N).array ~ graph[0..sorterNodeSize].map!(s => s.map!(n => n < sorterNodeSize ? n + N : bestLastGraph[n - sorterNodeSize]).array).array;
     graph ~= (new int[](0)).repeat(N + M - graph.length).array;
-    graph.deb;
+    // graph.deb;
 
     Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
     int[] nodeMap = iota(N + M).array;
 
     bool isOk;
     MAIN: foreach(_; 0..200000) {
-      if (elapsed(1900)) break LIMIT;
+      if (elapsed(TIME_LIMIT)) break LIMIT;
       nodeMap[0..N].randomShuffle(RND);
       nodeMap[N..$].randomShuffle(RND);
 
@@ -146,7 +154,134 @@ void problem() {
   }
 
   foreach(s; bestAns) {
-    writefln("%(%s %)", s);
+    // writefln("%(%s %)", s);
+  }
+
+  Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
+  struct Edge {
+    int a, b;
+
+    bool cross(Edge other) {
+      return intersect(coords[a], coords[b], coords[other.a], coords[other.b]);
+    }
+  }
+
+  {
+    Edge[] edges;
+    int startNode;
+    {
+      foreach(s; iota(N, N+M).array.sort!((a, b) => coords[$ - 1].dist(coords[a]) < coords[$ - 1].dist(coords[b]))) {
+        auto newEdge = Edge(s, N + M);
+        edges ~= newEdge;
+        startNode = s;
+        break;
+      }
+      bool[] used = new bool[](N + M);
+      used[0..N] = true;
+      int[] queue = [startNode];
+      foreach(depth; 0..2) {
+        bool[int] nexts;
+        foreach(n; queue) used[n] = true;
+
+        foreach(cur; queue) {
+          int conn;
+          auto sorted = iota(N, N+M).array.sort!((a, b) => coords[cur].dist(coords[a]) < coords[cur].dist(coords[b])).array;
+          foreach(next; sorted[0..$]) {
+            if (conn >= 2) break;
+            if (cur == next || (next >= N && used[next])) continue;
+
+            auto newEdge = Edge(cur, next);
+            if (edges.any!(e => e.cross(newEdge))) continue;
+
+            edges ~= newEdge;
+            if (next >= N) {
+              nexts[next] = true;
+              used[next] = true;
+            }
+            conn++;
+          }
+        }
+        queue = nexts.keys;
+      }
+
+      int[] connected = new int[](N);
+      foreach(cur; queue) {
+        int conn;
+        foreach(next; iota(N).array.sort!((a, b) => connected[a] < connected[b])) {
+          if (conn >= 2) break;
+
+          auto newEdge = Edge(cur, next);
+          if (edges.any!(e => e.cross(newEdge))) continue;
+
+          edges ~= newEdge;
+          conn++;
+          connected[next]++;
+        }
+      }
+    }
+
+    int[][] graph = new int[][](N + M, 0);
+    foreach(e; edges[1..$]) graph[e.a] ~= e.b;
+    foreach(e; edges[1..$]) graph[e.a] ~= e.b;
+
+    auto sorted = topologicalSort(graph);
+    sorted.deb;
+    int[] bestAssign;
+    real bestScore = 0;
+    foreach(_; 0..5000) {
+      int[] assign = new int[](N + M);
+      foreach(i; N..N + M) assign[i] = uniform(0, K, RND);
+
+      real[][] matrix;
+      foreach(item; 0..N) {
+        real[] p = new real[](N + M);
+        p[] = 0;
+        p[startNode] = 1;
+        foreach(cur; sorted) {
+          if (cur < N || graph[cur].empty) continue;
+
+          auto v1 = graph[cur][0];
+          auto v2 = graph[cur][1];
+          p[v1] += p[cur] * P[assign[cur]][item];
+          p[v2] += p[cur] * (1.0 - P[assign[cur]][item]);
+        }
+        matrix ~= p[0..N];
+      }
+
+      real score = 0;
+      assign[0..N] = -1;
+      auto rbt = N.iota.redBlackTree;
+      foreach(p, item, node; iota(N^^2).map!(n => tuple(matrix[n / N][n % N], n / N, n % N)).array.sort!"a > b") {
+        if (!(item in rbt) || assign[node] != -1) continue;
+
+        rbt.removeKey(item);
+        score += p;
+        assign[node] = item;
+      }
+
+      foreach(i; 0..N) {
+        if (assign[i] == -1) {
+          assign[i] = rbt.front;
+          rbt.removeFront();
+        }
+      }
+      if (bestScore.chmax(score)) {
+        bestAssign = assign;
+      }
+    }
+
+    deb((N - bestScore) * (1000 / N));
+
+    writefln("%(%s %)", bestAssign[0..N]);
+    writefln("%(%s %)", [startNode]);
+
+    foreach(k, sw; zip(bestAssign[N..$], graph[N..$])) {
+      if (sw.empty) {
+        writeln("-1");
+      } else {
+        writefln("%(%s %)", (k ~ sw)[0..3]);
+      }
+    }
   }
 }
 
@@ -184,3 +319,33 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
+int[] topologicalSort(int[][] g) {
+  auto size = g.length.to!int;
+  auto depth = new int[](size);
+  foreach(e; g) foreach(p; e) depth[p]++;
+
+  auto q = heapify!"a > b"(new int[](0));
+  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+
+  int[] sorted;
+  while(!q.empty) {
+    auto p = q.front;
+    q.removeFront;
+    foreach(n; g[p]) {
+      depth[n]--;
+      if (depth[n] == 0) q.insert(n);
+    }
+
+    sorted ~= p;
+  }
+
+  return sorted;
+}
+
+auto asTuples(int L, T)(T matrix) {
+  static if (__traits(compiles, L)) {
+    return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
+  } else {
+    return matrix.map!(row => tuple());
+  }
+}
