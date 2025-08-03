@@ -3,3 +3,4 @@ tester/**
 !tester/tester
 src/output/out
 src/vis.html
+src/input/lastcase

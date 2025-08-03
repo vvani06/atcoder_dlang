@@ -9,6 +9,7 @@ if [ -z "${1}" ]; then
 else
     testcase=`printf "%04d" "${1}"`
     cp "/ahc_in/${testcase}.txt" ./a -f
+    cp "/ahc_in/${testcase}.txt" ${base}/input/lastcase -f
 fi
 
 ldmd2 -debug -O ./a.d -of=./built

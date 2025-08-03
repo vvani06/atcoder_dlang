@@ -46,176 +46,159 @@ void problem() {
   int[][] D = scan!int(2 * N).chunks(2).array;
   int[][] S = scan!int(2 * M).chunks(2).array;
   real[][] P = scan!real(K * N).chunks(N).array;
-
-  int[][] bestAns;
-  real bestAnsScore = 0;
-
-  enum TIME_LIMIT = 0;
-
-  LIMIT: foreach(graphHeight; 1..8) {
-    if (M < 2^^graphHeight) break;
-
-    const totalNodeSize = 2^^(graphHeight + 1) - 1;
-    const lastNodeSize = 2^^graphHeight;
-    const sorterNodeSize = totalNodeSize - lastNodeSize;
-
-    int[] bestLastGraph;
-    int[][] graph = new int[][](totalNodeSize, 0);
-    foreach(i; 0..2^^graphHeight - 1) graph[i] = [i*2 + 1, i*2 + 2];
-    // foreach(i; 2^^(graphHeight - 1) - 1..2^^graphHeight - 1) graph[i + N] = graph[i + N].map!(a => a % N).array; 
-
-    real bestScore = 0;
-    int[] bestAssign;
-    foreach(_; 0..50000) {
-      if (elapsed(TIME_LIMIT)) break;
-      auto assign = iota(sorterNodeSize).map!(_ => uniform(0, K, RND)).array;
-
-      real[][] matrix = new real[][](lastNodeSize, N);
-      foreach(item; 0..N) {
-        real[] p = (0.0L).repeat(totalNodeSize).array;
-        p[0] = 1.0;
-
-        foreach(node, nexts, sorter; zip(iota(sorterNodeSize), graph, assign)) {
-          if (nexts.empty) continue;
-
-          p[nexts[0]] += p[node] * P[sorter][item];
-          p[nexts[1]] += p[node] * (1.0 - P[sorter][item]);
-        }
-
-        foreach(node; 0..lastNodeSize) {
-          matrix[node][item] = p[sorterNodeSize + node];
-        }
-      }
-
-      real score = 0;
-      int[] lastGraph;
-      foreach(node; 0..lastNodeSize) {
-        lastGraph ~= matrix[node].maxIndex.to!int;
-        score += matrix[node].maxElement;
-      }
-        
-      if (bestScore.chmax(score)) {
-        bestAssign = assign;
-        bestLastGraph = lastGraph;
-      }
-    }
-
-    if (bestScore <= 0) continue;
-
-    // deb((N - bestScore) * (10000 / N));
-    // bestAssign.deb;
-    graph = (new int[](0)).repeat(N).array ~ graph[0..sorterNodeSize].map!(s => s.map!(n => n < sorterNodeSize ? n + N : bestLastGraph[n - sorterNodeSize]).array).array;
-    graph ~= (new int[](0)).repeat(N + M - graph.length).array;
-    // graph.deb;
-
-    Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
-    int[] nodeMap = iota(N + M).array;
-
-    bool isOk;
-    MAIN: foreach(_; 0..200000) {
-      if (elapsed(TIME_LIMIT)) break LIMIT;
-      nodeMap[0..N].randomShuffle(RND);
-      nodeMap[N..$].randomShuffle(RND);
-
-      int[][] lines = [[N + M, nodeMap[N]]];
-      foreach(i; N..N + M) {
-        if (graph[i].empty) continue;
-
-        auto from = nodeMap[i];
-        auto to1 = nodeMap[graph[i][0]];
-        lines ~= [from, to1];
-        auto to2 = nodeMap[graph[i][1]];
-        lines ~= [from, to2];
-      }
-
-      // lines.deb;
-      foreach(i; 0..lines.length - 1) foreach(j; i + 1..lines.length) {
-        if (intersect(coords[lines[i][0]], coords[lines[i][1]], coords[lines[j][0]], coords[lines[j][1]])) continue MAIN;
-      }
-      
-      isOk = true;
-      break;
-    }
-
-    if (isOk && bestAnsScore.chmax(bestScore)) {
-      bestAns.length = 0;
-      bestAns ~= N.iota.map!(i => nodeMap.countUntil(i).to!int).array;
-      bestAns ~= [nodeMap[N]];
-
-      int[][] sorts = [-1].repeat(M).array;
-      foreach(i; N..N + M) {
-        if (graph[i].empty) continue;
-        
-        auto m = nodeMap[i];
-        sorts[m - N] = [bestAssign[i - N], nodeMap[graph[i][0]], nodeMap[graph[i][1]]];
-      }
-      bestAns ~= sorts;
-    }
-  }
-
-  foreach(s; bestAns) {
-    // writefln("%(%s %)", s);
-  }
+  P = P.dup ~ P.map!(p => p.map!(x => 1.0 - x).array).array;
+  auto PN = P.length.to!int;
 
   Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
+  // foreach(ref c; coords) c.y = 10000 - c.y;
+
+  struct Node {
+    int id;
+
+    long x() { return coords[id].x; }
+    long y() { return coords[id].y; }
+    long sum() { return coords[id].x + coords[id].y; }
+    long dist(Node other) { return (x - other.x)^^2 + (y - other.y)^^2; }
+    long distX(Node other) { return (x - other.x)^^2 * 100 + (y - other.y)^^2; }
+
+    string toString() {
+      return "# Node: % 4s (% 5d, % 5d)".format(id, x, y);
+    }
+  }
+
   struct Edge {
     int a, b;
 
     bool cross(Edge other) {
       return intersect(coords[a], coords[b], coords[other.a], coords[other.b]);
     }
+
+    int from() { return a; }
+    int to() { return b; }
   }
 
+  int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
+  real[] sortabilities = iota(N).map!(item => sortersFor[item][0..4].fold!((a, b) => a * P[b][item])(1.0L)).array;
+  int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
+
+  // sortabilities.deb;
+  // sortees.deb;
+
   {
+    Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
+    Node[] goalNodes = allNodes[0..N];
+    Node[] sortNodes = allNodes[N..$ - 1];
+
     Edge[] edges;
-    int startNode;
+    Node startNode;
+    int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
     {
-      foreach(s; iota(N, N+M).array.sort!((a, b) => coords[$ - 1].dist(coords[a]) < coords[$ - 1].dist(coords[b]))) {
-        auto newEdge = Edge(s, N + M);
-        edges ~= newEdge;
-        startNode = s;
-        break;
-      }
+      startNode = sortNodes.minElement!"a.sum";
+      Node[] baseNodes = [startNode];
+      edges ~= Edge(startNode.id, N + M);
+
       bool[] used = new bool[](N + M);
       used[0..N] = true;
-      int[] queue = [startNode];
-      foreach(depth; 0..2) {
-        bool[int] nexts;
-        foreach(n; queue) used[n] = true;
+      used[startNode.id] = true;
 
-        foreach(cur; queue) {
-          int conn;
-          auto sorted = iota(N, N+M).array.sort!((a, b) => coords[cur].dist(coords[a]) < coords[cur].dist(coords[b])).array;
-          foreach(next; sorted[0..$]) {
-            if (conn >= 2) break;
-            if (cur == next || (next >= N && used[next])) continue;
+      int[] groupGoals;
+      int[][] groupNodes;
 
-            auto newEdge = Edge(cur, next);
-            if (edges.any!(e => e.cross(newEdge))) continue;
-
-            edges ~= newEdge;
-            if (next >= N) {
-              nexts[next] = true;
-              used[next] = true;
-            }
-            conn++;
-          }
-        }
-        queue = nexts.keys;
-      }
-
-      int[] connected = new int[](N);
-      foreach(cur; queue) {
-        int conn;
-        foreach(next; iota(N).array.sort!((a, b) => connected[a] < connected[b])) {
-          if (conn >= 2) break;
-
-          auto newEdge = Edge(cur, next);
-          if (edges.any!(e => e.cross(newEdge))) continue;
+      int connectToNearestGoal(Node node, int limitY = 0) {
+        foreach(goal; goalNodes.dup.sort!((a, b) => node.distX(a) < node.distX(b))) {
+          // deb(limitY, goal);
+          if (goal.y < limitY) continue;
+          
+          auto newEdge = Edge(node.id, goal.id);
+          if (edges.any!(e => newEdge.cross(e))) continue;
 
           edges ~= newEdge;
-          conn++;
-          connected[next]++;
+          // [node, goal].deb;
+          return goal.id;
+        }
+
+        foreach(via; sortNodes) {
+          if (used[via.id]) continue;
+          
+          auto viaEdge = Edge(node.id, via.id);
+          if (edges.any!(e => viaEdge.cross(e))) continue;
+
+          foreach(goal; goalNodes) {
+            auto goalEdge = Edge(via.id, goal.id);
+            if (edges.any!(e => goalEdge.cross(e))) continue;
+
+            edges ~= [viaEdge, goalEdge];
+            return goal.id;
+          }
+        }
+
+        return -1;
+      }
+
+      Node preNode = startNode;
+
+      const bottomBorder = 1000;
+      const stepWidth = 500;
+      const sideWidth = stepWidth / 2;
+      const sideTreeheight = 4;
+
+      foreach(node; sortNodes.filter!(n => n.y <= bottomBorder).array.sort!"a.x < b.x") {
+        if (node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
+        if (used[node.id]) continue;
+
+        auto baseEdge = Edge(preNode.id, node.id);
+        if (edges.any!(e => baseEdge.cross(e))) continue;
+
+        used[node.id] = true;
+        edges ~= baseEdge;
+        auto preSide = preNode;
+        int height;
+        int[] sideNodes = [preSide.id];
+        foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideWidth).array.sort!"a.y < b.y") {
+          if (height >= sideTreeheight) break;
+          if (side.y <= bottomBorder || used[side.id]) continue;
+
+          auto newEdges = [Edge(preSide.id, side.id), Edge(side.id, node.id)];
+          if (newEdges.any!(n => edges.any!(e => n.cross(e)))) continue;
+          
+          edges ~= newEdges;
+          sideNodes ~= side.id;
+          preSide = side;
+          used[side.id] = true;
+          height++;
+        }
+        
+        auto goal = connectToNearestGoal(preSide, preNode.y.to!int);
+        if (goal != -1) {
+          groupNodes ~= sideNodes;
+          groupGoals ~= goal;
+        }
+        preNode = node;
+        baseNodes ~= node;
+      }
+      connectToNearestGoal(preNode);
+
+      baseNodes.deb;
+      auto bases = baseNodes.map!"a.id".redBlackTree;
+
+      Edge[] sortedEdges;
+      sortedEdges ~= edges.filter!(e => !(e.to in bases)).array;
+      sortedEdges ~= edges.filter!(e => (e.to in bases)).array;
+      edges = sortedEdges;
+
+      int goalCount;
+      int[] goalItem = (-1).repeat(N).array;
+      foreach(goal, sideNodes; zip(groupGoals, groupNodes)) {
+        deb(goal, sideNodes);
+
+        auto item = goalItem[goal] == -1 ? sortees[goalCount] : goalItem[goal];
+        foreach(node; sideNodes) {
+          assigns[node] = sortersFor[item][0..2].choice(RND);
+        }
+
+        if (goalItem[goal] == -1) {
+          assigns[goal] = sortees[goalCount++];
+          goalItem[goal] = item;
         }
       }
     }
@@ -224,63 +207,53 @@ void problem() {
     foreach(e; edges[1..$]) graph[e.a] ~= e.b;
     foreach(e; edges[1..$]) graph[e.a] ~= e.b;
 
-    auto sorted = topologicalSort(graph);
-    sorted.deb;
-    int[] bestAssign;
-    real bestScore = 0;
-    foreach(_; 0..5000) {
-      int[] assign = new int[](N + M);
-      foreach(i; N..N + M) assign[i] = uniform(0, K, RND);
+    auto restGoals = iota(N).redBlackTree;
+    foreach(a; assigns[0..N]) restGoals.removeKey(a);
+    foreach(i; 0..N) {
+      if (assigns[i] != -1) continue;
 
-      real[][] matrix;
-      foreach(item; 0..N) {
-        real[] p = new real[](N + M);
-        p[] = 0;
-        p[startNode] = 1;
-        foreach(cur; sorted) {
-          if (cur < N || graph[cur].empty) continue;
-
-          auto v1 = graph[cur][0];
-          auto v2 = graph[cur][1];
-          p[v1] += p[cur] * P[assign[cur]][item];
-          p[v2] += p[cur] * (1.0 - P[assign[cur]][item]);
-        }
-        matrix ~= p[0..N];
-      }
-
-      real score = 0;
-      assign[0..N] = -1;
-      auto rbt = N.iota.redBlackTree;
-      foreach(p, item, node; iota(N^^2).map!(n => tuple(matrix[n / N][n % N], n / N, n % N)).array.sort!"a > b") {
-        if (!(item in rbt) || assign[node] != -1) continue;
-
-        rbt.removeKey(item);
-        score += p;
-        assign[node] = item;
-      }
-
-      foreach(i; 0..N) {
-        if (assign[i] == -1) {
-          assign[i] = rbt.front;
-          rbt.removeFront();
-        }
-      }
-      if (bestScore.chmax(score)) {
-        bestAssign = assign;
-      }
+      assigns[i] = restGoals.front;
+      restGoals.removeFront();
     }
 
-    deb((N - bestScore) * (1000 / N));
+    auto sorted = topologicalSort(graph);
+    real score = 0;
 
-    writefln("%(%s %)", bestAssign[0..N]);
-    writefln("%(%s %)", [startNode]);
+    foreach(item; 0..N) {
+      real[] p = new real[](N + M);
+      p[] = 0;
+      p[startNode.id] = 1;
+      foreach(cur; sorted) {
+        if (cur < N) continue;
+        if (graph[cur].empty) {
+          if (p[cur] == 0) continue; else { score = real.init; break; }
+        }
 
-    foreach(k, sw; zip(bestAssign[N..$], graph[N..$])) {
-      if (sw.empty) {
-        writeln("-1");
-      } else {
-        writefln("%(%s %)", (k ~ sw)[0..3]);
+        auto v1 = graph[cur][0];
+        auto v2 = graph[cur][1];
+        p[v1] += p[cur] * P[assigns[cur]][item];
+        p[v2] += p[cur] * (1.0 - P[assigns[cur]][item]);
       }
+      score += p[assigns[0..N].countUntil(item)];
+    }
+    deb((N - score) * 1000 / N);
+
+    if (!score.isNaN()) {
+      writefln("%(%s %)", assigns[0..N]);
+      writefln("%(%s %)", [startNode.id]);
+
+      foreach(_; 0..N - 3) writeln();
+      foreach(k, sw; zip(assigns[N..$], graph[N..$])) {
+        if (sw.empty) {
+          writeln("-1");
+        } else {
+          writefln("%s %(%s %)", k % K, k < K ? sw[0..2] : sw[0..2].retro.array);
+        }
+      }
+    } else {
+      writefln("%(%s %)", iota(N));
+      writefln("%(%s %)", [0]);
+      writefln("%(%s %)", (-1).repeat(M));
     }
   }
 }
