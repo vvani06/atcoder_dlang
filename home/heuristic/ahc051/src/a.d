@@ -161,7 +161,7 @@ void problem() {
     this(Coord[] coords) {
     }
 
-    Ans generate(int bottomBorder, int stepWidth, int sideTreeHeight) {
+    Ans generate(int bottomBorder, int stepWidth, int sideTreeWidth, int sideTreeHeight) {
       bool[] used = new bool[](N + M);
       used[0..N] = true;
       Edge[] edges;
@@ -206,10 +206,8 @@ void problem() {
 
       {
         Node preNode = startNode;
-        const sideWidth = stepWidth / 2;
         foreach(node; sortNodes.filter!(n => n.y <= bottomBorder).array.sort!"a.x < b.x") {
-          if (node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
-          if (used[node.id]) continue;
+          if (used[node.id] || node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
 
           auto baseEdge = Edge(preNode.id, node.id);
           if (hasIntersect(baseEdge)) continue;
@@ -219,7 +217,7 @@ void problem() {
           auto preSide = preNode;
           int height;
           int[] sideNodes = [preSide.id];
-          foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideWidth).array.sort!"a.y < b.y") {
+          foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideTreeWidth).array.sort!"a.y < b.y") {
             if (height >= sideTreeHeight) break;
             if (side.y <= bottomBorder || used[side.id]) continue;
 
@@ -278,17 +276,23 @@ void problem() {
   Ans bestAns;
   foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(100, 1001, 50), iota(2, 8, 1))) {
     if (elapsed(1900)) break;
-    auto ans = sim.generate(bottomBorder, stepWidth, sideTreeHeight);
-    if (bestScore.chmax(ans.score())) {
-      bestAns = ans;
+
+    foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
+      auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
+      if (bestScore.chmax(ans.score())) {
+        bestAns = ans;
+      }
     }
   }
   coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
   foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(100, 1001, 50), iota(2, 8, 1))) {
     if (elapsed(1900)) break;
-    auto ans = sim.generate(bottomBorder, stepWidth, sideTreeHeight);
-    if (bestScore.chmax(ans.score())) {
-      bestAns = ans;
+
+    foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
+      auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
+      if (bestScore.chmax(ans.score())) {
+        bestAns = ans;
+      }
     }
   }
   bestAns.outputAsAns();

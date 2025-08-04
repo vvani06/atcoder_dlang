@@ -37,7 +37,7 @@ if [ $? -eq 0 ]; then
   exit
 fi
 
-SCORE=`cat score | awk '{sum+=$3*3} END {printf "%.2f\n", sum}'`
+SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'`
 echo $SCORE
 
 DATE=`date "+%Y%m%d_%H%M%S"`
