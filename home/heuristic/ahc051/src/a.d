@@ -50,7 +50,6 @@ void problem() {
   auto PN = P.length.to!int;
 
   Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
-  // foreach(ref c; coords) c.y = 10000 - c.y;
 
   struct Node {
     int id;
@@ -86,11 +85,11 @@ void problem() {
   Node[] sortNodes = allNodes[N..$ - 1];
 
   struct Ans {
-    Node startNode;
+    int startNode;
     int[] assigns;
     int[][] graph;
 
-    this(Node startNode, int[] assigns, Edge[] edges) {
+    this(int startNode, int[] assigns, Edge[] edges) {
       this.startNode = startNode;
       this.assigns = assigns;
       fixUnassigned();
@@ -118,7 +117,7 @@ void problem() {
       foreach(item; 0..N) {
         real[] p = new real[](N + M);
         p[] = 0;
-        p[startNode.id] = 1;
+        p[startNode] = 1;
         foreach(cur; sorted) {
           if (cur < N) continue;
           if (graph[cur].empty) {
@@ -138,7 +137,7 @@ void problem() {
     void outputAsAns() {
       if (score >= 0) {
         writefln("%(%s %)", assigns[0..N]);
-        writefln("%(%s %)", [startNode.id]);
+        writefln("%(%s %)", [startNode]);
 
         foreach(_; 0..N - 3) writeln();
         foreach(k, sw; zip(assigns[N..$], graph[N..$])) {
@@ -156,44 +155,23 @@ void problem() {
     }
   }
 
-  class Graph {
-    Node startNode;
-    int[] assigns;
-    Edge[] edges;
-
-    this() {
-      startNode = sortNodes.minElement!"a.sum";
-      assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
-      edges = [Edge(startNode.id, N + M)];
+  class Sim {
+    this(Coord[] coords) {
     }
-  }
 
-  {
-    Edge[] edges;
-    Node startNode;
-    int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
-    {
-      startNode = sortNodes.minElement!"a.sum";
-      Node[] baseNodes = [startNode];
-      edges ~= Edge(startNode.id, N + M);
-
+    Ans generate(int bottomBorder, int stepWidth, int sideTreeHeight) {
       bool[] used = new bool[](N + M);
       used[0..N] = true;
-      used[startNode.id] = true;
-
-      int[] groupGoals;
-      int[][] groupNodes;
+      Edge[] edges;
 
       int connectToNearestGoal(Node node, int limitY = 0) {
         foreach(goal; goalNodes.dup.sort!((a, b) => node.distX(a) < node.distX(b))) {
-          // deb(limitY, goal);
           if (goal.y < limitY) continue;
           
           auto newEdge = Edge(node.id, goal.id);
           if (edges.any!(e => newEdge.cross(e))) continue;
 
           edges ~= newEdge;
-          // [node, goal].deb;
           return goal.id;
         }
 
@@ -211,81 +189,103 @@ void problem() {
             return goal.id;
           }
         }
-
         return -1;
       }
 
-      Node preNode = startNode;
+      Node startNode = sortNodes.minElement!"a.sum";
+      used[startNode.id] = true;
+      Node[] baseNodes = [startNode];
+      edges ~= Edge(startNode.id, N + M);
 
-      const bottomBorder = 1000;
-      const stepWidth = 500;
-      const sideWidth = stepWidth / 2;
-      const sideTreeheight = 4;
+      int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
+      int[] groupGoals;
+      int[][] groupNodes;
 
-      foreach(node; sortNodes.filter!(n => n.y <= bottomBorder).array.sort!"a.x < b.x") {
-        if (node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
-        if (used[node.id]) continue;
+      {
+        Node preNode = startNode;
+        const sideWidth = stepWidth / 2;
+        foreach(node; sortNodes.filter!(n => n.y <= bottomBorder).array.sort!"a.x < b.x") {
+          if (node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
+          if (used[node.id]) continue;
 
-        auto baseEdge = Edge(preNode.id, node.id);
-        if (edges.any!(e => baseEdge.cross(e))) continue;
+          auto baseEdge = Edge(preNode.id, node.id);
+          if (edges.any!(e => baseEdge.cross(e))) continue;
 
-        used[node.id] = true;
-        edges ~= baseEdge;
-        auto preSide = preNode;
-        int height;
-        int[] sideNodes = [preSide.id];
-        foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideWidth).array.sort!"a.y < b.y") {
-          if (height >= sideTreeheight) break;
-          if (side.y <= bottomBorder || used[side.id]) continue;
+          used[node.id] = true;
+          edges ~= baseEdge;
+          auto preSide = preNode;
+          int height;
+          int[] sideNodes = [preSide.id];
+          foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideWidth).array.sort!"a.y < b.y") {
+            if (height >= sideTreeHeight) break;
+            if (side.y <= bottomBorder || used[side.id]) continue;
 
-          auto newEdges = [Edge(preSide.id, side.id), Edge(side.id, node.id)];
-          if (newEdges.any!(n => edges.any!(e => n.cross(e)))) continue;
+            auto newEdges = [Edge(preSide.id, side.id), Edge(side.id, node.id)];
+            if (newEdges.any!(n => edges.any!(e => n.cross(e)))) continue;
+            
+            edges ~= newEdges;
+            sideNodes ~= side.id;
+            preSide = side;
+            used[side.id] = true;
+            height++;
+          }
           
-          edges ~= newEdges;
-          sideNodes ~= side.id;
-          preSide = side;
-          used[side.id] = true;
-          height++;
+          auto goal = connectToNearestGoal(preSide, preNode.y.to!int);
+          if (goal != -1) {
+            groupNodes ~= sideNodes;
+            groupGoals ~= goal;
+          }
+          preNode = node;
+          baseNodes ~= node;
         }
-        
-        auto goal = connectToNearestGoal(preSide, preNode.y.to!int);
-        if (goal != -1) {
-          groupNodes ~= sideNodes;
-          groupGoals ~= goal;
-        }
-        preNode = node;
-        baseNodes ~= node;
-      }
-      connectToNearestGoal(preNode);
+        connectToNearestGoal(preNode);
 
-      baseNodes.deb;
-      auto bases = baseNodes.map!"a.id".redBlackTree;
+        baseNodes.deb;
+        auto bases = baseNodes.map!"a.id".redBlackTree;
 
-      Edge[] sortedEdges;
-      sortedEdges ~= edges.filter!(e => !(e.to in bases)).array;
-      sortedEdges ~= edges.filter!(e => (e.to in bases)).array;
-      edges = sortedEdges;
+        Edge[] sortedEdges;
+        sortedEdges ~= edges.filter!(e => !(e.to in bases)).array;
+        sortedEdges ~= edges.filter!(e => (e.to in bases)).array;
+        edges = sortedEdges;
 
-      int goalCount;
-      int[] goalItem = (-1).repeat(N).array;
-      foreach(goal, sideNodes; zip(groupGoals, groupNodes)) {
-        deb(goal, sideNodes);
+        int goalCount;
+        int[] goalItem = (-1).repeat(N).array;
+        foreach(goal, sideNodes; zip(groupGoals, groupNodes)) {
+          deb(goal, sideNodes);
 
-        auto item = goalItem[goal] == -1 ? sortees[goalCount] : goalItem[goal];
-        foreach(node; sideNodes) {
-          assigns[node] = sortersFor[item][0..2].choice(RND);
-        }
+          auto item = goalItem[goal] == -1 ? sortees[goalCount] : goalItem[goal];
+          foreach(node; sideNodes) {
+            assigns[node] = sortersFor[item][0..2].choice(RND);
+          }
 
-        if (goalItem[goal] == -1) {
-          assigns[goal] = sortees[goalCount++];
-          goalItem[goal] = item;
+          if (goalItem[goal] == -1) {
+            assigns[goal] = sortees[goalCount++];
+            goalItem[goal] = item;
+          }
         }
       }
+
+      return Ans(startNode.id, assigns, edges);
     }
-    
-    Ans ans = Ans(startNode, assigns, edges);
-    ans.outputAsAns();
   }
+
+  auto sim = new Sim(D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000));
+  real bestScore = long.min;
+  Ans bestAns;
+  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(400, 2001, 100), iota(100, 1001, 50), iota(2, 8, 1))) {
+    auto ans = sim.generate(bottomBorder, stepWidth, sideTreeHeight);
+    if (bestScore.chmax(ans.score())) {
+      bestAns = ans;
+    }
+  }
+  coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
+  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(400, 2001, 100), iota(100, 1001, 50), iota(2, 8, 1))) {
+    auto ans = sim.generate(bottomBorder, stepWidth, sideTreeHeight);
+    if (bestScore.chmax(ans.score())) {
+      bestAns = ans;
+    }
+  }
+  bestAns.outputAsAns();
 }
 
 // ----------------------------------------------
