@@ -150,8 +150,11 @@ void problem() {
   }
 
   int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
-  real[] sortabilities = iota(N).map!(item => sortersFor[item][0..4].fold!((a, b) => a * P[b][item])(1.0L)).array;
+  real[] sortabilities = iota(N).map!(item => sortersFor[item][0..3].fold!((a, b) => a * P[b][item])(1.0L)).array;
   int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
+
+  int[][] swappables = sortersFor.map!"a[0..5]".array;
+  int[] swapIndex = iota(PN).map!(p => P[p].maxIndex.to!int).array;
 
   Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
   Node[] goalNodes = allNodes[0..N];
@@ -242,7 +245,6 @@ void problem() {
         
         if (connectToNearestGoal(preNode) == -1) return Ans();
 
-        baseNodes.deb;
         auto bases = baseNodes.map!"a.id".redBlackTree;
 
         Edge[] sortedEdges;
@@ -253,8 +255,6 @@ void problem() {
         int goalCount;
         int[] goalItem = (-1).repeat(N).array;
         foreach(goal, sideNodes; zip(groupGoals, groupNodes)) {
-          deb(goal, sideNodes);
-
           auto item = goalItem[goal] == -1 ? sortees[goalCount] : goalItem[goal];
           foreach(node; sideNodes) {
             assigns[node] = sortersFor[item][uniform(0, 3, RND)];
@@ -274,7 +274,7 @@ void problem() {
   auto sim = new Sim(D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000));
   real bestScore = long.min;
   Ans bestAns;
-  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(100, 1001, 50), iota(2, 8, 1))) {
+  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
     if (elapsed(1900)) break;
 
     foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
@@ -285,7 +285,7 @@ void problem() {
     }
   }
   coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
-  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(100, 1001, 50), iota(2, 8, 1))) {
+  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
     if (elapsed(1900)) break;
 
     foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
@@ -295,6 +295,26 @@ void problem() {
       }
     }
   }
+
+  auto sorterIndicies = iota(N, N + M).filter!(s => !bestAns.graph[s].empty).array;
+  sorterIndicies.deb;
+
+  auto baseAns = bestAns;
+  while(!elapsed(1900)) {
+    auto target = sorterIndicies.choice(RND);
+    auto origin = bestAns.assigns[target];
+
+    auto best = origin;
+    foreach(swapTo; swappables[swapIndex[origin]]) {
+      bestAns.assigns[target] = swapTo;
+      
+      if (bestScore.chmax(bestAns.score())) {
+        best = swapTo;
+      }
+    }
+    bestAns.assigns[target] = best;
+  }
+
   bestAns.outputAsAns();
 }
 
