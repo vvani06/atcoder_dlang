@@ -160,7 +160,7 @@ void problem() {
   }
 
   int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
-  int[][] swappables = sortersFor.map!"a[0..5]".array;
+  int[][] swappables = sortersFor.map!(a => a[0..K / 2]).array;
   int[] swapIndex = iota(PN).map!(p => P[p].maxIndex.to!int).array;
 
   Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
@@ -169,18 +169,20 @@ void problem() {
 
   struct CompositeSorter {
     int[] sorters;
+    int ignored;
     real[] ratios;
 
-    this(int[] sorters) {
+    this(int[] sorters, int ignored = 0) {
       this.sorters = sorters.dup;
-      ratios = 1.0L.repeat(N).array;
+      this.ignored = ignored;
+      ratios = iota(N).map!(i => (2^^i & ignored) != 0 ? 0.0L : 1.0L).array;
       foreach(p; sorters.map!(s => P[s])) {
         foreach(i; 0..N) ratios[i] *= p[i];
       }
     }
 
     CompositeSorter add(int sorter) {
-      return CompositeSorter(sorters ~ sorter);
+      return CompositeSorter(sorters ~ sorter, ignored);
     }
 
     real scoreFor(int item) {
@@ -190,26 +192,45 @@ void problem() {
 
   final class SorterServer {
     CompositeSorter[][] sorters;
+    int[] orderd;
 
     this(int depthLimit, int rankLimit) {
       sorters = new CompositeSorter[][](N, 0);
-      foreach(item; 0..N) {
-        sorters[item] = composeSorterFor(item, depthLimit, rankLimit);
+
+      auto rbt = iota(N).redBlackTree;
+      int ignored;
+      while(!rbt.empty) {
+        CompositeSorter[] best = [CompositeSorter([], ignored)];
+        int bestItem;
+        real bestScore = 0;
+        foreach(item; rbt) {
+          auto cur = composeSorterFor(item, depthLimit, rankLimit, ignored);
+          if (bestScore.chmax(cur[depthLimit - 1].scoreFor(item))) {
+            bestItem = item;
+            best = cur;
+          }
+        }
+
+        sorters[bestItem] = best;
+        rbt.removeKey(bestItem);
+        ignored += 2^^bestItem;
+        orderd ~= bestItem;
       }
     }
 
     int[] orderedItemIds(int depth) {
-      return N.iota.array.sort!((a, b) => sorters[a][depth].scoreFor(a) > sorters[b][depth].scoreFor(b)).array;
+      return orderd;
+      // return N.iota.array.sort!((a, b) => sorters[a][depth].scoreFor(a) > sorters[b][depth].scoreFor(b)).array;
     }
 
     int serve(int item, int depth, int index) {
       return sorters[item][depth].sorters[index];
     }
 
-    private CompositeSorter[] composeSorterFor(int item, int depthLimit, int rankLimit) {
+    private CompositeSorter[] composeSorterFor(int item, int depthLimit, int rankLimit, int ignored) {
       auto sorters = sortersFor[item][0..rankLimit];
 
-      auto base = CompositeSorter([]);
+      auto base = CompositeSorter([], ignored);
       auto ret = base.repeat(depthLimit + 1).array;
       real[] bestScore = 0.0L.repeat(depthLimit + 1).array;
 
@@ -227,12 +248,13 @@ void problem() {
   }
 
   auto sorterServer = new SorterServer(8, 5);
+  (MonoTime.currTime() - StartTime).total!"msecs".deb;
   // sorterServer.sorters.map!"a[7]".each!deb;
   // sorterServer.orderedItemIds(7).deb;
 
   void calcIdealGraph() { // 理論値計算
-    int branchesPerGoal = 5;
-    int depth = 7;
+    int branchesPerGoal = 2;
+    int depth = 5;
     int[][] edges;
     int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
     int startNode = N;
@@ -286,6 +308,9 @@ void problem() {
     ans.outputAsAns();
   }
 
+  // calcIdealGraph();
+  // return;
+
   // real[] sortabilities = iota(N).map!(item => sortersFor[item][0..3].fold!((a, b) => a * P[b][item])(1.0L)).array;
   // int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
 
@@ -299,9 +324,10 @@ void problem() {
       Edge[] edges;
       bool hasIntersect(Edge ne) { return edges.retro.any!(e => ne.cross(e)); }
       int[] sortees = sorterServer.orderedItemIds(sideTreeHeight);
+      int[] goalsCount = 1.repeat(N).array;
 
       int connectToNearestGoal(Node node, int limitY = 0) {
-        foreach(goal; goalNodes.dup.sort!((a, b) => node.distX(a) < node.distX(b))) {
+        foreach(goal; goalNodes.dup.sort!((a, b) => node.distX(a)*goalsCount[a.id] < node.distX(b)*goalsCount[b.id])) {
           if (goal.y < limitY) continue;
           
           auto newEdge = Edge(node.id, goal.id);
@@ -430,6 +456,7 @@ void problem() {
   sorterIndicies.deb;
 
   auto baseAns = bestAns;
+  bestAns.scoreForHuman().deb;
   while(!elapsed(1900)) {
     auto target = sorterIndicies.choice(RND);
     auto origin = bestAns.assigns[target];
