@@ -140,6 +140,7 @@ void problem() {
     long x() { return coords[id].x; }
     long y() { return coords[id].y; }
     long sum() { return coords[id].x + coords[id].y; }
+    long dist(Coord other) { return (x - other.x)^^2 + (y - other.y)^^2; }
     long dist(Node other) { return (x - other.x)^^2 + (y - other.y)^^2; }
     long distX(Node other) { return (x - other.x)^^2 * 100 + (y - other.y)^^2; }
 
@@ -252,9 +253,7 @@ void problem() {
   // sorterServer.sorters.map!"a[7]".each!deb;
   // sorterServer.orderedItemIds(7).deb;
 
-  void calcIdealGraph() { // 理論値計算
-    int branchesPerGoal = 2;
-    int depth = 5;
+  Ans calcIdealGraph(int branchesPerGoal, int depth, bool enableHeuristics) { // 理論値計算
     int[][] edges;
     int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
     int startNode = N;
@@ -281,6 +280,7 @@ void problem() {
     assigns[0..N] = sorterServer.orderedItemIds(depth);
 
     auto ans = Ans(startNode, assigns, edges);
+    if (!enableHeuristics)  return ans;
 
     auto bestAns = ans;
     bestAns.scoreForHuman().deb;
@@ -302,14 +302,116 @@ void problem() {
       }
       bestAns.assigns[target] = best;
     }
-
-    bestAns.scoreForHuman().deb;
-    bestAns.scores().deb;
-    ans.outputAsAns();
+    return bestAns;
   }
 
-  // calcIdealGraph();
-  // return;
+  version (IDEAL) {
+    Ans ideal;
+    foreach(depth; 3..8) {
+      auto cur = calcIdealGraph(min(6, (M / (N - 1)) / depth), depth, false);
+      if (ideal.score < cur.score) {
+        ideal = cur;
+      }
+    }
+
+    real bestScore = ideal.score;
+    auto sorterIndicies = iota(N, N + M).filter!(s => !ideal.graph[s].empty).array;
+    while(!elapsed(1900)) {
+      auto target = sorterIndicies.choice(RND);
+      auto origin = ideal.assigns[target];
+
+      auto best = origin;
+      foreach(swapTo; swappables[swapIndex[origin]]) {
+        ideal.assigns[target] = swapTo;
+        
+        if (bestScore.chmax(ideal.score())) {
+          best = swapTo;
+        }
+      }
+      ideal.assigns[target] = best;
+    }
+    stderr.writeln(ideal.scoreForHuman());
+    ideal.outputAsAns();
+    return;
+  }
+
+  {
+    auto depth = 5;
+    auto branches = min(6, (M - 1) / (N - 1) / depth);
+    auto baseNodeCount = branches * N;
+
+    int radius = 4000;
+    Coord coordCandidate(int index) {
+      auto theta = 2.0 * PI * (index + 1) / (baseNodeCount + 2);
+      return Coord(
+        5000 + (-radius * cos(theta)).to!int,
+        5000 + (radius * sin(theta)).to!int,
+      );
+    }
+
+    Node[] baseNodes;
+    int[] used = new int[](N + M);
+    foreach(index; 0..baseNodeCount) {
+      auto candidate = coordCandidate(index);
+      auto nodes = (index == baseNodeCount - 1 ? goalNodes : sortNodes).dup;
+      auto sorted = nodes.sort!((a, b) => a.dist(candidate) < b.dist(candidate));
+      foreach(s; sorted) {
+        if (used[s.id]) continue;
+
+        baseNodes ~= s;
+        used[s.id] = true;
+        break;
+      }
+    }
+    used[0..N] = branches;
+    used[baseNodes[$ - 1].id] = 0;
+
+    auto edges = Edge(baseNodes[0].id, N + M) ~ iota(baseNodes.length.to!int - 1).map!(i => Edge(baseNodes[i].id, baseNodes[i + 1].id)).array;
+    bool crossed(Edge e) { return edges.retro.any!(x => e.cross(x)); }
+    int[][] sideNodes = new int[][](baseNodes.length - 1, 0);
+    foreach(i, base; baseNodes[0..$ - 1].enumerate(0)) {
+      auto goals = goalNodes.dup.sort!((a, b) => a.dist(base) < b.dist(base));
+
+      foreach(goal; goals) {
+        if (used[goal.id] <= 0) continue;
+
+        auto e1 = Edge(base.id, goal.id);
+        if (crossed(e1)) continue;
+
+        edges ~= e1;
+        used[goal.id]--;
+        break;
+      }
+    }
+
+    baseNodes.deb;
+    auto startNode = baseNodes[0].id;
+    auto edgesArray = edges.map!(e => [e.a, e.b]).array;
+    edgesArray.deb;
+    auto assigns = sorterServer.orderedItemIds(1) ~ 0.repeat(M).array;
+    auto ans = Ans(startNode, assigns, edgesArray);
+
+    auto sorterIndicies = iota(N, N + M).filter!(s => !ans.graph[s].empty).array;
+    auto bestScore = ans.score();
+    ans.scoreForHuman().deb;
+    while(!elapsed(1900)) {
+      auto target = sorterIndicies.choice(RND);
+      auto origin = ans.assigns[target];
+
+      auto best = origin;
+      foreach(swapTo; swappables[swapIndex[origin]]) {
+        ans.assigns[target] = swapTo;
+        
+        if (bestScore.chmax(ans.score())) {
+          best = swapTo;
+        }
+      }
+      ans.assigns[target] = best;
+    }
+
+    ans.outputAsAns();
+    return;
+  }
 
   // real[] sortabilities = iota(N).map!(item => sortersFor[item][0..3].fold!((a, b) => a * P[b][item])(1.0L)).array;
   // int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
