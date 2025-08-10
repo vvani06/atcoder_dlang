@@ -2,44 +2,43 @@ void main() { runSolver(); }
 
 // ---------------------------------------------
 
+struct Coord {
+  int x, y;
+
+  int dist(Coord other) {
+    return (x - other.x)^^2 + (y - other.y)^^2;
+  }
+}
+
+bool intersect(ref Coord p1, ref Coord p2, ref Coord q1, ref Coord q2) {
+  if (p1 == q1 || p1 == q2 || p2 == q1 || p2 == q2) return false;
+  if (max(p1.x, p2.x) < min(q1.x, q2.x) ||
+      max(q1.x, q2.x) < min(p1.x, p2.x) ||
+      max(p1.y, p2.y) < min(q1.y, q2.y) ||
+      max(q1.y, q2.y) < min(p1.y, p2.y))
+      return false;
+
+  int sign(int v) {
+    return v > 0 ? 1 : v < 0 ? -1 : 0;
+  }
+
+  int orientation(ref Coord a, ref Coord b, ref Coord c) {
+    return sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+  }
+
+  auto o1 = orientation(p1, p2, q1);
+  auto o2 = orientation(p1, p2, q2);
+  auto o3 = orientation(q1, q2, p1);
+  auto o4 = orientation(q1, q2, p2);
+  return (o1 * o2 <= 0) && (o3 * o4 <= 0);
+}
+
 void problem() {
   auto StartTime = MonoTime.currTime();
   bool elapsed(int ms) { return (ms <= (MonoTime.currTime() - StartTime).total!"msecs"); }
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
   enum long INF = long.max / 3;
-
-  struct Coord {
-    int x, y;
-
-    int dist(Coord other) {
-      return (x - other.x)^^2 + (y - other.y)^^2;
-    }
-  }
-
-  bool intersect(ref Coord p1, ref Coord p2, ref Coord q1, ref Coord q2) {
-    if (p1 == q1 || p1 == q2 || p2 == q1 || p2 == q2) return false;
-    if (max(p1.x, p2.x) < min(q1.x, q2.x) ||
-        max(q1.x, q2.x) < min(p1.x, p2.x) ||
-        max(p1.y, p2.y) < min(q1.y, q2.y) ||
-        max(q1.y, q2.y) < min(p1.y, p2.y))
-        return false;
-
-    int sign(int v) {
-      return v > 0 ? 1 : v < 0 ? -1 : 0;
-    }
-
-    int orientation(ref Coord a, ref Coord b, ref Coord c) {
-      return sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
-    }
-
-    auto o1 = orientation(p1, p2, q1);
-    auto o2 = orientation(p1, p2, q2);
-    auto o3 = orientation(q1, q2, p1);
-    auto o4 = orientation(q1, q2, p2);
-    return (o1 * o2 <= 0) && (o3 * o4 <= 0);
-  }
-
   int N = scan!int;
   int M = scan!int;
   int K = scan!int;
@@ -48,6 +47,10 @@ void problem() {
   real[][] P = scan!real(K * N).chunks(N).array;
   P = P.dup ~ P.map!(p => p.map!(x => 1.0 - x).array).array;
   auto PN = P.length.to!int;
+
+  int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
+  int[][] swappables = sortersFor.map!(a => a[0..K / 2]).array;
+  int[] swapIndex = iota(PN).map!(p => P[p].maxIndex.to!int).array;
 
   struct Ans {
     int startNode;
@@ -62,7 +65,7 @@ void problem() {
       graph = new int[][](N + M, 0);
       foreach(e; edges[1..$]) graph[e[0]] ~= e[1];
       foreach(e; edges[1..$]) if (graph[e[0]].length < 2) graph[e[0]] ~= e[1];
-      graph.enumerate(0).each!deb;
+      // graph.enumerate(0).each!deb;
     }
 
     void fixUnassigned() {
@@ -103,6 +106,25 @@ void problem() {
       }
 
       return rets;
+    }
+
+    void randomImprove() {
+      auto sorterIndicies = iota(N, N + M).filter!(s => !graph[s].empty).array;
+      auto bestScore = score();
+      while(!elapsed(1900)) {
+        auto target = sorterIndicies.choice(RND);
+        auto origin = assigns[target];
+
+        auto best = origin;
+        foreach(swapTo; swappables[swapIndex[origin]]) {
+          assigns[target] = swapTo;
+          
+          if (bestScore.chmax(score())) {
+            best = swapTo;
+          }
+        }
+        assigns[target] = best;
+      }
     }
 
     real score() {
@@ -164,13 +186,9 @@ void problem() {
     int to() { return b; }
   }
 
-  int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
-  int[][] swappables = sortersFor.map!(a => a[0..K / 2]).array;
-  int[] swapIndex = iota(PN).map!(p => P[p].maxIndex.to!int).array;
-
   Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
   Node[] goalNodes = allNodes[0..N];
-  Node[] sortNodes = allNodes[N..$ - 1];
+  Node[] sortNodes = allNodes[N..$ - 1].dup.randomShuffle(RND).array[0..min(400, $)];
 
   struct CompositeSorter {
     int[] sorters;
@@ -287,25 +305,7 @@ void problem() {
     if (!enableHeuristics)  return ans;
 
     auto bestAns = ans;
-    bestAns.scoreForHuman().deb;
-    bestAns.scores().deb;
-    real bestScore = bestAns.score;
-
-    auto sorterIndicies = iota(N, N + M).filter!(s => !bestAns.graph[s].empty).array;
-    while(!elapsed(1900)) {
-      auto target = sorterIndicies.choice(RND);
-      auto origin = bestAns.assigns[target];
-
-      auto best = origin;
-      foreach(swapTo; swappables[swapIndex[origin]]) {
-        bestAns.assigns[target] = swapTo;
-        
-        if (bestScore.chmax(bestAns.score())) {
-          best = swapTo;
-        }
-      }
-      bestAns.assigns[target] = best;
-    }
+    bestAns.randomImprove();
     return bestAns;
   }
 
@@ -339,20 +339,9 @@ void problem() {
     return;
   }
 
-  {
-    auto depth = 4;
-    auto branches = min(6, (M - 1) / (N - 1) / depth);
+  Ans createGraph(Coord delegate(real) coordinator, int depth, int branches) {
+    // auto branches = min(4, (M - 1) / (N - 1) / depth);
     auto baseNodeCount = branches * N;
-    // sorterServer = new SorterServer(depth, 10);
-
-    int radius = 4000;
-    Coord coordCandidate(int index) {
-      auto theta = 2.0 * PI * (index + 1) / (baseNodeCount + 2);
-      return Coord(
-        5000 + (-radius * cos(theta)).to!int,
-        5000 + (radius * sin(theta)).to!int,
-      );
-    }
 
     Node[] baseNodes;
     Edge[] edges;
@@ -361,7 +350,8 @@ void problem() {
     Node preNode = Node(N + M);
     int[] used = new int[](N + M);
     foreach(index; 0..baseNodeCount) {
-      auto candidate = coordCandidate(index);
+      real coordinateRatio = (index + 1).to!real / baseNodeCount;
+      auto candidate = coordinator(coordinateRatio);
       auto nodes = (index == baseNodeCount - 1 ? goalNodes : sortNodes).dup;
       auto sorted = nodes.sort!((a, b) => a.dist(candidate) < b.dist(candidate));
       foreach(s; sorted) {
@@ -398,7 +388,7 @@ void problem() {
           Node[] tree;
           Edge[] newEdges;
           foreach(side; nearSortNodes) {
-            if (used[side.id] || abs(theta - base.theta(side) > 2)) continue;
+            if (used[side.id] || abs(theta - base.theta(side) > 5)) continue;
 
             Edge[] sideEdges;
             sideEdges ~= Edge((tree.empty ? base : tree.back).id, side.id);
@@ -459,38 +449,55 @@ void problem() {
     }
     auto ans = Ans(startNode, assigns, edgesArray[0] ~ edgesArray[1..$].retro.array);
 
-    sortNodes.each!deb;
-
     // assigns[0..N].deb;
     // assigns[N..$].deb;
     // edgesArray.each!deb;
+    // ans.randomImprove();
+    // ans.outputAsAns();
 
-    auto sorterIndicies = iota(N, N + M).filter!(s => !ans.graph[s].empty).array;
-    auto bestScore = ans.score();
-    ans.scoreForHuman().deb;
-    while(!elapsed(1900)) {
-      auto target = sorterIndicies.choice(RND);
-      auto origin = ans.assigns[target];
-
-      auto best = origin;
-      foreach(swapTo; swappables[swapIndex[origin]]) {
-        ans.assigns[target] = swapTo;
-        
-        if (bestScore.chmax(ans.score())) {
-          best = swapTo;
-        }
-      }
-      ans.assigns[target] = best;
-    }
-
-    ans.scoreForHuman().deb;
-    ans.outputAsAns();
-    return;
+    return ans;
   }
 
-  // real[] sortabilities = iota(N).map!(item => sortersFor[item][0..3].fold!((a, b) => a * P[b][item])(1.0L)).array;
-  // int[] sortees = iota(N).array.sort!((a, b) => sortabilities[a] > sortabilities[b]).array;
+  class Coordinator {
+    static auto circleCoordinator(real radius) {
+      return (real ratio) {
+        auto theta = 2.0 * PI * ratio;
+        return Coord(
+          5000 + (-radius * cos(theta)).to!int,
+          5000 + (radius * sin(theta)).to!int,
+        );
+      };
+    }
+  }
 
+  auto coordinators = [
+    Coordinator.circleCoordinator(4000),
+    Coordinator.circleCoordinator(5000),
+    Coordinator.circleCoordinator(3000),
+  ];
+
+  Ans ans;
+  real bestScore = -1;
+  foreach(inverted; 0..2) {
+    coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
+
+    foreach(depth; [4])
+    foreach(branches; [min(4, (M - 1)/(N - 1)/depth)])
+    foreach(coordinator; coordinators) {
+      if (elapsed(1500)) break;
+
+      auto t = createGraph(coordinator, depth, branches);
+      if (bestScore.chmax(t.score())) {
+        ans = t;
+      }
+    }
+  }
+
+  ans.randomImprove();
+  ans.outputAsAns();
+  return;
+
+  /*
   class Sim {
     this(Coord[] coords) {
     }
@@ -603,54 +610,37 @@ void problem() {
       return Ans(startNode.id, assigns, edges.map!"[a.a, a.b]".array);
     }
   }
+  { // 左から右に流れるベースラインの実装
+    auto sim = new Sim(D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000));
+    real bestScore = long.min;
+    Ans bestAns;
+    foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
+      if (elapsed(1400)) break;
 
-  auto sim = new Sim(D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000));
-  real bestScore = long.min;
-  Ans bestAns;
-  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
-    if (elapsed(1400)) break;
-
-    foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
-      auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
-      if (bestScore.chmax(ans.score())) {
-        bestAns = ans;
+      foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
+        auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
+        if (bestScore.chmax(ans.score())) {
+          bestAns = ans;
+        }
       }
     }
-  }
-  coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
-  foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
-    if (elapsed(1400)) break;
+    coords = coords.map!(c => Coord(c.x, 10000 - c.y)).array;
+    foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 200), iota(50, 1001, 50), iota(2, 8, 1))) {
+      if (elapsed(1400)) break;
 
-    foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
-      auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
-      if (bestScore.chmax(ans.score())) {
-        bestAns = ans;
+      foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
+        auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
+        if (bestScore.chmax(ans.score())) {
+          bestAns = ans;
+        }
       }
     }
+    
+    bestAns.randomImprove();
+    bestAns.outputAsAns();
+    bestAns.scoreForHuman().deb;
   }
-
-  auto sorterIndicies = iota(N, N + M).filter!(s => !bestAns.graph[s].empty).array;
-  sorterIndicies.deb;
-
-  auto baseAns = bestAns;
-  // bestAns.scoreForHuman().deb;
-  while(!elapsed(1900)) {
-    auto target = sorterIndicies.choice(RND);
-    auto origin = bestAns.assigns[target];
-
-    auto best = origin;
-    foreach(swapTo; swappables[swapIndex[origin]]) {
-      bestAns.assigns[target] = swapTo;
-      
-      if (bestScore.chmax(bestAns.score())) {
-        best = swapTo;
-      }
-    }
-    bestAns.assigns[target] = best;
-  }
-
-  // bestAns.scoreForHuman().deb;
-  bestAns.outputAsAns();
+  */
 }
 
 // ----------------------------------------------
