@@ -181,22 +181,6 @@ void problem() {
     }
   }
 
-  struct NaiveEdge {
-    Coord a, b;
-    int minY, maxY;
-
-    this(Coord a, Coord b) {
-      this.a = a;
-      this.b = b;
-      minY = min(a.y, b.y);
-      maxY = max(a.y, b.y);
-    }
-
-    bool intersect(NaiveEdge other) {
-      return .intersect(a, b, other.a, other.b);
-    }
-  }
-
   struct Edge {
     int a, b;
 
@@ -208,55 +192,6 @@ void problem() {
     int to() { return b; }
     long dist() { return coords[a].dist(coords[b]); }
     long distNode(Node n) { return min(n.dist(coords[a]), n.dist(coords[b])); }
-
-    int minY() { return min(coords[a].y, coords[b].y); }
-    int maxY() { return max(coords[a].y, coords[b].y); }
-
-    NaiveEdge naive() {
-      return NaiveEdge(coords[a], coords[b]);
-    }
-  }
-
-  class Edges {
-    Edge[] edges;
-    RedBlackTree!(NaiveEdge, "a.minY > b.minY", true) minTree;
-    RedBlackTree!(NaiveEdge, "a.maxY < b.maxY", true) maxTree;
-
-    this() {
-      minTree = new typeof(minTree)(new NaiveEdge[](0));
-      maxTree = new typeof(maxTree)(new NaiveEdge[](0));
-    }
-
-    void insert(Edge e) {
-      edges ~= e;
-      minTree.insert(e.naive);
-      maxTree.insert(e.naive);
-    }
-
-    void insert(Edge[] es) {
-      foreach(e; es) insert(e);
-    }
-
-    auto intersectCandidates(Edge e) {
-      if (e.maxY < 5000) {
-        return minTree.upperBound(NaiveEdge(Coord(0, e.maxY + 1), Coord(0, e.maxY + 1)));
-      } else {
-        return maxTree.upperBound(NaiveEdge(Coord(0, e.minY - 1), Coord(0, e.minY - 1)));
-      }
-    }
-
-    bool intersect(Edge e) {
-      auto ne = e.naive;
-      deb(e.naive, [edges.length, intersectCandidates(e).walkLength]);
-      foreach(edge; intersectCandidates(e)) {
-        if (ne.intersect(edge)) return true;
-      }
-      return false;
-    }
-
-    int[][] asArray() {
-      return edges.map!"[a.a, a.b]".array;
-    }
   }
 
   struct CompositeSorter {
@@ -423,9 +358,9 @@ void problem() {
       auto baseNodeCount = branches * N;
 
       Node[] baseNodes;
-      Edges tEdges = new Edges();
+      Edge[] edges;
       // bool crossed(Edge e, Edge[] extra = []) { return false; }
-      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || tEdges.intersect(e); }
+      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || edges.any!(x => e.cross(x)); }
 
       Node preNode = Node(N + M);
       int[] used = new int[](N + M);
@@ -442,7 +377,7 @@ void problem() {
 
           baseNodes ~= s;
           used[s.id] = true;
-          tEdges.insert(Edge(preNode.id, s.id));
+          edges ~= Edge(preNode.id, s.id);
           preNode = s;
           break;
         }
@@ -479,7 +414,7 @@ void problem() {
 
             if (tree.length == depth - 1) {
               // tree.deb;
-              tEdges.insert(newEdges);
+              edges ~= newEdges;
               sideNodes[i] ~= tree;
               sideGoals[i] = goal.id;
               foreach(node; tree ~ goal) used[node.id]++;
@@ -491,7 +426,7 @@ void problem() {
             auto goalEdge = Edge(tree.back.id, goal.id);
             if (crossed(goalEdge, newEdges)) continue;
 
-            tEdges.insert(newEdges ~ goalEdge);
+            edges ~= newEdges ~ goalEdge;
             sideNodes[i] ~= tree;
             sideGoals[i] = goal.id;
             foreach(node; tree ~ goal) used[node.id]++;
@@ -502,6 +437,8 @@ void problem() {
       
       // sideNodes.each!deb;
       auto startNode = baseNodes[0].id;
+      auto edgesArray = edges.map!(e => [e.a, e.b]).array;
+
       auto assigns = (-1).repeat(N).array ~ 0.repeat(M).array; {
         int[int] itemPerGoal;
         int itemIndex;
@@ -517,7 +454,7 @@ void problem() {
           }
         }
       }
-      auto ans = Ans(startNode, assigns, tEdges.asArray().retro().array());
+      auto ans = Ans(startNode, assigns, edgesArray[0] ~ edgesArray[1..$].retro.array);
 
       // assigns[0..N].deb;
       // assigns[N..$].deb;
