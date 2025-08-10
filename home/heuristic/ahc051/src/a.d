@@ -33,7 +33,7 @@ bool intersect(ref Coord p1, ref Coord p2, ref Coord q1, ref Coord q2) {
   return (o1 * o2 <= 0) && (o3 * o4 <= 0);
 }
 
-version = BOTTOM;
+version = CIRCLE;
 
 void problem() {
   auto StartTime = MonoTime.currTime();
@@ -51,7 +51,7 @@ void problem() {
   auto PN = P.length.to!int;
 
   int[][] sortersFor = iota(N).map!(item => iota(PN).array.sort!((a, b) => P[a][item] > P[b][item]).array).array;
-  int[][] swappables = sortersFor.map!(a => a[0..K / 2]).array;
+  int[][] swappables = sortersFor.map!(a => a).array;
   int[] swapIndex = iota(PN).map!(p => P[p].maxIndex.to!int).array;
 
   Coord[] coords = D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000);
@@ -114,7 +114,7 @@ void problem() {
     }
 
     void randomImprove() {
-      auto sorterIndicies = iota(N, N + M).filter!(s => !graph[s].empty).array;
+      auto sorterIndicies = iota(N, N + M).filter!(s => graph[s].uniq.walkLength == 2).array;
       auto bestScore = score();
       while(!elapsed(1900)) {
         auto target = sorterIndicies.choice(RND);
@@ -191,6 +191,7 @@ void problem() {
     int from() { return a; }
     int to() { return b; }
     long dist() { return coords[a].dist(coords[b]); }
+    long distNode(Node n) { return min(n.dist(coords[a]), n.dist(coords[b])); }
   }
 
   struct CompositeSorter {
@@ -273,17 +274,19 @@ void problem() {
     }
   }
 
-  auto sorterServer = new SorterServer(8, 5);
+  auto sorterServer = new SorterServer(6, 8);
   Node[] allNodes = iota(N + M + 1).map!(i => Node(i)).array;
   Node[] goalNodes = allNodes[0..N];
-  Node[] sortNodes = allNodes[N..$ - 1].dup.randomShuffle(RND).array[0..min(400, $)];
+  Node[] sortNodes = allNodes[N..$ - 1].dup.randomShuffle(RND).array[0..min(500, $)];
 
-  Node[][] cacheSorterNearbyGoal = new Node[][](N + M + 1, 0);
-  Node[] nodesNearBy(Node node) {
-    if (!cacheSorterNearbyGoal[node.id].empty) return cacheSorterNearbyGoal[node.id];
+  Node[][] cachedSortNodes = new Node[][](N + M);
+  Node[] sortNodesNearby(Node node) {
+    if (!cachedSortNodes[node.id].empty) return cachedSortNodes[node.id];
 
-    return cacheSorterNearbyGoal[node.id] = allNodes[0..$ - 1].dup.sort!((a, b) => node.distX(a) < node.distX(b)).array;
+    return cachedSortNodes[node.id] = sortNodes.dup.sort!((a, b) => node.dist(a) < node.dist(b)).array;
   }
+
+  (MonoTime.currTime() - StartTime).total!"msecs".deb;
 
   version (IDEAL) {
     Ans calcIdealGraph(int branchesPerGoal, int depth, bool enableHeuristics) { // 理論値計算
@@ -356,7 +359,8 @@ void problem() {
 
       Node[] baseNodes;
       Edge[] edges;
-      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || edges.retro.any!(x => e.cross(x)); }
+      // bool crossed(Edge e, Edge[] extra = []) { return false; }
+      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || edges.any!(x => e.cross(x)); }
 
       Node preNode = Node(N + M);
       int[] used = new int[](N + M);
@@ -383,58 +387,50 @@ void problem() {
 
       Node[][] sideNodes = baseNodes.map!(bn => [bn]).array;
       int[] sideGoals = sideNodes.map!(bn => -1).array;
-      int lastNextBaseIndex;
       foreach(i, base; baseNodes[0..$ - 1].enumerate(0)) {
-        if (lastNextBaseIndex > i) continue;
-
+        // edges.sort!((u, v) => u.distNode(base) < v.distNode(base));
         auto goals = goalNodes.dup.sort!((a, b) => a.dist(base) < b.dist(base));
         auto goalsUseSorted = iota(branches).map!(br => goals.filter!(g => used[g.id] == br)).joiner;
-        auto nearSortNodes = sortNodes.dup.sort!((a, b) => base.dist(a) < base.dist(b));
 
         GOAL: foreach(goal; goalsUseSorted) {
           auto theta = base.theta(goal);
-          foreach(nextBaseIndex; i + 1..min(i + 4, sideNodes.length)) {
-            auto nextBaseNode = baseNodes[nextBaseIndex];
+          auto nextBaseIndex = i + 1;
+          auto nextBaseNode = baseNodes[nextBaseIndex];
 
-            Node[] tree;
-            Edge[] newEdges;
-            foreach(side; nearSortNodes) {
-              if (used[side.id] || abs(theta - base.theta(side) > 5)) continue;
+          Node[] tree;
+          Edge[] newEdges;
+          foreach(side; sortNodesNearby(base)) {
+            if (used[side.id] || abs(theta - base.theta(side) > 5)) continue;
 
-              Edge[] sideEdges;
-              sideEdges ~= Edge((tree.empty ? base : tree.back).id, side.id);
-              sideEdges ~= Edge(side.id, nextBaseNode.id);
-              if (tree.length == depth - 2) sideEdges ~= Edge(side.id, goal.id);
+            Edge[] sideEdges;
+            sideEdges ~= Edge((tree.empty ? base : tree.back).id, side.id);
+            sideEdges ~= Edge(side.id, nextBaseNode.id);
+            if (tree.length == depth - 2) sideEdges ~= Edge(side.id, goal.id);
 
-              if (sideEdges.any!(e => crossed(e, newEdges))) continue;
+            if (sideEdges.any!(e => crossed(e, newEdges))) continue;
 
-              tree ~= side;
-              newEdges ~= sideEdges;
+            tree ~= side;
+            newEdges ~= sideEdges;
 
-              if (tree.length == depth - 1) {
-                // tree.deb;
-                edges ~= newEdges;
-                sideNodes[i] ~= tree;
-                sideGoals[i] = goal.id;
-                foreach(node; tree ~ goal) used[node.id]++;
-
-                nextBaseIndex = nextBaseIndex;
-                break GOAL;
-              }
-            }
-
-            if (tree.length >= 2) {
-              auto goalEdge = Edge(tree.back.id, goal.id);
-              if (crossed(goalEdge, newEdges)) continue;
-
-              edges ~= newEdges ~ goalEdge;
+            if (tree.length == depth - 1) {
+              // tree.deb;
+              edges ~= newEdges;
               sideNodes[i] ~= tree;
               sideGoals[i] = goal.id;
               foreach(node; tree ~ goal) used[node.id]++;
-
-              nextBaseIndex = nextBaseIndex;
               break GOAL;
             }
+          }
+
+          if (tree.length >= 2) {
+            auto goalEdge = Edge(tree.back.id, goal.id);
+            if (crossed(goalEdge, newEdges)) continue;
+
+            edges ~= newEdges ~ goalEdge;
+            sideNodes[i] ~= tree;
+            sideGoals[i] = goal.id;
+            foreach(node; tree ~ goal) used[node.id]++;
+            break GOAL;
           }
         }
       }
@@ -470,21 +466,48 @@ void problem() {
     }
 
     class Coordinator {
-      static auto circleCoordinator(real radius) {
+      static auto circle(real radius) {
         return (real ratio) {
           auto theta = 2.0 * PI * ratio;
           return Coord(
-            5000 + (-radius * cos(theta)).to!int,
+            5000 + (-5000.0 * cos(theta)).to!int,
             5000 + (radius * sin(theta)).to!int,
+          );
+        };
+      }
+
+      static auto linear(Coord from, Coord to) {
+        return (real ratio) {
+          real rev = 1.0 - ratio;
+          return Coord(
+            (rev * from.x + ratio * to.x).to!int,
+            (rev * from.y + ratio * to.y).to!int,
+          );
+        };
+      }
+
+      static auto linear3(Coord a, Coord b, Coord c, Coord d) {
+        return (real ratio) {
+          ratio *= 2.99;
+          auto seg = [a, b, c, d][ratio.to!int..ratio.to!int + 2];
+          ratio %= 1;
+          real rev = 1.0 - ratio;
+          return Coord(
+            (rev * seg[0].x + ratio * seg[1].x).to!int,
+            (rev * seg[0].y + ratio * seg[1].y).to!int,
           );
         };
       }
     }
 
     auto coordinators = [
-      Coordinator.circleCoordinator(4000),
-      Coordinator.circleCoordinator(5000),
-      Coordinator.circleCoordinator(3000),
+      Coordinator.circle(4000),
+      Coordinator.circle(4500),
+      Coordinator.circle(3500),
+      Coordinator.circle(5000),
+      Coordinator.circle(3000),
+      Coordinator.linear(Coord(0, 0), Coord(10000, 10000)),
+      Coordinator.linear3(Coord(0, 10000), Coord(10000, 10000), Coord(10000, 0), Coord(0, 0)),
     ];
 
     Ans ans;
@@ -501,10 +524,13 @@ void problem() {
         if (bestScore.chmax(t.score())) {
           ans = t;
         }
+        deb([t.score()], [inverted, depth, branches], coordinator);
+        (MonoTime.currTime() - StartTime).total!"msecs".deb;
       }
     }
 
     ans.randomImprove();
+    ans.scoreForHuman().deb;
     ans.outputAsAns();
     return;
   }
@@ -644,6 +670,20 @@ void problem() {
       bestAns.scoreForHuman().deb;
     }
   }
+
+  version (MIXED) {
+    struct Cluster {
+      Node inlet, outlet, goal;
+      Node[] nodes;
+      Edge[] edges;
+    }
+
+    foreach(goal; goalNodes) {
+      foreach(theta; iota(0.0, PI*2, PI*2 / 12)) {
+
+      }
+    }
+  }
 }
 
 // ----------------------------------------------
@@ -712,81 +752,3 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => tuple());
   }
 }
-
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
-
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
-
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
-    }
-
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
-  }
-}
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;
