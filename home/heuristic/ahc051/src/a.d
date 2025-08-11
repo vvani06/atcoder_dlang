@@ -181,6 +181,22 @@ void problem() {
     }
   }
 
+  struct NaiveEdge {
+    Coord a, b;
+    int minY, maxY;
+
+    this(Coord a, Coord b) {
+      this.a = a;
+      this.b = b;
+      minY = min(a.y, b.y);
+      maxY = max(a.y, b.y);
+    }
+
+    bool intersect(NaiveEdge other) {
+      return .intersect(a, b, other.a, other.b);
+    }
+  }
+
   struct Edge {
     int a, b;
 
@@ -192,6 +208,54 @@ void problem() {
     int to() { return b; }
     long dist() { return coords[a].dist(coords[b]); }
     long distNode(Node n) { return min(n.dist(coords[a]), n.dist(coords[b])); }
+
+    int minY() { return min(coords[a].y, coords[b].y); }
+    int maxY() { return max(coords[a].y, coords[b].y); }
+
+    NaiveEdge naive() {
+      return NaiveEdge(coords[a], coords[b]);
+    }
+  }
+
+  class Edges {
+    Edge[] edges;
+    RedBlackTree!(NaiveEdge, "a.minY > b.minY", true) minTree;
+    RedBlackTree!(NaiveEdge, "a.maxY < b.maxY", true) maxTree;
+
+    this() {
+      minTree = new typeof(minTree)(new NaiveEdge[](0));
+      maxTree = new typeof(maxTree)(new NaiveEdge[](0));
+    }
+
+    void insert(Edge e) {
+      edges ~= e;
+      minTree.insert(e.naive);
+      maxTree.insert(e.naive);
+    }
+
+    void insert(Edge[] es) {
+      foreach(e; es) insert(e);
+    }
+
+    auto intersectCandidates(Edge e) {
+      if (e.maxY < 5000) {
+        return minTree.upperBound(NaiveEdge(Coord(0, e.maxY + 1), Coord(0, e.maxY + 1)));
+      } else {
+        return maxTree.upperBound(NaiveEdge(Coord(0, e.minY - 1), Coord(0, e.minY - 1)));
+      }
+    }
+
+    bool intersect(Edge e) {
+      auto ne = e.naive;
+      foreach(edge; intersectCandidates(e)) {
+        if (ne.intersect(edge)) return true;
+      }
+      return false;
+    }
+
+    int[][] asArray() {
+      return edges.map!"[a.a, a.b]".array;
+    }
   }
 
   struct CompositeSorter {
@@ -358,9 +422,9 @@ void problem() {
       auto baseNodeCount = branches * N;
 
       Node[] baseNodes;
-      Edge[] edges;
+      Edges tEdges = new Edges();
       // bool crossed(Edge e, Edge[] extra = []) { return false; }
-      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || edges.any!(x => e.cross(x)); }
+      bool crossed(Edge e, Edge[] extra = []) { return extra.any!(x => e.cross(x)) || tEdges.intersect(e); }
 
       Node preNode = Node(N + M);
       int[] used = new int[](N + M);
@@ -377,7 +441,7 @@ void problem() {
 
           baseNodes ~= s;
           used[s.id] = true;
-          edges ~= Edge(preNode.id, s.id);
+          tEdges.insert(Edge(preNode.id, s.id));
           preNode = s;
           break;
         }
@@ -414,7 +478,7 @@ void problem() {
 
             if (tree.length == depth - 1) {
               // tree.deb;
-              edges ~= newEdges;
+              tEdges.insert(newEdges);
               sideNodes[i] ~= tree;
               sideGoals[i] = goal.id;
               foreach(node; tree ~ goal) used[node.id]++;
@@ -426,7 +490,7 @@ void problem() {
             auto goalEdge = Edge(tree.back.id, goal.id);
             if (crossed(goalEdge, newEdges)) continue;
 
-            edges ~= newEdges ~ goalEdge;
+            tEdges.insert(newEdges ~ goalEdge);
             sideNodes[i] ~= tree;
             sideGoals[i] = goal.id;
             foreach(node; tree ~ goal) used[node.id]++;
@@ -437,8 +501,6 @@ void problem() {
       
       // sideNodes.each!deb;
       auto startNode = baseNodes[0].id;
-      auto edgesArray = edges.map!(e => [e.a, e.b]).array;
-
       auto assigns = (-1).repeat(N).array ~ 0.repeat(M).array; {
         int[int] itemPerGoal;
         int itemIndex;
@@ -454,7 +516,7 @@ void problem() {
           }
         }
       }
-      auto ans = Ans(startNode, assigns, edgesArray[0] ~ edgesArray[1..$].retro.array);
+      auto ans = Ans(startNode, assigns, tEdges.asArray().retro().array());
 
       // assigns[0..N].deb;
       // assigns[N..$].deb;
@@ -533,142 +595,6 @@ void problem() {
     ans.scoreForHuman().deb;
     ans.outputAsAns();
     return;
-  }
-
-  version (BOTTOM) {
-    class Sim {
-      this(Coord[] coords) {}
-      Ans generate(int bottomBorder, int stepWidth, int sideTreeWidth, int sideTreeHeight) {
-        bool[] used = new bool[](N + M);
-        used[0..N] = true;
-        Edge[] edges;
-        bool hasIntersect(Edge ne) { return edges.retro.any!(e => ne.cross(e)); }
-        int[] sortees = sorterServer.orderedItemIds(sideTreeHeight);
-        int[] goalsCount = 1.repeat(N).array;
-
-        int connectToNearestGoal(Node node, int limitY = 0) {
-          foreach(goal; goalNodes.dup.sort!((a, b) => node.distX(a)*goalsCount[a.id] < node.distX(b)*goalsCount[b.id])) {
-            if (goal.y < limitY) continue;
-            
-            auto newEdge = Edge(node.id, goal.id);
-            if (hasIntersect(newEdge)) continue;
-
-            edges ~= newEdge;
-            return goal.id;
-          }
-
-          foreach(via; sortNodes) {
-            if (used[via.id]) continue;
-            
-            auto viaEdge = Edge(node.id, via.id);
-            if (hasIntersect(viaEdge)) continue;
-
-            foreach(goal; goalNodes) {
-              auto goalEdge = Edge(via.id, goal.id);
-              if (hasIntersect(goalEdge)) continue;
-
-              edges ~= [viaEdge, goalEdge];
-              return goal.id;
-            }
-          }
-          return -1;
-        }
-
-        Node startNode = sortNodes.minElement!"a.sum";
-        used[startNode.id] = true;
-        Node[] baseNodes = [startNode];
-        edges ~= Edge(startNode.id, N + M);
-
-        int[] assigns = (-1).repeat(N).array ~ 0.repeat(M).array;
-        int[] groupGoals;
-        int[][] groupNodes;
-
-        {
-          Node preNode = startNode;
-          foreach(node; sortNodes.filter!(n => n.y <= bottomBorder).array.sort!"a.x < b.x") {
-            if (used[node.id] || node.x < preNode.x || node.x - preNode.x < stepWidth) continue;
-
-            auto baseEdge = Edge(preNode.id, node.id);
-            if (hasIntersect(baseEdge)) continue;
-
-            used[node.id] = true;
-            edges ~= baseEdge;
-            auto preSide = preNode;
-            int height;
-            int[] sideNodes = [preSide.id];
-            foreach(side; sortNodes.filter!(n => preNode.y < n.y && abs(preNode.x - n.x) < sideTreeWidth).array.sort!"a.y < b.y") {
-              if (height >= sideTreeHeight) break;
-              if (side.y <= bottomBorder || used[side.id]) continue;
-
-              auto newEdges = [Edge(preSide.id, side.id), Edge(side.id, node.id)];
-              if (newEdges.any!hasIntersect) continue;
-              
-              edges ~= newEdges;
-              sideNodes ~= side.id;
-              preSide = side;
-              used[side.id] = true;
-              height++;
-            }
-            
-            auto goal = connectToNearestGoal(preSide, preNode.y.to!int);
-            if (goal == -1) return Ans();
-
-            groupNodes ~= sideNodes;
-            groupGoals ~= goal;
-            preNode = node;
-            baseNodes ~= node;
-          }
-          
-          if (connectToNearestGoal(preNode) == -1) return Ans();
-
-          auto bases = baseNodes.map!"a.id".redBlackTree;
-
-          Edge[] sortedEdges;
-          sortedEdges ~= edges.filter!(e => !(e.to in bases)).array;
-          sortedEdges ~= edges.filter!(e => (e.to in bases)).array;
-          edges = sortedEdges;
-
-          int goalCount;
-          int[] goalItem = (-1).repeat(N).array;
-          foreach(goal, sideNodes; zip(groupGoals, groupNodes)) {
-            auto item = goalItem[goal] == -1 ? sortees[goalCount] : goalItem[goal];
-            foreach(i, node; sideNodes) {
-              assigns[node] = sorterServer.serve(item, sideNodes.length.to!int, i.to!int);
-            }
-
-            if (goalItem[goal] == -1) {
-              assigns[goal] = sortees[goalCount++];
-              goalItem[goal] = item;
-            }
-          }
-        }
-
-        return Ans(startNode.id, assigns, edges.map!"[a.a, a.b]".array);
-      }
-    }
-    { // 左から右に流れるベースラインの実装
-      auto sim = new Sim(D.map!(c => Coord(c[0], c[1])).array ~ S.map!(c => Coord(c[0], c[1])).array ~ Coord(0, 5000));
-      real bestScore = long.min;
-      Ans bestAns;
-      foreach(inv; 0..2) {
-        if (inv == 1) coords = coords.map!(c => Coord(c.x, 10_000 - c.y)).array;
-
-        foreach(bottomBorder, stepWidth, sideTreeHeight; cartesianProduct(iota(200, 2001, 100), iota(50, 1001, 50), iota(2, 8, 1))) {
-          if (elapsed(1400)) break;
-
-          foreach(sideTreeWidth; [stepWidth, stepWidth*3/2, stepWidth/2]) {
-            auto ans = sim.generate(bottomBorder, stepWidth, sideTreeWidth, sideTreeHeight);
-            if (bestScore.chmax(ans.score())) {
-              bestAns = ans;
-            }
-          }
-        }
-      }
-      
-      bestAns.randomImprove();
-      bestAns.outputAsAns();
-      bestAns.scoreForHuman().deb;
-    }
   }
 
   version (MIXED) {
