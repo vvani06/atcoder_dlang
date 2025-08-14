@@ -1,7 +1,8 @@
 #!/usr/bin/bash
 set -e
 
-apt install libfontconfig1-dev pkg-config fontconfig libfontconfig-dev
+apt update -y
+apt install -y libfontconfig1-dev pkg-config fontconfig libfontconfig-dev
 
 cd `dirname $0`
 TARGET=$1
@@ -34,6 +35,7 @@ declare -A TOOLS_URLS=(
   ["AHC048"]="https://img.atcoder.jp/ahc048/lI5DXOAV.zip"
   ["AHC049"]="https://img.atcoder.jp/ahc049/LDUZCjLO.zip"
   ["AHC050"]="https://img.atcoder.jp/ahc050/k1BmZE1o.zip"
+  ["AHC051"]="https://img.atcoder.jp/ahc051/jdd9gfQC.zip"
 )
 
 rm -rf tools tools.zip
