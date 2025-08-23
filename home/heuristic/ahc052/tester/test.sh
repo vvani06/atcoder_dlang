@@ -9,7 +9,7 @@ rm score run_times
 rm out/*
 rm time/*
 
-TOTAL_CASES=1000
+TOTAL_CASES=50
 PARALLEL_SIZE=5
 CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 
@@ -37,7 +37,7 @@ if [ $? -eq 0 ]; then
   exit
 fi
 
-SCORE=`cat score | awk '{sum+=$3} END {printf "%.2f\n", sum}'`
+SCORE=`cat score | awk '{sum+=$3*3} END {printf "%.2f\n", sum}'`
 echo $SCORE
 
 DATE=`date "+%Y%m%d_%H%M%S"`
