@@ -21,57 +21,50 @@ void problem() {
   enum MOVES_C = [-1, 0, 1, 0, 0];
 
   class Grid {
-    bool[][] left;
-    bool[][] right;
-    bool[][] up;
-    bool[][] down;
+    bool[900] left;
+    bool[900] right;
+    bool[900] up;
+    bool[900] down;
 
     this(string[] v, string[] h) {
-      left = new bool[][](N, N);
-      right = new bool[][](N, N);
       foreach(r; 0..N) foreach(c; 0..N - 1) {
         if (v[r][c] == '0') {
-          right[r][c] = true;
-          left[r][c + 1] = true;
+          right[r * N +c] = true;
+          left[r * N + c + 1] = true;
         }
       }
-      up = new bool[][](N, N);
-      down = new bool[][](N, N);
       foreach(r; 0..N - 1) foreach(c; 0..N) {
         if (h[r][c] == '0') {
-          down[r][c] = true;
-          up[r + 1][c] = true;
+          down[r * N +c] = true;
+          up[r * N + N + c] = true;
         }
       }
-
-      left[14].deb;
     }
 
     bool canWalk(int r, int c, int dir) {
-      if (dir == 0) return left[r][c];
-      if (dir == 1) return up[r][c];
-      if (dir == 2) return right[r][c];
-      if (dir == 3) return down[r][c];
+      if (dir == 0) return left[r * N + c];
+      if (dir == 1) return up[r * N + c];
+      if (dir == 2) return right[r * N + c];
+      if (dir == 3) return down[r * N + c];
       return false;
     }
   }
 
   class Controller {
-    int[][] dirs;
+    int[100] dirs;
 
     this(string[] commands) {
-      dirs = new int[][](K, M);
       foreach(m; 0..M) foreach(k; 0..K) {
-        dirs[k][m] = DIRS.countUntil(commands[m][k]).to!int;
+        dirs[k * M + m] = DIRS.countUntil(commands[m][k]).to!int;
       }
     }
 
     int dir(int robot, int command) {
-      return dirs[command][robot];
+      return dirs[command * M + robot];
     }
 
     void outputAsAns() {
-      foreach(d; dirs) {
+      foreach(d; dirs.array.chunks(M)) {
         writefln("%s", d.map!(x => DIRS[x..x + 1]).joiner(" "));
       }
     }
@@ -82,7 +75,7 @@ void problem() {
     Controller controller;
     int[] operations;
 
-    bool[][] filled;
+    bool[900] filled;
     int rest;
     int[] r;
     int[] c;
@@ -91,14 +84,13 @@ void problem() {
     int[] vr;
     int[] vc;
 
-    this(Grid grid, Controller contoller, int[][] RC) {
+    this(Grid grid, Controller contoller, int[] R, int[] C) {
       this.grid = grid;
       this.controller = contoller;
-      r = RC.map!"a[0]".array;
-      c = RC.map!"a[1]".array;
-      filled = new bool[][](N, N);
+      r = R.dup;
+      c = C.dup;
       foreach(rr, cc; zip(r, c)) {
-        filled[rr][cc] = true;
+        filled[rr * N + cc] = true;
       }
       rest = N^^2 - M;
     }
@@ -114,8 +106,8 @@ void problem() {
           moved++;
           r[m] += MOVES_R[dir];
           c[m] += MOVES_C[dir];
-          if (!filled[r[m]][c[m]]) {
-            filled[r[m]][c[m]] = true;
+          if (!filled[r[m] * N + c[m]]) {
+            filled[r[m] * N + c[m]] = true;
             rest--;
             fill++;
           }
@@ -155,6 +147,14 @@ void problem() {
       valuesless = 0;
     }
 
+    int turns() {
+      return operations.length.to!int;
+    }
+
+    int uniqueRobots() {
+      return M.iota.map!(i => r[i]*N + c[i]).array.sort.uniq.walkLength.to!int;
+    }
+
     void outputAsAns() {
       controller.outputAsAns();
       writefln("%(%s %)", operations[0..min($, 2*N^^2)]);
@@ -164,28 +164,41 @@ void problem() {
   Grid grid = new Grid(V, H);
   Simulator bestSim;
   int bestScore;
-  while(!elapsed(1900)) {
-    auto commands = M.iota.map!(_ => "LURDLURDLURDLURD"[uniform(0, 4, RND)..$]).array;
-    // auto commands = M.iota.map!(_ => "DRULDRULDRULDRUL"[uniform(0, 4, RND)..$]).array;
-    Controller controller = new Controller(commands);
-    Simulator sim = new Simulator(grid, controller, RC);
-    auto mode1 = uniform(0, 2, RND);
-    auto mode2 = uniform(0, 2, RND);
-    auto stepWidth = [30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10].choice(RND);
-    auto initStepWidth = [30, 25, 20, 15, 10].choice(RND);
+  int bestTurn = int.max;
 
+  auto R = RC.map!"a[0]".array;
+  auto C = RC.map!"a[1]".array;
+
+  TIMER: while(!elapsed(1950)) {
     int[] aligns = [
       [0, 2].choice(RND),
       [1, 3].choice(RND),
     ];
+    auto commands = M.iota.map!(_ => "LURDLURDLURDLURD"[uniform(0, 4, RND)..$]).array;
+    foreach(m; 0..M) {
+      if (uniform(0, 2, RND) == 0) continue;
+
+      string shifted = commands[m][0..4];
+      auto s = shifted.dup.array;
+      s.swapAt(aligns[0], aligns[1]);
+      commands[m] = shifted ~ s.to!string ~ "SS";
+    }
+
+    Controller controller = new Controller(commands);
+    Simulator sim = new Simulator(grid, controller, R, C);
+    auto mode1 = uniform(0, 2, RND);
+    auto mode2 = uniform(0, 2, RND);
+    auto stepWidth = iota(6, 26).array.choice(RND);
+    auto initStepWidth = iota(5, 31, 5).array.choice(RND);
 
     foreach(al; mode2 == 0 ? aligns : aligns.retro.array) {
-      sim.add(repeat(al, initStepWidth).array);
+      sim.add(repeat(al + 4, initStepWidth).array);
     }
 
     int forward = 4.iota.filter!(n => !aligns.canFind(n)).array.choice(RND);
     int sideFirst = (forward + 1) % 4;
     int sideSecond = (sideFirst + 2) % 4;
+    if (sim.uniqueRobots() <= 3) continue TIMER; 
 
     foreach(c; 0..N) {
       if (mode1 == 0) sim.add(forward);
@@ -193,16 +206,21 @@ void problem() {
       sim.add(forward);
       sim.add(repeat(sideSecond, stepWidth).array);
       if (mode1 == 1) sim.add(forward);
+
+      if (sim.rest == 0) break;
+      if (bestTurn < sim.turns()) continue TIMER;
+      if (c == 0 && sim.uniqueRobots() <= 7) continue TIMER; 
     }
 
     if (sim.rest > 0) {
       sim.cutEdge();
-      foreach(c; sim.operations.retro) {
-        sim.add(c + 2);
-      }
+      foreach(c; sim.operations.retro) sim.add((c + 2) % 4);
     }
 
-    if (bestScore.chmax(sim.score)) bestSim = sim;
+    if (bestScore.chmax(sim.score)) {
+      bestSim = sim;
+      bestTurn = sim.turns();
+    }
   }
 
   bestSim.deb;
