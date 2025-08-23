@@ -142,10 +142,7 @@ void problem() {
     }
 
     int score() {
-      if (rest > 0) {
-        return N ^^ 2 - rest;
-      }
-
+      if (rest > 0) return N ^^ 2 - rest;
       return 3 * N^^2 - operations.length.to!int;
     }
 
@@ -167,45 +164,35 @@ void problem() {
   Grid grid = new Grid(V, H);
   Simulator bestSim;
   int bestScore;
-  int tried;
   while(!elapsed(1900)) {
     auto commands = M.iota.map!(_ => "LURDLURDLURDLURD"[uniform(0, 4, RND)..$]).array;
+    // auto commands = M.iota.map!(_ => "DRULDRULDRULDRUL"[uniform(0, 4, RND)..$]).array;
     Controller controller = new Controller(commands);
-
+    Simulator sim = new Simulator(grid, controller, RC);
     auto mode1 = uniform(0, 2, RND);
     auto mode2 = uniform(0, 2, RND);
+    auto stepWidth = [30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10].choice(RND);
+    auto initStepWidth = [30, 25, 20, 15, 10].choice(RND);
 
-    Simulator sim = new Simulator(grid, controller, RC);
-    if (tried % 2) {
-      if (mode2) {
-        sim.add(2.repeat(N).array);
-        sim.add(3.repeat(N).array);
-      } else {
-        sim.add(3.repeat(N).array);
-        sim.add(2.repeat(N).array);
-      }
-      foreach(c; 0..N) {
-        if (mode1 == 0) sim.add(2);
-        sim.add(3.repeat(N).array);
-        sim.add(2);
-        sim.add(1.repeat(N).array);
-        if (mode1 == 1) sim.add(2);
-      }
-    } else {
-      if (mode2) {
-        sim.add(0.repeat(N).array);
-        sim.add(1.repeat(N).array);
-      } else {
-        sim.add(1.repeat(N).array);
-        sim.add(0.repeat(N).array);
-      }
-      foreach(c; 0..N) {
-        if (mode1 == 0) sim.add(2);
-        sim.add(3.repeat(N).array);
-        sim.add(2);
-        sim.add(1.repeat(N).array);
-        if (mode1 == 1) sim.add(2);
-      }
+    int[] aligns = [
+      [0, 2].choice(RND),
+      [1, 3].choice(RND),
+    ];
+
+    foreach(al; mode2 == 0 ? aligns : aligns.retro.array) {
+      sim.add(repeat(al, initStepWidth).array);
+    }
+
+    int forward = 4.iota.filter!(n => !aligns.canFind(n)).array.choice(RND);
+    int sideFirst = (forward + 1) % 4;
+    int sideSecond = (sideFirst + 2) % 4;
+
+    foreach(c; 0..N) {
+      if (mode1 == 0) sim.add(forward);
+      sim.add(repeat(sideFirst, stepWidth).array);
+      sim.add(forward);
+      sim.add(repeat(sideSecond, stepWidth).array);
+      if (mode1 == 1) sim.add(forward);
     }
 
     if (sim.rest > 0) {
@@ -215,7 +202,6 @@ void problem() {
       }
     }
 
-    tried++;
     if (bestScore.chmax(sim.score)) bestSim = sim;
   }
 
