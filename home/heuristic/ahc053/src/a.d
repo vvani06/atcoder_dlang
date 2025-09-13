@@ -63,24 +63,25 @@ void problem() {
   auto sets = iota(M + 1).map!(m => iota(M, N).filter!(i => ans[i] == m).redBlackTree).array;
   // sets.each!deb;
 
-  while(!elapsed(0)) {
+  [[diffs.map!"a.abs".sum]].deb;
+
+  MT: while(!elapsed(1900)) {
     auto from = uniform(1, M + 1, RND);
 
     auto f = sets[from].array.choice(RND);
-    auto arounds = iota(1, 24).map!(d => [f - d, f + d]).joiner;
+    auto arounds = iota(1, 5).map!(d => [f - d, f + d]).joiner;
     foreach(t; arounds.filter!(i => M <= i && i < N)) {
       auto to = ans[t];
       auto d = diffs[from].abs + diffs[to].abs;
 
-      auto df = diffs[from] - A[f] + A[t];
-      auto dt = to == 0 ? 0 : diffs[to] + A[f] - A[t];
+      auto df = diffs[from] + A[f] - A[t];
+      auto dt = to == 0 ? 0 : diffs[to] - A[f] + A[t];
       auto d2 = df.abs + dt.abs;
-      // [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
       
       if (d2 < d) {
-        "swapped".deb;
-        deb([f, t]);
-        [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
+        // "swapped".deb;
+        // deb([f, t]);
+        // [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
         sets[from].removeKey(f);
         sets[from].insert(t);
         sets[to].removeKey(t);
@@ -88,9 +89,12 @@ void problem() {
         diffs[from] = df;
         diffs[to] = dt;
         swap(ans[f], ans[t]);
+        break;
       }
     }
   }
+
+  [[diffs.map!"a.abs".sum]].deb;
   
   writefln("%(%s %)", ans);
   stdout.flush();
