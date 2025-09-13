@@ -9,8 +9,8 @@ void problem() {
   auto RND = Xorshift(seed);
   enum long INF = long.max / 3;
 
-  long N = scan!long;
-  long M = scan!long;
+  int N = scan!int;
+  int M = scan!int;
   long L = scan!long;
   long R = scan!long;
 
@@ -49,19 +49,48 @@ void problem() {
       }
     }
   }
-
-  foreach(bi, diff; diffs[1..$].enumerate(1)) {
+  foreach(bi; iota(1, M + 1).array.sort!((a, b) => diffs[a].abs > diffs[b].abs)) {
     foreach_reverse(ai, a; A.enumerate(0)) {
       if (ans[ai] > 0) continue;
 
-      if (a - diff < diff) {
-        diff -= a;
+      if (a - diffs[bi] < diffs[bi]) {
+        diffs[bi] -= a;
         ans[ai] = bi;
       }
     }
   }
 
-  // diffs.sort!"abs(a) < abs(b)".deb;
+  auto sets = iota(M + 1).map!(m => iota(M, N).filter!(i => ans[i] == m).redBlackTree).array;
+  // sets.each!deb;
+
+  while(!elapsed(0)) {
+    auto from = uniform(1, M + 1, RND);
+
+    auto f = sets[from].array.choice(RND);
+    auto arounds = iota(1, 24).map!(d => [f - d, f + d]).joiner;
+    foreach(t; arounds.filter!(i => M <= i && i < N)) {
+      auto to = ans[t];
+      auto d = diffs[from].abs + diffs[to].abs;
+
+      auto df = diffs[from] - A[f] + A[t];
+      auto dt = to == 0 ? 0 : diffs[to] + A[f] - A[t];
+      auto d2 = df.abs + dt.abs;
+      // [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
+      
+      if (d2 < d) {
+        "swapped".deb;
+        deb([f, t]);
+        [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
+        sets[from].removeKey(f);
+        sets[from].insert(t);
+        sets[to].removeKey(t);
+        sets[to].insert(f);
+        diffs[from] = df;
+        diffs[to] = dt;
+        swap(ans[f], ans[t]);
+      }
+    }
+  }
   
   writefln("%(%s %)", ans);
   stdout.flush();
@@ -75,8 +104,8 @@ import core.memory : GC;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
-void deb(T ...)(lazy T t){ debug { write("# "); writeln(t); }}
-void debf(T ...)(lazy T t){ debug { write("# "); writefln(t); }}
+void deb(T ...)(lazy T t){ debug { stderr.write("# "); stderr.writeln(t); }}
+void debf(T ...)(lazy T t){ debug { stderr.write("# "); stderr.writefln(t); }}
 // void deb(T ...)(T t){ debug {  }}
 T[] divisors(T)(T n) { T[] ret; for (T i = 1; i * i <= n; i++) { if (n % i == 0) { ret ~= i; if (i * i != n) ret ~= n / i; } } return ret.sort.array; }
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
