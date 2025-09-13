@@ -19,9 +19,12 @@ void problem() {
   long[] A = L.repeat(M).array;
   foreach(div, size; zip(
     [2L, 2L^^2, 2L^^3, 2L^^4, 2L^^5, 2L^^6, 2L^^7, 2L^^8, 2L^^9, 2L^^10, 2L^^11, 2L^^12, 2L^^13, 2L^^14, 2L^^15, 2L^^16],
-    [27, 27, 27, 28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32],
+    [30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],
   )) {
-    A ~= (MAX / div).repeat(size).array;
+    auto uni = MAX / div;
+    auto ma = uni + uni / 2;
+    auto mi = uni - uni / 2;
+    A ~= iota(size).map!(_ => uniform(mi, ma, RND)).array;
   }
   A = A[0..N];
   A.sort!"a > b";
