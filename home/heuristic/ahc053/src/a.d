@@ -17,18 +17,12 @@ void problem() {
   long MAX = R - L;
 
   long[] A = L.repeat(M).array;
-  auto unitSize = 27;
-  foreach(div, size; zip(
-    [2L, 2L^^2, 2L^^3, 2L^^4, 2L^^5, 2L^^6, 2L^^7, 2L^^8, 2L^^9, 2L^^10, 2L^^11, 2L^^12, 2L^^13, 2L^^14, 2L^^15, 2L^^16, 2L^^17, 2L^^18],
-    [29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29],
-  )) {
-    auto uni = MAX / div;
-    auto ma = uni + uni / 3;
-    auto mi = uni - uni / 4;
-    A ~= iota(size).map!(_ => uniform(mi, ma, RND)).array;
+  long base = (MAX * 3) / 2;
+  real ratio = 0.9655;
+  foreach(_; iota(0, (N - M))) {
+    A ~= base;
+    base = (base.to!real * ratio).to!long;
   }
-  A = A[0..N];
-  A.sort!"a > b";
 
   writefln("%(%s %)", A);
   stdout.flush();
@@ -65,39 +59,94 @@ void problem() {
 
   [[diffs.map!"a.abs".sum]].deb;
 
-  MT: while(!elapsed(1900)) {
-    auto from = uniform(1, M + 1, RND);
+  struct State {
+    int[] ans;
+    long[] diffs;
+    RedBlackTree!int[] sets;
 
-    auto f = sets[from].array.choice(RND);
-    auto arounds = iota(1, 5).map!(d => [f - d, f + d]).joiner;
-    foreach(t; arounds.filter!(i => M <= i && i < N)) {
-      auto to = ans[t];
-      auto d = diffs[from].abs + diffs[to].abs;
+    this(int[] an, long[] df) {
+      ans = an.dup;
+      diffs = df.dup;
+      sets = iota(M + 1).map!(m => iota(M, N).filter!(i => ans[i] == m).redBlackTree).array;
+    }
 
-      auto df = diffs[from] + A[f] - A[t];
-      auto dt = to == 0 ? 0 : diffs[to] - A[f] + A[t];
-      auto d2 = df.abs + dt.abs;
-      
-      if (d2 < d) {
-        // "swapped".deb;
-        // deb([f, t]);
-        // [[A[f], A[t]], [diffs[from], df], [diffs[to], dt], [d, d2]].deb;
-        sets[from].removeKey(f);
-        sets[from].insert(t);
-        sets[to].removeKey(t);
-        sets[to].insert(f);
-        diffs[from] = df;
-        diffs[to] = dt;
-        swap(ans[f], ans[t]);
-        break;
+    State dup() {
+      return State(ans, diffs);
+    }
+
+    long diffSum() {
+      return diffs.map!"a.abs".sum;
+    }
+
+    int[] groupsLargerSorted() {
+      return iota(1, M).array.sort!((a, b) => diffs[a] > diffs[b]).array;
+    }
+
+    int[] groupsSmallerSorted() {
+      return iota(1, M).array.sort!((a, b) => diffs[a] < diffs[b]).array;
+    }
+
+    void randomRemove(int from) {
+      foreach(_; 0..uniform(1, 3, RND)) {
+        if (sets[from].empty) return;
+
+        auto a = sets[from].array.choice(RND);
+        sets[from].removeKey(a);
+        sets[0].insert(a);
+        ans[a] = 0;
+        diffs[from] += A[a];
       }
+    }
+
+    void randomInsert(int to) {
+      if (sets[to].empty) return;
+      
+      foreach(a; sets[0].array.randomShuffle(RND)) {
+        if (diffs[to] < A[a]) continue;
+
+        diffs[to] -= A[a];
+        ans[a] = to;
+        sets[to].insert(a);
+        sets[0].removeKey(a);
+      }
+      foreach(a; sets[0].array.randomShuffle(RND)) {
+        if (A[a] - diffs[to] > diffs[to]) continue;
+
+        diffs[to] -= A[a];
+        ans[a] = to;
+        sets[to].insert(a);
+        sets[0].removeKey(a);
+      }
+    }
+
+    void outputAsAns() {
+      writefln("%(%s %)", ans);
+      stdout.flush();
     }
   }
 
-  [[diffs.map!"a.abs".sum]].deb;
-  
-  writefln("%(%s %)", ans);
-  stdout.flush();
+  auto bestState = State(ans, diffs);
+  auto state = State(ans, diffs);
+  [[state.diffSum]].deb;
+
+  MT: while(!elapsed(1900)) {
+    auto froms = state.groupsLargerSorted()[0..1];
+    foreach(from; froms.randomShuffle(RND)) {
+      state.randomRemove(from);
+    }
+    foreach(from; froms.randomShuffle(RND)) {
+      state.randomInsert(from);
+    }
+    
+    if (bestState.diffSum > state.diffSum) {
+      [[state.diffSum]].deb;
+      bestState = state.dup;
+    } else {
+      state = bestState.dup;
+    }
+  }
+
+  bestState.outputAsAns();
 }
 
 // ----------------------------------------------
