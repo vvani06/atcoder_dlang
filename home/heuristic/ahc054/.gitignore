@@ -1,0 +1,6 @@
+tester/**
+!tester/test.sh
+!tester/tester
+src/output/out
+src/output/err
+src/vis.html
