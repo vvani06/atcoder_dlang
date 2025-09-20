@@ -32,12 +32,16 @@ void problem() {
     int[] asArray() {
       return [r, c];
     }
+
+    int dist(Coord other) {
+      return abs(r - other.r) + abs(c - other.c);
+    }
   }
 
   Coord GOAL = Coord(TR, TC);
   Coord START = Coord(0, N / 2);
 
-  auto reachable(Coord start, bool[][] blocked) {
+  auto reachable2(Coord start, bool[][] blocked, Coord add) {
     bool[][] visited = new bool[][](N, N);
     visited[start.r][start.c] = true;
     int visits;
@@ -52,13 +56,16 @@ void problem() {
         auto r = dr + cur.r;
         auto c = dc + cur.c;
         if (min(r, c) < 0 || max(r, c) >= N) continue;
-        if (visited[r][c] || blocked[r][c]) continue;
+        if (visited[r][c] || blocked[r][c] || Coord(r, c) == add) continue;
 
         visited[r][c] = true;
         queue.insertBack(Coord(r, c));
       }
     }
     return tuple(false, 0);
+  }
+  auto reachable(Coord start, bool[][] blocked) {
+    return reachable2(start, blocked, Coord(-1, -1));
   }
 
   Coord[] aroundDist(Coord base, int distance) {
@@ -76,59 +83,89 @@ void problem() {
   foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
   blocked[START.r][START.c] = true;
 
-  Coord[] blocksToAdd;
-  foreach(d; iota(1, N * 2, 4)) {
-    auto toBlock = aroundDist(GOAL, d);
-    if (toBlock.empty) continue;
+  Coord[] blocksToAdd = {
+    Coord[] ret;
+    auto baseBlocked = blocked.map!"a.dup".array;
 
-    REM: foreach(rem; 1..min(toBlock.length + 1, N)) {
-      foreach(_; 0..10) {
-        auto testBlocked = blocked.map!"a.dup".array;
-        auto candidates = toBlock.randomSample(toBlock.length - rem, RND);
-        foreach(coord; candidates) testBlocked[coord.r][coord.c] = true;
+    foreach(d; iota(1, N * 2, 4)) {
+      auto toBlock = aroundDist(GOAL, d);
+      if (toBlock.empty) continue;
 
-        auto eval = reachable(START, testBlocked);
-        if (eval[0]) {
-          foreach(coord; candidates) {
-            if (!blocked[coord.r][coord.c]) blocksToAdd ~= coord;
-            blocked[coord.r][coord.c] = true;
+      REM: foreach(rem; 1..min(toBlock.length + 1, N)) {
+        foreach(_; 0..10) {
+          auto testBlocked = baseBlocked.map!"a.dup".array;
+          auto candidates = toBlock.randomSample(toBlock.length - rem, RND).array;
+          if (d == 1) {
+            candidates = toBlock.sort!((a, b) => a.dist(START) < b.dist(START)).array[0..$ - 1];
           }
-          break REM;
+          foreach(coord; candidates) testBlocked[coord.r][coord.c] = true;
+
+          auto eval = reachable(START, testBlocked);
+          if (eval[0]) {
+            foreach(coord; candidates) {
+              if (!baseBlocked[coord.r][coord.c]) ret ~= coord;
+              baseBlocked[coord.r][coord.c] = true;
+            }
+            break REM;
+          }
         }
       }
     }
-  }
 
-  Coord[] blocksToAdd2;
-  foreach(b; blocksToAdd) {
-    auto preEval = reachable(START, blocked);
-    auto testBlocked = blocked.map!"a.dup".array;
-    testBlocked[b.r][b.c] = false;
+    // 作った格子状の木のうち、全体の連結性を向上させるものはやめる
+    Coord[] filtered;
+    foreach(b; ret) {
+      auto preEval = reachable(START, baseBlocked);
+      auto testBlocked = baseBlocked.map!"a.dup".array;
+      testBlocked[b.r][b.c] = false;
 
-    auto eval = reachable(START, testBlocked);
-    if (preEval[1] < eval[1] - 5) {
-      blocked[b.r][b.c] = false;
-    } else {
-      blocksToAdd2 ~= b;
+      auto eval = reachable(START, testBlocked);
+      if (preEval[1] < eval[1] - 5) {
+        baseBlocked[b.r][b.c] = false;
+      } else {
+        filtered ~= b;
+      }
     }
-  }
-  swap(blocksToAdd, blocksToAdd2);
+    return filtered;
+  }();
+
+  foreach(b; blocksToAdd) blocked[b.r][b.c] = true;
+  Coord[] nexts = [Coord(0, N / 2)];
 
   foreach (turn; 0..int.max) {
-    int PR = scan!int;
-    int PC = scan!int;
-    int NV = scan!int;
-    int[][] V = scan!int(NV * 2).chunks(2).array;
-    if (PR == TR && PC == TC) break;
+    Coord from = Coord(scan!int, scan!int);
+    foreach (r, c; scan!int(scan!int * 2).chunks(2).asTuples!2) visited[r][c] = true;
+    if (from == GOAL) break;
 
-    foreach (r, c; V.asTuples!2) visited[r][c] = true;
+    foreach(next; nexts) {
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        foreach(d; 1..N) {
+          auto coord = Coord(next.r + dr*d, next.c + dc*d);
+          if (!coord.valid || coord.of(blocked)) break;
+          if (coord.of(visited)) continue;
 
-    if (turn == 0) {
-      writefln("%s %(%s %)", blocksToAdd.length, blocksToAdd.map!"a.asArray".joiner);
-    } else {
-      writeln(0);
+          auto eval = reachable(from, blocked);
+          auto eval2 = reachable2(from, blocked, coord);
+          if (eval[1] - 1 == eval2[1] && uniform(0, 10, RND) < 5) {
+            blocksToAdd ~= coord;
+            blocked[coord.r][coord.c] = true;
+          }
+        }
+      }
     }
+
+    writefln("%s %(%s %)", blocksToAdd.length, blocksToAdd.map!"a.asArray".joiner);
     stdout.flush();
+    blocksToAdd.length = 0;
+
+    nexts.length = 0;
+    foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+      auto r = dr + from.r;
+      auto c = dc + from.c;
+      if (min(r, c) < 0 || max(r, c) >= N|| blocked[r][c]) continue;
+      
+      nexts ~= Coord(r, c);
+    }
   }
 }
 
