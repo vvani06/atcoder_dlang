@@ -21,12 +21,12 @@ void problem() {
       return matrix[r][c];
     }
 
-    int asId() {
-      return r * 50 + c;
+    int id() {
+      return r * N + c;
     }
 
     bool valid() {
-      return min(r, c) >= 0 && max(r, c) < N;
+      return min() >= 0 && max() < N;
     }
 
     int[] asArray() {
@@ -40,46 +40,13 @@ void problem() {
     inout int opCmp(inout Coord other) {
       return cmp([r, c], [other.r, other.c]);
     }
+
+    int min() { return .min(r, c); }
+    int max() { return .max(r, c); }
   }
 
   Coord GOAL = Coord(TR, TC);
   Coord START = Coord(0, N / 2);
-
-  auto reachable2(Coord start, bool[][] blocked, Coord add) {
-    bool[][] visited = new bool[][](N, N);
-    visited[start.r][start.c] = true;
-    int visits;
-    
-    for (auto queue = DList!Coord([start]); !queue.empty;) {
-      auto cur = queue.front;
-      queue.removeFront;
-      visits++;
-      
-      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-        auto r = dr + cur.r;
-        auto c = dc + cur.c;
-        if (min(r, c) < 0 || max(r, c) >= N) continue;
-        if (visited[r][c] || blocked[r][c] || Coord(r, c) == add) continue;
-
-        visited[r][c] = true;
-        queue.insertBack(Coord(r, c));
-      }
-    }
-    return tuple(GOAL.of(visited), visits);
-  }
-  auto reachable(Coord start, bool[][] blocked) {
-    return reachable2(start, blocked, Coord(-1, -1));
-  }
-
-  Coord[] aroundDist(Coord base, int distance) {
-    Coord[] ret;
-    foreach(r; iota(-distance, distance + 1)) {
-      auto c = distance - abs(r);
-      ret ~= Coord(base.r + r, base.c + c);
-      if (c > 0) ret ~= Coord(base.r + r, base.c - c);
-    }
-    return ret.filter!(c => c.valid).array;
-  }
 
   Coord[] crossLine(Coord base, int offset) {
     Coord[] ret;
@@ -88,137 +55,164 @@ void problem() {
 
     ret ~= Coord(br, bc);
     foreach(d; 1..N) {
-      ret ~= Coord(br - d, bc - d);
-      ret ~= Coord(br + d, bc + d);
+      ret ~= Coord(br + d, bc - d);
+      ret ~= Coord(br - d, bc + d);
     }
 
     return ret.filter!(c => c.valid).array;
   }
 
-  bool[][] visited = new bool[][](N, N);
+  class Simulator {
+    BitArray visited;
+    BitArray revealed;
+    BitArray blocked;
+    bool dryRun;
+
+    long turn;
+    Coord[] nexts;
+    Coord[] blocksToAdd;
+    RedBlackTree!Coord candidates;
+
+    BitArray playersMemo;
+    DList!Coord playersQueue;
+
+    this() {
+      visited = BitArray(false.repeat(N^^2).array);
+      revealed = BitArray(false.repeat(N^^2).array);
+      revealed[START.id] = true;
+      
+      blocked = BitArray(false.repeat(N^^2).array);
+      foreach (r; 0..N) foreach (c; 0..N) blocked[r * N + c] = G[r][c] == 'T';
+
+      playersMemo = BitArray(false.repeat(N^^2).array);
+      playersQueue = DList!Coord();
+    }
+
+    this(bool dry, Coord[] candidatesArray) {
+      this();
+      nexts = [START];
+      dryRun = dry;
+      candidates = candidatesArray.redBlackTree;
+    }
+
+    auto reachable(Coord start) {
+      return reachable(start, Coord(-1, -1));
+    }
+    auto reachable(Coord start, Coord add) {
+      BitArray v = BitArray(false.repeat(N^^2).array);
+      v[start.id] = true;
+      int visits;
+      
+      for (auto queue = DList!Coord([start]); !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront;
+        visits++;
+        
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+          auto coord = Coord(dr + cur.r, dc + cur.c);
+
+          if (!coord.valid) continue;
+          if (v[coord.id] || blocked[coord.id] || coord == add) continue;
+
+          v[coord.id] = true;
+          queue.insertBack(coord);
+        }
+      }
+      return tuple(v[GOAL.id], visits);
+    }
+
+    Coord[] simulateWalk(Coord from) {
+      Coord[] ret;
+      if (!revealed[from.id]) ret ~= from;
+
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        foreach(d; 1..N) {
+          auto coord = Coord(from.r + dr*d, from.c + dc*d);
+          if (!coord.valid) break;
+
+          if (!revealed[coord.id]) ret ~= coord;
+          if (blocked[coord.id]) break;
+        }
+      }
+
+      foreach(c; ret) playersMemo[c.id] = true;
+      return ret;
+    }
+
+    bool walk(Coord from, Coord[] seen) {
+      foreach (s; seen) revealed[s.id] = true;
+      if (from == GOAL) return true;
+
+      visited[from.id] = true;
+      foreach(next; nexts) {
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1]).array.randomShuffle(RND).asTuples!2) {
+          foreach(d; 1..N) {
+            auto coord = Coord(next.r + dr*d, next.c + dc*d);
+
+            if (!coord.valid || blocked[coord.id]) break;
+            if (revealed[coord.id] || !(coord in candidates)) continue;
+
+            if (coord.dist(GOAL) > 2) {
+              if (uniform(0, 20, RND) < 2) continue;
+              // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            }
+
+            auto preEval = reachable(from);
+            auto postEval = reachable(from, coord);
+            // deb(coord, [preEval, postEval]);
+            
+            if (preEval[1] - 1 == postEval[1]) {
+              blocksToAdd ~= coord;
+              blocked[coord.id] = true;
+              candidates.removeKey(coord);
+              break;
+            }
+          }
+        }
+      }
+
+      if (!dryRun) {
+        writefln("%s %(%s %)", blocksToAdd.length, blocksToAdd.map!"a.asArray".joiner);
+        stdout.flush();
+      }
+
+      blocksToAdd.length = 0;
+      nexts.length = 0;
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto coord = Coord(dr + from.r, dc + from.c);
+        if (!coord.valid || blocked[coord.id]) continue;
+        
+        nexts ~= coord;
+      }
+      return false;
+    }
+  }
+
+  G[START.r][START.c] = 'T';
   bool[][] blocked = new bool[][](N, N);
   foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
-  blocked[START.r][START.c] = true;
 
   Coord[] blocksToAdd = {
     Coord[] ret;
-    auto baseBlocked = blocked.map!"a.dup".array;
-
-    int step;
     foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
-      auto toBlock = crossLine(GOAL, d);
-
-      foreach(coord; d % 2 == 0 ? toBlock.sort!"a.r < b.r".array : toBlock.sort!"a.r > b.r".array) {
-        // auto preEval = reachable(START, baseBlocked);
-        // auto postEval = reachable2(START, baseBlocked, coord);
-        // coord.deb;
-        // [preEval, postEval].deb;
-        // if (preEval[1] == postEval[1] + 1 || preEval[1] == postEval[1]) {
-          ret ~= coord;
-          // baseBlocked[coord.r][coord.c] = true;
-        // }
-      }
-      step++;
+      foreach(coord; crossLine(GOAL, d)) ret ~= coord;
     }
     return ret.filter!(coord => !coord.of(blocked)).array;
-
-    // foreach(d; iota(1, N * 2, 4)) {
-    //   auto toBlock = aroundDist(GOAL, d);
-    //   if (toBlock.empty) continue;
-
-    //   REM: foreach(rem; 1..min(toBlock.length + 1, N)) {
-    //     foreach(_; 0..10) {
-    //       auto testBlocked = baseBlocked.map!"a.dup".array;
-    //       auto candidates = toBlock.randomSample(toBlock.length - rem, RND).array;
-    //       if (d == 1) {
-    //         candidates = toBlock.sort!((a, b) => a.dist(START) < b.dist(START)).array[0..$ - 1];
-    //       }
-    //       foreach(coord; candidates) testBlocked[coord.r][coord.c] = true;
-
-    //       auto eval = reachable(START, testBlocked);
-    //       if (eval[0]) {
-    //         foreach(coord; candidates) {
-    //           if (!baseBlocked[coord.r][coord.c]) ret ~= coord;
-    //           baseBlocked[coord.r][coord.c] = true;
-    //         }
-    //         break REM;
-    //       }
-    //     }
-    //   }
-    // }
-
-    // // 作った格子状の木のうち、全体の連結性を向上させるものはやめる
-    // Coord[] filtered;
-    // foreach(b; ret) {
-    //   auto preEval = reachable(START, baseBlocked);
-    //   auto testBlocked = baseBlocked.map!"a.dup".array;
-    //   testBlocked[b.r][b.c] = false;
-
-    //   auto eval = reachable(START, testBlocked);
-    //   if (preEval[1] < eval[1] - 5) {
-    //     baseBlocked[b.r][b.c] = false;
-    //   } else {
-    //     filtered ~= b;
-    //   }
-    // }
-    // return filtered;
   }();
 
-  // foreach(b; blocksToAdd) blocked[b.r][b.c] = true;
   // blocksToAdd.multiSort!("a.r < b.r", "a.c < b.c").deb;
   auto candidates = blocksToAdd.redBlackTree;
   candidates.insert(Coord(GOAL.r - 1, GOAL.c));
   candidates.insert(Coord(GOAL.r + 1, GOAL.c));
   candidates.insert(Coord(GOAL.r, GOAL.c - 1));
   candidates.insert(Coord(GOAL.r, GOAL.c + 1));
-  // blocked[START.r][START.c] = true;
 
-  // candidates.deb;
-  blocksToAdd.length = 0;
-  Coord[] nexts = [Coord(0, N / 2)];
-
-  foreach (turn; 0..int.max) {
+  Simulator sim = new Simulator(false, candidates.array);
+  while(true) {
     Coord from = Coord(scan!int, scan!int);
-    foreach (r, c; scan!int(scan!int * 2).chunks(2).asTuples!2) visited[r][c] = true;
-    if (from == GOAL) break;
+    Coord[] revealed = scan!int(scan!int * 2).chunks(2).map!(a => Coord(a[0], a[1])).array;
 
-    foreach(next; nexts) {
-      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1]).array.randomShuffle(RND).asTuples!2) {
-        foreach(d; 1..N) {
-          auto coord = Coord(next.r + dr*d, next.c + dc*d);
-
-          if (!coord.valid || coord.of(blocked)) break;
-          if (coord.of(visited) || !(coord in candidates)) continue;
-
-          if (coord.dist(GOAL) > 2 && uniform(0, 20, RND) < 2) continue;
-
-          auto preEval = reachable(from, blocked);
-          auto postEval = reachable2(from, blocked, coord);
-          coord.deb;
-          [preEval, postEval].deb;
-          
-          if (preEval[1] - 1 == postEval[1]) {
-            blocksToAdd ~= coord;
-            blocked[coord.r][coord.c] = true;
-            candidates.removeKey(coord);
-            break;
-          }
-        }
-      }
-    }
-
-    writefln("%s %(%s %)", blocksToAdd.length, blocksToAdd.map!"a.asArray".joiner);
-    stdout.flush();
-    blocksToAdd.length = 0;
-
-    nexts.length = 0;
-    foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-      auto r = dr + from.r;
-      auto c = dc + from.c;
-      if (min(r, c) < 0 || max(r, c) >= N|| blocked[r][c]) continue;
-      
-      nexts ~= Coord(r, c);
-    }
+    if (sim.walk(from, revealed)) break;
   }
 }
 
