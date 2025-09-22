@@ -165,14 +165,15 @@ void problem() {
   }();
 
   // foreach(b; blocksToAdd) blocked[b.r][b.c] = true;
-  blocksToAdd.multiSort!("a.r < b.r", "a.c < b.c").deb;
+  // blocksToAdd.multiSort!("a.r < b.r", "a.c < b.c").deb;
   auto candidates = blocksToAdd.redBlackTree;
   candidates.insert(Coord(GOAL.r - 1, GOAL.c));
   candidates.insert(Coord(GOAL.r + 1, GOAL.c));
   candidates.insert(Coord(GOAL.r, GOAL.c - 1));
   candidates.insert(Coord(GOAL.r, GOAL.c + 1));
+  // blocked[START.r][START.c] = true;
 
-  candidates.deb;
+  // candidates.deb;
   blocksToAdd.length = 0;
   Coord[] nexts = [Coord(0, N / 2)];
 
@@ -185,22 +186,21 @@ void problem() {
       foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1]).array.randomShuffle(RND).asTuples!2) {
         foreach(d; 1..N) {
           auto coord = Coord(next.r + dr*d, next.c + dc*d);
-          coord.deb;
 
           if (!coord.valid || coord.of(blocked)) break;
-          
-          (coord in candidates).deb;
-
           if (coord.of(visited) || !(coord in candidates)) continue;
 
-          coord.deb;
-          candidates.deb;
+          if (coord.dist(GOAL) > 2 && uniform(0, 20, RND) < 2) continue;
 
           auto preEval = reachable(from, blocked);
           auto postEval = reachable2(from, blocked, coord);
+          coord.deb;
+          [preEval, postEval].deb;
+          
           if (preEval[1] - 1 == postEval[1]) {
             blocksToAdd ~= coord;
             blocked[coord.r][coord.c] = true;
+            candidates.removeKey(coord);
             break;
           }
         }
