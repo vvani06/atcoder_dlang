@@ -193,7 +193,7 @@ void problem() {
 
       turn++;
       foreach(next; nexts) {
-        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1]).array.randomShuffle(RND).asTuples!2) {
+        foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
           foreach(d; 1..N) {
             auto coord = Coord(next.r + dr*d, next.c + dc*d);
 
@@ -201,7 +201,7 @@ void problem() {
             if (revealed[coord.id] || !(coord in candidates)) continue;
 
             if (coord.dist(GOAL) > 2) {
-              if (uniform(0, 20, RND) < 2) continue;
+              // if (uniform(0, 20, RND) < 0) continue;
               // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
             }
 
