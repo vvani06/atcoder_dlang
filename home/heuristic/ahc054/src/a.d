@@ -48,17 +48,23 @@ void problem() {
   Coord GOAL = Coord(TR, TC);
   Coord START = Coord(0, N / 2);
 
-  Coord[] crossLine(Coord base, int offset) {
+  Coord[] crossLine(Coord base, int offset, int dir = 0) {
     Coord[] ret;
     auto br = base.r + offset;
     auto bc = base.c;
 
     ret ~= Coord(br, bc);
-    foreach(d; 1..N) {
-      ret ~= Coord(br + d, bc - d);
-      ret ~= Coord(br - d, bc + d);
+    if (dir == 0) {
+      foreach(d; 1..N) {
+        ret ~= Coord(br + d, bc - d);
+        ret ~= Coord(br - d, bc + d);
+      }
+    } else {
+      foreach(d; 1..N) {
+        ret ~= Coord(br - d, bc - d);
+        ret ~= Coord(br + d, bc + d);
+      }
     }
-
     return ret.filter!(c => c.valid).array;
   }
 
@@ -85,9 +91,9 @@ void problem() {
       foreach (r; 0..N) foreach (c; 0..N) blocked[r * N + c] = G[r][c] == 'T';
 
       playersMemo = BitArray(false.repeat(N^^2).array);
-      playersQueue = DList!Coord();
+      playersMemo[START.id] = true;
+      playersQueue = DList!Coord([START]);
     }
-
     this(bool dry, Coord[] candidatesArray) {
       this();
       nexts = [START];
@@ -121,7 +127,16 @@ void problem() {
       return tuple(v[GOAL.id], visits);
     }
 
-    Coord[] simulateWalk(Coord from) {
+    Coord[] simulatePlayerWalked(Coord from) {
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto coord = Coord(from.r + dr, from.c + dc);
+        if (!coord.valid || visited[coord.id] || blocked[coord.id]) continue;
+        
+        playersQueue.insertBack(coord);
+      }
+
+      if (turn == 0) return [START];
+
       Coord[] ret;
       if (!revealed[from.id]) ret ~= from;
 
@@ -136,7 +151,20 @@ void problem() {
       }
 
       foreach(c; ret) playersMemo[c.id] = true;
+
       return ret;
+    }
+
+    Coord simulatePlayerNext() {
+      while(!playersQueue.empty) {
+        auto cur = playersQueue.front;
+        playersQueue.removeFront();
+
+        if (visited[cur.id]) continue;
+        return cur;
+      }
+
+      return GOAL;
     }
 
     bool walk(Coord from, Coord[] seen) {
@@ -144,6 +172,26 @@ void problem() {
       if (from == GOAL) return true;
 
       visited[from.id] = true;
+
+      if (turn == 0) {
+        foreach(dr, dc; cartesianProduct(iota(-2, 3), iota(-2, 3))) {
+          if (dr == 0 && dc == 0) continue;
+
+          auto coord = Coord(GOAL.r + dr, GOAL.c + dc);
+          if (!coord.valid || blocked[coord.id]) continue;
+          if (revealed[coord.id] || !(coord in candidates)) continue;
+
+          auto preEval = reachable(START);
+          auto postEval = reachable(START, coord);
+          if (preEval[1] - 1 == postEval[1]) {
+            blocksToAdd ~= coord;
+            blocked[coord.id] = true;
+            candidates.removeKey(coord);
+          }
+        }
+      }
+
+      turn++;
       foreach(next; nexts) {
         foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1]).array.randomShuffle(RND).asTuples!2) {
           foreach(d; 1..N) {
@@ -192,22 +240,46 @@ void problem() {
   bool[][] blocked = new bool[][](N, N);
   foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
 
-  Coord[] blocksToAdd = {
+  Coord[] blocksToAdd1 = {
     Coord[] ret;
     foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
-      foreach(coord; crossLine(GOAL, d)) ret ~= coord;
+      foreach(coord; crossLine(GOAL, d, 0)) ret ~= coord;
     }
     return ret.filter!(coord => !coord.of(blocked)).array;
   }();
+  Coord[] blocksToAdd2 = {
+    Coord[] ret;
+    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
+      foreach(coord; crossLine(GOAL, d, 1)) ret ~= coord;
+    }
+    return ret.filter!(coord => !coord.of(blocked)).array;
+  }();
+  auto candidates1 = blocksToAdd1.redBlackTree;
+  auto candidates2 = blocksToAdd2.redBlackTree;
+  foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+    candidates1.insert(Coord(GOAL.r + dr, GOAL.c + dc));
+    candidates2.insert(Coord(GOAL.r + dr, GOAL.c + dc));
+  }
 
-  // blocksToAdd.multiSort!("a.r < b.r", "a.c < b.c").deb;
-  auto candidates = blocksToAdd.redBlackTree;
-  candidates.insert(Coord(GOAL.r - 1, GOAL.c));
-  candidates.insert(Coord(GOAL.r + 1, GOAL.c));
-  candidates.insert(Coord(GOAL.r, GOAL.c - 1));
-  candidates.insert(Coord(GOAL.r, GOAL.c + 1));
+  Simulator dSim1 = new Simulator(true, candidates1.array);
+  while(true) {
+    auto from = dSim1.simulatePlayerNext();
+    Coord[] revealed = dSim1.simulatePlayerWalked(from);
 
-  Simulator sim = new Simulator(false, candidates.array);
+    if (dSim1.walk(from, revealed)) break;
+  }
+  dSim1.turn.deb;
+
+  Simulator dSim2 = new Simulator(true, candidates2.array);
+  while(true) {
+    auto from = dSim2.simulatePlayerNext();
+    Coord[] revealed = dSim2.simulatePlayerWalked(from);
+
+    if (dSim2.walk(from, revealed)) break;
+  }
+  dSim2.turn.deb;
+
+  Simulator sim = new Simulator(false, dSim1.turn >= dSim2.turn ? candidates1.array : candidates2.array);
   while(true) {
     Coord from = Coord(scan!int, scan!int);
     Coord[] revealed = scan!int(scan!int * 2).chunks(2).map!(a => Coord(a[0], a[1])).array;
