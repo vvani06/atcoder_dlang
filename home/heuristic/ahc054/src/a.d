@@ -174,6 +174,7 @@ void problem() {
       visited[from.id] = true;
 
       if (turn == 0) {
+        Coord[] cans;
         foreach(dr, dc; cartesianProduct(iota(-2, 3), iota(-2, 3))) {
           if (dr == 0 && dc == 0) continue;
 
@@ -181,6 +182,11 @@ void problem() {
           if (!coord.valid || blocked[coord.id]) continue;
           if (revealed[coord.id] || !(coord in candidates)) continue;
 
+          cans ~= coord;
+        }
+
+        auto mid = Coord(0, N / 2);
+        foreach(coord; cans.sort!((a, b) => a.dist(mid) < b.dist(mid))) {
           auto preEval = reachable(START);
           auto postEval = reachable(START, coord);
           if (preEval[1] - 1 == postEval[1]) {
