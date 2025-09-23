@@ -185,8 +185,7 @@ void problem() {
           cans ~= coord;
         }
 
-        auto mid = Coord(0, N / 2);
-        foreach(coord; cans.sort!((a, b) => a.dist(mid) < b.dist(mid))) {
+        foreach(coord; cans.sort!((a, b) => a.dist(START) < b.dist(START))) {
           auto preEval = reachable(START);
           auto postEval = reachable(START, coord);
           if (preEval[1] - 1 == postEval[1]) {
@@ -206,8 +205,13 @@ void problem() {
             if (!coord.valid || blocked[coord.id]) break;
             if (revealed[coord.id] || !(coord in candidates)) continue;
 
-            if (coord.dist(GOAL) > 2) {
-              // if (uniform(0, 20, RND) < 0) continue;
+            if (coord.dist(GOAL) < 8) {
+              if (uniform(0, 20, RND) < 3) continue;
+              // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            }
+
+            if (coord.dist(START) < 4) {
+              if (uniform(0, 20, RND) < 15) continue;
               // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
             }
 
