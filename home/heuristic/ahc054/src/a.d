@@ -14,6 +14,26 @@ void problem() {
   int TC = scan!int;
   dchar[][] G = scan!string(N).map!"a.array".array;
 
+  auto IDEAL_GOAL_AROUND = {
+    auto base = [
+      [9,9,9,9,0,9,9],
+      [9,9,9,1,0,9,9],
+      [9,9,1,0,0,0,9],
+      [9,9,1,0,1,9,9],
+      [9,9,9,1,9,9,9],
+      [9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9],
+    ];
+    auto base1 = rotate(base);
+    auto base2 = rotate(base1);
+    auto base3 = rotate(base2);
+    auto mirror = mirrorX(base);
+    auto mirror1 = rotate(mirror);
+    auto mirror2 = rotate(mirror1);
+    auto mirror3 = rotate(mirror2);
+    return [base, base1, base2, base3, mirror, mirror1, mirror2, mirror3];
+  }();
+
   struct Coord {
     int r, c;
 
@@ -76,7 +96,7 @@ void problem() {
 
     long turn;
     Coord[] nexts;
-    Coord[] blocksToAdd;
+    Coord[] blocksToAdd, priorBlock;
     RedBlackTree!Coord candidates;
 
     BitArray playersMemo;
@@ -127,6 +147,37 @@ void problem() {
       return tuple(v[GOAL.id], visits);
     }
 
+    int scoreForAroundGoalMatirx(int[][] matrix) {
+      int ret;
+      int score_base = 65536;
+      foreach(r; 0..7) foreach(c; 0..7) {
+        if (matrix[r][c] == 9) continue;
+
+        auto coord = Coord(r + GOAL.r - 3, c + GOAL.c - 3);
+        auto block = coord.valid ? blocked[coord.id] : false;
+        auto dist = coord.dist(GOAL) + 1;
+
+        if (matrix[r][c] == 0 && !block) {
+          ret += START.dist(coord)^^4;
+          ret += score_base / 4^^dist;
+        }
+        if (matrix[r][c] == 1 && block) ret += score_base / 4^^dist / 4;
+      }
+      return ret;
+    }
+
+    void applyAroundGoalMatrix(int[][] matrix) {
+      foreach(r; 0..7) foreach(c; 0..7) {
+        if (matrix[r][c] == 9) continue;
+
+        auto coord = Coord(r + GOAL.r - 3, c + GOAL.c - 3);
+        if (!coord.valid) continue;
+
+        if (matrix[r][c] == 0) revealed[coord.id] = true;
+        if (matrix[r][c] == 1 && !blocked[coord.id]) priorBlock ~= coord;
+      }
+    }
+
     Coord[] simulatePlayerWalked(Coord from) {
       foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
         auto coord = Coord(from.r + dr, from.c + dc);
@@ -174,21 +225,9 @@ void problem() {
       visited[from.id] = true;
 
       if (turn == 0) {
-        Coord[] cans;
-        foreach(dr, dc; cartesianProduct(iota(-2, 3), iota(-2, 3))) {
-          if (dr == 0 && dc == 0) continue;
-
-          auto coord = Coord(GOAL.r + dr, GOAL.c + dc);
-          if (!coord.valid || blocked[coord.id]) continue;
-          if (revealed[coord.id] || !(coord in candidates)) continue;
-
-          cans ~= coord;
-        }
-
-        foreach(coord; cans.sort!((a, b) => a.dist(START) < b.dist(START))) {
-          auto preEval = reachable(START);
-          auto postEval = reachable(START, coord);
-          if (preEval[1] - 1 == postEval[1]) {
+        foreach(coord; priorBlock.sort!((a, b) => a.dist(START) < b.dist(START))) {
+          auto eval = reachable(START, coord);
+          if (eval[0]) {
             blocksToAdd ~= coord;
             blocked[coord.id] = true;
             candidates.removeKey(coord);
@@ -271,7 +310,21 @@ void problem() {
     candidates2.insert(Coord(GOAL.r + dr, GOAL.c + dc));
   }
 
+  auto aroundGoalMatrix = {
+    auto sim = new Simulator(true, []);
+    int bestScore;
+    long bestMatrixId;
+
+    foreach(i, matrix; IDEAL_GOAL_AROUND) {
+      if (bestScore.chmax(sim.scoreForAroundGoalMatirx(matrix))) {
+        bestMatrixId = i;
+      }
+    }
+    return IDEAL_GOAL_AROUND[bestMatrixId];
+  }();
+
   Simulator dSim1 = new Simulator(true, candidates1.array);
+  dSim1.applyAroundGoalMatrix(aroundGoalMatrix);
   while(true) {
     auto from = dSim1.simulatePlayerNext();
     Coord[] revealed = dSim1.simulatePlayerWalked(from);
@@ -281,6 +334,7 @@ void problem() {
   dSim1.turn.deb;
 
   Simulator dSim2 = new Simulator(true, candidates2.array);
+  dSim2.applyAroundGoalMatrix(aroundGoalMatrix);
   while(true) {
     auto from = dSim2.simulatePlayerNext();
     Coord[] revealed = dSim2.simulatePlayerWalked(from);
@@ -290,6 +344,7 @@ void problem() {
   dSim2.turn.deb;
 
   Simulator sim = new Simulator(false, dSim1.turn >= dSim2.turn ? candidates1.array : candidates2.array);
+  sim.applyAroundGoalMatrix(aroundGoalMatrix);
   while(true) {
     Coord from = Coord(scan!int, scan!int);
     Coord[] revealed = scan!int(scan!int * 2).chunks(2).map!(a => Coord(a[0], a[1])).array;
@@ -328,6 +383,15 @@ void runSolver() {
   problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
+
+auto mirrorX(T)(T[][] matrix) {
+  auto size = matrix.length;
+  return iota(size).map!(r => iota(size).map!(c => matrix[r][size - 1 - c]).array).array;
+}
+auto rotate(T)(T[][] matrix) {
+  auto size = matrix.length;
+  return iota(size).map!(r => iota(size).map!(c => matrix[c][size - 1 - r]).array).array;
+}
 
 // -----------------------------------------------
 
