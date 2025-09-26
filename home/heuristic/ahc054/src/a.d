@@ -16,13 +16,19 @@ void problem() {
 
   auto IDEAL_GOAL_AROUND = {
     auto base = [
-      [9,9,0,9,9,9,9],
-      [9,0,0,1,1,1,9],
-      [1,0,1,0,0,0,1],
-      [1,0,1,0,1,0,1],
-      [1,0,0,1,0,0,1],
-      [9,1,0,0,0,1,9],
-      [9,9,1,1,1,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,0,9,9,9,9,9,9,9],
+      [9,9,9,9,0,0,1,1,1,9,9,9,9],
+      [9,9,9,1,0,1,0,0,0,1,9,9,9],
+      [9,9,9,1,0,1,0,1,0,1,9,9,9],
+      [9,9,9,1,0,0,1,0,0,1,9,9,9],
+      [9,9,9,9,1,0,0,0,1,9,9,9,9],
+      [9,9,9,9,9,1,1,1,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9,0,9,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
     ];
     auto base1 = rotate(base);
     auto base2 = rotate(base1);
@@ -148,29 +154,33 @@ void problem() {
     }
 
     int scoreForAroundGoalMatirx(int[][] matrix) {
+      auto size = matrix.length.to!int;
+      auto half = size / 2;
       int ret;
-      int score_base = 65536;
-      foreach(r; 0..7) foreach(c; 0..7) {
+      int score_base = 2^^24;
+      foreach(r; 0..size) foreach(c; 0..size) {
         if (matrix[r][c] == 9) continue;
 
-        auto coord = Coord(r + GOAL.r - 3, c + GOAL.c - 3);
+        auto coord = Coord(r + GOAL.r - half, c + GOAL.c - half);
         auto block = coord.valid ? blocked[coord.id] : false;
         auto dist = coord.dist(GOAL) + 1;
 
         if (matrix[r][c] == 0 && !block) {
           // ret += START.dist(coord)^^4;
-          ret += score_base / 4^^dist;
+          ret += score_base / 2^^dist;
         }
-        if (matrix[r][c] == 1 && block) ret += score_base / 4^^dist / 4;
+        if (matrix[r][c] == 1 && block) ret += score_base / 2^^dist / 4;
       }
       return ret;
     }
 
     void applyAroundGoalMatrix(int[][] matrix) {
-      foreach(r; 0..7) foreach(c; 0..7) {
+      auto size = matrix.length.to!int;
+      auto half = size / 2;
+      foreach(r; 0..size) foreach(c; 0..size) {
         if (matrix[r][c] == 9) continue;
 
-        auto coord = Coord(r + GOAL.r - 3, c + GOAL.c - 3);
+        auto coord = Coord(r + GOAL.r - half, c + GOAL.c - half);
         if (!coord.valid) continue;
 
         if (matrix[r][c] == 0) revealed[coord.id] = true;
