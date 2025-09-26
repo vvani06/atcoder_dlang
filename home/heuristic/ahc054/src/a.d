@@ -15,6 +15,7 @@ void problem() {
   dchar[][] G = scan!string(N).map!"a.array".array;
 
   auto IDEAL_GOAL_AROUND = {
+    int[][][] ret;
     auto base = [
       [9,9,9,9,9,9,9,9,9,9,9,9,9],
       [9,9,9,9,9,9,9,9,9,9,9,9,9],
@@ -26,18 +27,16 @@ void problem() {
       [9,9,9,1,0,0,1,0,0,1,9,9,9],
       [9,9,9,9,1,0,0,0,1,9,9,9,9],
       [9,9,9,9,9,1,1,1,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,0,9,9,9],
+      [9,9,9,9,9,9,9,9,9,9,9,9,9],
       [9,9,9,9,9,9,9,9,9,9,9,9,9],
       [9,9,9,9,9,9,9,9,9,9,9,9,9],
     ];
-    auto base1 = rotate(base);
-    auto base2 = rotate(base1);
-    auto base3 = rotate(base2);
-    auto mirror = mirrorX(base);
-    auto mirror1 = rotate(mirror);
-    auto mirror2 = rotate(mirror1);
-    auto mirror3 = rotate(mirror2);
-    return [base, base1, base2, base3, mirror, mirror1, mirror2, mirror3];
+    ret ~= base;
+    foreach(_; 0..3) ret ~= rotate(ret[$ - 1]);
+    ret ~= mirrorX(base);
+    foreach(_; 0..3) ret ~= rotate(ret[$ - 1]);
+    
+    return ret;
   }();
 
   struct Coord {
@@ -166,10 +165,10 @@ void problem() {
         auto dist = coord.dist(GOAL) + 1;
 
         if (matrix[r][c] == 0 && !block) {
-          // ret += START.dist(coord)^^4;
           ret += score_base / 2^^dist;
         }
         if (matrix[r][c] == 1 && block) ret += score_base / 2^^dist / 4;
+        if (matrix[r][c] == 1 && coord == START) return 0;
       }
       return ret;
     }
@@ -254,15 +253,15 @@ void problem() {
             if (!coord.valid || blocked[coord.id]) break;
             if (revealed[coord.id] || !(coord in candidates)) continue;
 
-            if (coord.dist(GOAL) < 8) {
-              if (uniform(0, 20, RND) < 3) continue;
-              // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
-            }
+            // if (coord.dist(GOAL) < 8) {
+            //   if (uniform(0, 20, RND) < 3) continue;
+            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            // }
 
-            if (coord.dist(START) < 4) {
-              if (uniform(0, 20, RND) < 15) continue;
-              // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
-            }
+            // if (coord.dist(START) < 4) {
+            //   if (uniform(0, 20, RND) < 15) continue;
+            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            // }
 
             auto preEval = reachable(from);
             auto postEval = reachable(from, coord);
@@ -299,27 +298,6 @@ void problem() {
   bool[][] blocked = new bool[][](N, N);
   foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
 
-  Coord[] blocksToAdd1 = {
-    Coord[] ret;
-    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
-      foreach(coord; crossLine(GOAL, d, 0)) ret ~= coord;
-    }
-    return ret.filter!(coord => !coord.of(blocked)).array;
-  }();
-  Coord[] blocksToAdd2 = {
-    Coord[] ret;
-    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
-      foreach(coord; crossLine(GOAL, d, 1)) ret ~= coord;
-    }
-    return ret.filter!(coord => !coord.of(blocked)).array;
-  }();
-  auto candidates1 = blocksToAdd1.redBlackTree;
-  auto candidates2 = blocksToAdd2.redBlackTree;
-  foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
-    candidates1.insert(Coord(GOAL.r + dr, GOAL.c + dc));
-    candidates2.insert(Coord(GOAL.r + dr, GOAL.c + dc));
-  }
-
   auto aroundGoalMatrix = {
     auto sim = new Simulator(true, []);
     int bestScore;
@@ -333,27 +311,28 @@ void problem() {
     return IDEAL_GOAL_AROUND[bestMatrixId];
   }();
 
-  Simulator dSim1 = new Simulator(true, candidates1.array);
-  dSim1.applyAroundGoalMatrix(aroundGoalMatrix);
-  while(true) {
-    auto from = dSim1.simulatePlayerNext();
-    Coord[] revealed = dSim1.simulatePlayerWalked(from);
+  auto mazes = iota(2).map!((dir) {
+    Coord[] ret;
+    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
+      foreach(coord; crossLine(GOAL, d, dir)) ret ~= coord;
+    }
+    return ret.filter!(coord => !coord.of(blocked)).array;
+  }).array;
 
-    if (dSim1.walk(from, revealed)) break;
-  }
-  dSim1.turn.deb;
+  G[START.r][START.c] = '.';
+  auto bestIndex = mazes.map!((maze) {
+    auto sim = new Simulator(true, maze);
+    sim.applyAroundGoalMatrix(aroundGoalMatrix);
+    while(true) {
+      auto from = sim.simulatePlayerNext();
+      Coord[] revealed = sim.simulatePlayerWalked(from);
 
-  Simulator dSim2 = new Simulator(true, candidates2.array);
-  dSim2.applyAroundGoalMatrix(aroundGoalMatrix);
-  while(true) {
-    auto from = dSim2.simulatePlayerNext();
-    Coord[] revealed = dSim2.simulatePlayerWalked(from);
+      if (sim.walk(from, revealed)) break;
+    }
+    return sim.turn;
+  }).maxIndex;
 
-    if (dSim2.walk(from, revealed)) break;
-  }
-  dSim2.turn.deb;
-
-  Simulator sim = new Simulator(false, dSim1.turn >= dSim2.turn ? candidates1.array : candidates2.array);
+  Simulator sim = new Simulator(false, mazes[bestIndex]);
   sim.applyAroundGoalMatrix(aroundGoalMatrix);
   while(true) {
     Coord from = Coord(scan!int, scan!int);
