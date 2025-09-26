@@ -16,13 +16,13 @@ void problem() {
 
   auto IDEAL_GOAL_AROUND = {
     auto base = [
-      [9,9,9,9,0,9,9],
-      [9,9,9,1,0,9,9],
-      [9,9,1,0,0,0,9],
-      [9,9,1,0,1,9,9],
-      [9,9,9,1,9,9,9],
-      [9,9,9,9,9,9,9],
-      [9,9,9,9,9,9,9],
+      [9,9,0,9,9,9,9],
+      [9,0,0,1,1,1,9],
+      [1,0,1,0,0,0,1],
+      [1,0,1,0,1,0,1],
+      [1,0,0,1,0,0,1],
+      [9,1,0,0,0,1,9],
+      [9,9,1,1,1,9,9],
     ];
     auto base1 = rotate(base);
     auto base2 = rotate(base1);
@@ -158,7 +158,7 @@ void problem() {
         auto dist = coord.dist(GOAL) + 1;
 
         if (matrix[r][c] == 0 && !block) {
-          ret += START.dist(coord)^^4;
+          // ret += START.dist(coord)^^4;
           ret += score_base / 4^^dist;
         }
         if (matrix[r][c] == 1 && block) ret += score_base / 4^^dist / 4;
