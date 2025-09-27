@@ -15,42 +15,62 @@ void problem() {
   long R = scan!long;
 
   long MAX = R - L;
+  long[] A = R.repeat(M).array;
+  foreach(_; 0..10000) {
+    auto sim = uniformDistribution(M).map!(d => L + (d * M / 2 * (R - L + 1)).to!long).array.sort;
+    foreach(i; 0..M) {
+      A[i].chmin(sim[i]);
+    }
+  }
 
-  long[] A = L.repeat(M).array;
-  long base = (MAX * 3) / 2;
-  real ratio = 0.9655;
-  foreach(_; iota(0, (N - M))) {
-    A ~= base;
-    base = (base.to!real * ratio).to!long;
+  long base = (MAX * 7) / 14;
+  real ratio = 0.89;
+  foreach(_; iota(0, (N - M), 5)) {
+    base = max(1L, (base.to!real * ratio).to!long);
+    A ~= iota(5).map!(_ => (base.to!real * uniform(1.0, 1.12, RND)).to!long).array.sort.array;
   }
 
   writefln("%(%s %)", A);
   stdout.flush();
 
   long[] B = scan!long(M);
-
-  int[] ans = new int[](N);
   long[] diffs = 0L ~ B.dup;
-  foreach(bi, b; B.enumerate(1)) {
-    long s;
-    foreach(ai, a; A.enumerate(0)) {
-      if (ans[ai] > 0) continue;
+  int[] ans = new int[](N);
+  
+  foreach(i; 0..M) {
+    diffs[i + 1] -= A[i];
+    ans[i] = i + 1;
+  }
+  
+  foreach(i; M..N) {
+    auto a = A[i];
 
-      if (s + a <= b) {
-        s += a;
-        diffs[bi] -= a;
-        ans[ai] = bi;
-      }
+    foreach(bi; iota(1, M + 1).array.sort!((a, b) => diffs[a] > diffs[b])) {
+      if (a > diffs[bi]) continue;
+
+      diffs[bi] -= a;
+      ans[i] = bi;
+      break;
     }
   }
-  foreach(bi; iota(1, M + 1).array.sort!((a, b) => diffs[a].abs > diffs[b].abs)) {
-    foreach_reverse(ai, a; A.enumerate(0)) {
-      if (ans[ai] > 0) continue;
+  
+  foreach(i; M..N) {
+    if (ans[i] > 0) continue;
 
-      if (a - diffs[bi] < diffs[bi]) {
-        diffs[bi] -= a;
-        ans[ai] = bi;
+    auto a = A[i];
+    long delta;
+    int best;
+    foreach(bi; 1..M + 1) {
+      if (diffs[bi] < 0) continue;
+
+      if (delta.chmin(abs(diffs[bi] - a) - diffs[bi])) {
+        best = bi;
       }
+    }
+
+    if (best > 0) {
+      diffs[best] -= a;
+      ans[i] = best;
     }
   }
 
@@ -129,7 +149,7 @@ void problem() {
   auto state = State(ans, diffs);
   [[state.diffSum]].deb;
 
-  MT: while(!elapsed(1900)) {
+  MT: while(!elapsed(0)) {
     auto froms = state.groupsLargerSorted()[0..1];
     foreach(from; froms.randomShuffle(RND)) {
       state.randomRemove(from);
