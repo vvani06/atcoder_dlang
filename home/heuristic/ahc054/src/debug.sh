@@ -11,7 +11,7 @@ if [ ! -z "${1}" ]; then
 fi
 
 ldmd2 -debug -O ./a.d -of=/tmp/built && \
-tester /tmp/built < input/a > output/out 2> output/err && \
+time tester /tmp/built < input/a > output/out 2> output/err && \
 tail -n 1 output/err
 
 # cat output/out
