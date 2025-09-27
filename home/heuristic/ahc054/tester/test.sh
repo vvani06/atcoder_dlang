@@ -16,7 +16,7 @@ CYCLE=$((TOTAL_CASES/PARALLEL_SIZE - 1))
 for cycle in `eval echo {0..$CYCLE}`; do
   min=$(($cycle * $PARALLEL_SIZE))
   max=$(($cycle * $PARALLEL_SIZE + $PARALLEL_SIZE - 1))
-  for i in {0000..0999}; do
+  for i in {0000..9999}; do
     if [ $min -le $i ] && [ $max -ge $i ]; then
       tester ./a < /ahc_in/${i}.txt > out/${i}.txt &
       # ./a < /ahc_in/${i}.txt > out/${i}.txt &
@@ -25,7 +25,7 @@ for cycle in `eval echo {0..$CYCLE}`; do
   wait
 done
 
-for i in {0000..0999}; do
+for i in {0000..9999}; do
   if [ -f out/${i}.txt ]; then
     vis /ahc_in/${i}.txt out/${i}.txt >> score
   fi

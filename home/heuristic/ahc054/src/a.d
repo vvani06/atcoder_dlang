@@ -17,24 +17,36 @@ void problem() {
   auto IDEAL_GOAL_AROUND = {
     int[][][] ret;
     auto base = [
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
-      [9,9,9,9,9,0,9,9,9,9,9,9,9],
-      [9,9,9,9,0,0,1,1,1,9,9,9,9],
-      [9,9,9,1,0,1,0,0,0,1,9,9,9],
-      [9,9,9,1,0,1,0,1,0,1,9,9,9],
-      [9,9,9,1,0,0,1,0,0,1,9,9,9],
-      [9,9,9,9,1,0,0,0,1,9,9,9,9],
-      [9,9,9,9,9,1,1,1,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
-      [9,9,9,9,9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+      [9,9,9,0,9,9,9,9,9],
+      [9,9,0,0,1,1,1,9,9],
+      [9,1,0,1,0,0,0,1,9],
+      [9,1,0,1,0,1,0,1,9],
+      [9,1,0,0,1,0,0,1,9],
+      [9,9,1,0,0,0,1,9,9],
+      [9,9,9,1,1,1,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
     ];
     ret ~= base;
-    foreach(_; 0..3) ret ~= rotate(ret[$ - 1]);
+    foreach(_; 0..3) ret ~= rotate(ret.back);
     ret ~= mirrorX(base);
-    foreach(_; 0..3) ret ~= rotate(ret[$ - 1]);
+    foreach(_; 0..3) ret ~= rotate(ret.back);
+
+    auto base2 = [
+      [9,9,9,9,9,1,9,9,9],
+      [9,9,9,9,0,0,0,9,9],
+      [9,9,9,0,1,0,1,0,9],
+      [9,9,9,1,0,0,0,0,1],
+      [9,9,9,1,0,1,0,9,9],
+      [9,9,9,0,1,0,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+    ];
+    ret ~= base2;
+    foreach(_; 0..3) ret ~= rotate(ret.back);
+    ret ~= mirrorX(base2);
+    foreach(_; 0..3) ret ~= rotate(ret.back);
     
     return ret;
   }();
@@ -127,9 +139,15 @@ void problem() {
     }
 
     auto reachable(Coord start) {
-      return reachable(start, Coord(-1, -1));
+      return reachable(start, Coord(-1, -1), blocked);
     }
     auto reachable(Coord start, Coord add) {
+      return reachable(start, add, blocked);
+    }
+    auto reachable(Coord start, BitArray testMap) {
+      return reachable(start, Coord(-1, -1), testMap);
+    }
+    auto reachable(Coord start, Coord add, BitArray testMap) {
       BitArray v = BitArray(false.repeat(N^^2).array);
       v[start.id] = true;
       int visits;
@@ -143,7 +161,7 @@ void problem() {
           auto coord = Coord(dr + cur.r, dc + cur.c);
 
           if (!coord.valid) continue;
-          if (v[coord.id] || blocked[coord.id] || coord == add) continue;
+          if (v[coord.id] || testMap[coord.id] || coord == add) continue;
 
           v[coord.id] = true;
           queue.insertBack(coord);
@@ -157,6 +175,8 @@ void problem() {
       auto half = size / 2;
       int ret;
       int score_base = 2^^24;
+
+      auto testBlocked = blocked.dup;
       foreach(r; 0..size) foreach(c; 0..size) {
         if (matrix[r][c] == 9) continue;
 
@@ -167,10 +187,15 @@ void problem() {
         if (matrix[r][c] == 0 && !block) {
           ret += score_base / 2^^dist;
         }
-        if (matrix[r][c] == 1 && block) ret += score_base / 2^^dist / 4;
-        if (matrix[r][c] == 1 && coord == START) return 0;
+        if (matrix[r][c] == 1) {
+          if (block) ret += score_base / 2^^dist / 4;
+          else if (coord == START) return 1;
+
+          if (coord.valid) testBlocked[coord.id] = true;
+        }
       }
-      return ret;
+
+      return reachable(START, testBlocked)[0] ? ret : 0;
     }
 
     void applyAroundGoalMatrix(int[][] matrix) {
@@ -183,7 +208,7 @@ void problem() {
         if (!coord.valid) continue;
 
         if (matrix[r][c] == 0) revealed[coord.id] = true;
-        if (matrix[r][c] == 1 && !blocked[coord.id]) priorBlock ~= coord;
+        if (matrix[r][c] == 1 && !blocked[coord.id] && !revealed[coord.id]) priorBlock ~= coord;
       }
     }
 
@@ -294,7 +319,6 @@ void problem() {
     }
   }
 
-  G[START.r][START.c] = 'T';
   bool[][] blocked = new bool[][](N, N);
   foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
 
@@ -319,7 +343,6 @@ void problem() {
     return ret.filter!(coord => !coord.of(blocked)).array;
   }).array;
 
-  G[START.r][START.c] = '.';
   auto bestIndex = mazes.map!((maze) {
     auto sim = new Simulator(true, maze);
     sim.applyAroundGoalMatrix(aroundGoalMatrix);
