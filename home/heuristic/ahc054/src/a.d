@@ -7,7 +7,7 @@ void problem() {
   bool elapsed(int ms) { return (ms <= (MonoTime.currTime() - StartTime).total!"msecs"); }
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
-  enum int INF = int.max / 3;
+  enum long INF = long.max / 3;
 
   int N = scan!int;
   int TR = scan!int;
@@ -47,6 +47,22 @@ void problem() {
     foreach(_; 0..3) ret ~= rotate(ret.back);
     ret ~= mirrorX(base2);
     foreach(_; 0..3) ret ~= rotate(ret.back);
+
+    auto base3 = [
+      [9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+      [9,9,9,9,1,1,1,1,9],
+      [9,9,9,1,0,0,0,0,1],
+      [9,9,9,1,0,1,1,0,1],
+      [9,9,0,0,1,0,0,0,1],
+      [9,9,1,0,0,0,1,1,9],
+      [9,9,9,1,1,1,9,9,9],
+      [9,9,9,9,9,9,9,9,9],
+    ];
+    ret ~= base3;
+    foreach(_; 0..3) ret ~= rotate(ret.back);
+    ret ~= mirrorX(base3);
+    foreach(_; 0..3) ret ~= rotate(ret.back);
     
     return ret;
   }();
@@ -82,22 +98,8 @@ void problem() {
     int max() { return .max(r, c); }
   }
 
-  Coord[][int] memoCoordAround;
-  Coord[] around(Coord coord) {
-    auto id = coord.id;
-    if (id in memoCoordAround) return memoCoordAround[id];
-
-    Coord[] ret;
-    foreach(dr, dc; zip([-1, 1, 0, 0], [0, 0, -1, 1])) {
-      auto t = Coord(coord.r + dr, coord.c + dc);
-      if (t.valid) ret ~= t;
-    }
-    return memoCoordAround[id] = ret;
-  }
-
   Coord GOAL = Coord(TR, TC);
   Coord START = Coord(0, N / 2);
-  Coord[][] RANDOM_COORDS;
 
   Coord[] crossLine(Coord base, int offset, int dir = 0) {
     Coord[] ret;
@@ -123,38 +125,31 @@ void problem() {
     BitArray visited;
     BitArray revealed;
     BitArray blocked;
-    BitArray prohibitBlock;
     bool dryRun;
-    int simId;
 
     long turn;
     Coord[] nexts;
     Coord[] blocksToAdd, priorBlock;
     RedBlackTree!Coord candidates;
 
-    Coord playerCoord;
-    BitArray playersVisited;
+    BitArray playersMemo;
     DList!Coord playersQueue;
-    int[] distances;
 
-    this(int simId) {
-      this.simId = simId;
+    this() {
       visited = BitArray(false.repeat(N^^2).array);
       revealed = BitArray(false.repeat(N^^2).array);
       revealed[START.id] = true;
-      prohibitBlock = BitArray(false.repeat(N^^2).array);
-      prohibitBlock[START.id] = true;
-      nexts = [START];
       
       blocked = BitArray(false.repeat(N^^2).array);
       foreach (r; 0..N) foreach (c; 0..N) blocked[r * N + c] = G[r][c] == 'T';
 
-      playerCoord = START;
-      playersVisited = BitArray(false.repeat(N^^2).array);
-      playersQueue = DList!Coord(RANDOM_COORDS[simId % $]);
+      playersMemo = BitArray(false.repeat(N^^2).array);
+      playersMemo[START.id] = true;
+      playersQueue = DList!Coord([START]);
     }
-    this(bool dry, Coord[] candidatesArray, int simId = 0) {
-      this(simId);
+    this(bool dry, Coord[] candidatesArray) {
+      this();
+      nexts = [START];
       dryRun = dry;
       candidates = candidatesArray.redBlackTree;
     }
@@ -194,8 +189,9 @@ void problem() {
     int scoreForAroundGoalMatirx(int[][] matrix) {
       auto size = matrix.length.to!int;
       auto half = size / 2;
-      int ret;
-      int score_base = 2^^24;
+      int score;
+      int score_base = 2^^20;
+      int score_max = 100;
 
       auto testBlocked = blocked.dup;
       foreach(r; 0..size) foreach(c; 0..size) {
@@ -205,18 +201,19 @@ void problem() {
         auto block = coord.valid ? blocked[coord.id] : false;
         auto dist = coord.dist(GOAL) + 1;
 
-        if (matrix[r][c] == 0 && !block) {
-          ret += score_base / 2^^dist;
-        }
-        if (matrix[r][c] == 1) {
-          if (block) ret += score_base / 2^^dist / 4;
-          else if (coord == START) return 1;
+        score_max += score_base / 2^^dist;
+        score += score_base / 2^^dist;
 
+        if (matrix[r][c] == 0 && block) {
+          score -= score_base / 2^^dist;
+        } else if (matrix[r][c] == 1) {
           if (coord.valid) testBlocked[coord.id] = true;
         }
       }
 
-      return reachable(START, testBlocked)[0] ? ret : 0;
+      real ret = score.to!real * 100_000 / score_max;
+      ret.deb;
+      return (reachable(START, testBlocked)[0] ? ret : ret / 2).to!int;
     }
 
     void applyAroundGoalMatrix(int[][] matrix) {
@@ -228,99 +225,52 @@ void problem() {
         auto coord = Coord(r + GOAL.r - half, c + GOAL.c - half);
         if (!coord.valid) continue;
 
-        if (matrix[r][c] == 0) prohibitBlock[coord.id] = true;
-        if (matrix[r][c] == 1 && !blocked[coord.id] && !prohibitBlock[coord.id]) priorBlock ~= coord;
+        if (matrix[r][c] == 0) revealed[coord.id] = true;
+        if (matrix[r][c] == 1 && !blocked[coord.id] && !revealed[coord.id]) priorBlock ~= coord;
       }
     }
 
-    int[] calcDistances(Coord to) {
-      // debf("calculate distance from: %s", to);
-      auto pb = revealed & blocked;
-      auto ret = INF.repeat(N^^2).array;
-      if (pb[to.id]) return ret;
-
-      ret[to.id] = 0;
-
-      for(auto queue = DList!Coord([to]); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        auto nr = ret[cur.id] + 1;
-        foreach(next; around(cur)) {
-          if (pb[next.id] || ret[next.id] <= nr) continue;
-
-          ret[next.id] = nr;
-          queue.insertBack(next);
-        }
+    Coord[] simulatePlayerWalked(Coord from) {
+      foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
+        auto coord = Coord(from.r + dr, from.c + dc);
+        if (!coord.valid || visited[coord.id] || blocked[coord.id]) continue;
+        
+        playersQueue.insertBack(coord);
       }
 
-      return ret;
-    }
-
-    Coord[] simulatePlayerLookAround() {
-      auto to = playerCoord;
-      if (playersVisited[to.id]) return [];
-      playersVisited[to.id] = true;
+      if (turn == 0) return [START];
 
       Coord[] ret;
+      if (!revealed[from.id]) ret ~= from;
+
       foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
         foreach(d; 1..N) {
-          auto coord = Coord(to.r + dr*d, to.c + dc*d);
+          auto coord = Coord(from.r + dr*d, from.c + dc*d);
           if (!coord.valid) break;
 
-          if (!revealed[coord.id]) {
-            revealed[coord.id] = true;
-            ret ~= coord;
-          }
+          if (!revealed[coord.id]) ret ~= coord;
           if (blocked[coord.id]) break;
         }
       }
 
-      if (!ret.empty) {
-        distances = calcDistances(playersQueue.front);
-      }
+      foreach(c; ret) playersMemo[c.id] = true;
+
       return ret;
     }
 
     Coord simulatePlayerNext() {
-      if (turn == 0) return START;
-      if (playersQueue.empty) return GOAL;
+      while(!playersQueue.empty) {
+        auto cur = playersQueue.front;
+        playersQueue.removeFront();
 
-      auto target = playersQueue.front;
-      
-      if (revealed[GOAL.id]) {
-        if (target != GOAL) playersQueue.insertFront(GOAL);
-      } else {
-        while(!playersQueue.empty && (revealed[playersQueue.front.id] || distances[playerCoord.id] == INF)) {
-          playersQueue.removeFront();
-          if (playersQueue.empty) return GOAL;
-
-          target = playersQueue.front;
-          distances = calcDistances(target);
-          // deb(playerCoord, target, [], revealed[target.id], [], distances[playerCoord.id]);
-        }
-        if (playersQueue.empty) return GOAL;
+        if (visited[cur.id]) continue;
+        return cur;
       }
 
-      if (target != playersQueue.front) {
-        target = playersQueue.front;
-        distances = calcDistances(target);
-      }
-
-      int dist = INF;
-      Coord nextTo;
-      foreach(next; around(playerCoord)) {
-        if (dist.chmin(distances[next.id])) nextTo = next;
-      }
-      // debf("turn = %s, target = %s, player = %s, next = %s", turn, target, playerCoord, nextTo);
-      // deb([revealed[nextTo.id], blocked[nextTo.id]]);
-      playerCoord = nextTo;
-      return nextTo;
+      return GOAL;
     }
 
     bool walk(Coord from, Coord[] seen) {
-      assert(!blocked[from.id], "Invalid move to " ~ from.to!string);
-
       foreach (s; seen) revealed[s.id] = true;
       if (from == GOAL) return true;
 
@@ -333,7 +283,6 @@ void problem() {
             blocksToAdd ~= coord;
             blocked[coord.id] = true;
             candidates.removeKey(coord);
-            // debf("blocked to: %s (prior)", coord);
           }
         }
       }
@@ -345,7 +294,17 @@ void problem() {
             auto coord = Coord(next.r + dr*d, next.c + dc*d);
 
             if (!coord.valid || blocked[coord.id]) break;
-            if (revealed[coord.id] || prohibitBlock[coord.id] || !(coord in candidates)) continue;
+            if (revealed[coord.id] || !(coord in candidates)) continue;
+
+            // if (coord.dist(GOAL) < 8) {
+            //   if (uniform(0, 20, RND) < 3) continue;
+            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            // }
+
+            // if (coord.dist(START) < 4) {
+            //   if (uniform(0, 20, RND) < 15) continue;
+            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
+            // }
 
             auto preEval = reachable(from);
             auto postEval = reachable(from, coord);
@@ -355,7 +314,6 @@ void problem() {
               blocksToAdd ~= coord;
               blocked[coord.id] = true;
               candidates.removeKey(coord);
-              // debf("blocked to: %s", coord);
               break;
             }
           }
@@ -379,23 +337,23 @@ void problem() {
     }
   }
 
-  enum RANDOM_COORDS_SIZE = 50;
-  RANDOM_COORDS = iota(RANDOM_COORDS_SIZE).map!(_ => START ~ cartesianProduct(N.iota, N.iota).array.randomShuffle(RND).map!(a => Coord(a[0], a[1])).array).array;
+  bool[][] blocked = new bool[][](N, N);
+  foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
 
-  enum TEST_WIDTH = 2;
-  auto aroundGoalMatrixIndicies = {
-    int score(long id) {
-      auto sim = new Simulator(true, []);
-      return sim.scoreForAroundGoalMatirx(IDEAL_GOAL_AROUND[id]);
+  auto aroundGoalMatrix = {
+    auto sim = new Simulator(true, []);
+    int bestScore;
+    long bestMatrixId;
+
+    foreach(i, matrix; IDEAL_GOAL_AROUND) {
+      if (bestScore.chmax(sim.scoreForAroundGoalMatirx(matrix))) {
+        bestMatrixId = i;
+      }
     }
-    return iota(IDEAL_GOAL_AROUND.length.to!int).array.sort!((a, b) => score(a) > score(b)).array;
-  }()[0..min($, TEST_WIDTH)];
-  auto realWidth = aroundGoalMatrixIndicies.length.to!int;
+    return IDEAL_GOAL_AROUND[bestMatrixId];
+  }();
 
   auto mazes = iota(2).map!((dir) {
-    bool[][] blocked = new bool[][](N, N);
-    foreach (r; 0..N) foreach (c; 0..N) blocked[r][c] = G[r][c] == 'T';
-
     Coord[] ret;
     foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
       foreach(coord; crossLine(GOAL, d, dir)) ret ~= coord;
@@ -403,53 +361,20 @@ void problem() {
     return ret.filter!(coord => !coord.of(blocked)).array;
   }).array;
 
-  int[][] scores = new int[][](2 * realWidth, 1);
-  while(!elapsed(1500)) {
-    foreach(random; 0..RANDOM_COORDS_SIZE) {
-      if (elapsed(1400)) break;
+  auto bestIndex = mazes.map!((maze) {
+    auto sim = new Simulator(true, maze);
+    sim.applyAroundGoalMatrix(aroundGoalMatrix);
+    while(true) {
+      auto from = sim.simulatePlayerNext();
+      Coord[] revealed = sim.simulatePlayerWalked(from);
 
-      foreach(matrixId, matrixIndex; aroundGoalMatrixIndicies.enumerate(0)) {
-        auto matrix = IDEAL_GOAL_AROUND[matrixIndex];
-
-        foreach(mazeId, maze; mazes.enumerate(0)) {
-          auto id = matrixId * 2 + mazeId;
-
-          auto sim = new Simulator(true, maze, random);
-          if (sim.scoreForAroundGoalMatirx(matrix) == -1) {
-            scores[id] ~= 1;
-          } else {
-            sim.applyAroundGoalMatrix(matrix);
-            while(true) {
-              Coord[] revealed = sim.simulatePlayerLookAround();
-              auto next = sim.simulatePlayerNext();
-
-              if (sim.walk(next, revealed)) break;
-            }
-            scores[id] ~= sim.turn.to!int;
-          }
-        }
-      }
+      if (sim.walk(from, revealed)) break;
     }
-    break;
-  }
+    return sim.turn;
+  }).maxIndex;
 
-  debf("tested: %s", scores[0].length);
-  scores.each!sort;
-  scores.each!deb;
-
-  int bestScore, bestMatrixId, bestMazeId;
-  foreach(mazeId; 0..2) foreach(matrixId; 0..realWidth) {
-    auto id = matrixId * 2 + mazeId;
-    auto score = scores[id].sum;
-    if (bestScore.chmax(score)) {
-      bestMatrixId = aroundGoalMatrixIndicies[matrixId];
-      bestMazeId = mazeId;
-    }
-  }
-  debf("best Id: %s", aroundGoalMatrixIndicies.countUntil(bestMatrixId) * 2 + bestMazeId);
-
-  Simulator sim = new Simulator(false, mazes[bestMazeId]);
-  sim.applyAroundGoalMatrix(IDEAL_GOAL_AROUND[bestMatrixId]);
+  Simulator sim = new Simulator(false, mazes[bestIndex]);
+  sim.applyAroundGoalMatrix(aroundGoalMatrix);
   while(true) {
     Coord from = Coord(scan!int, scan!int);
     Coord[] revealed = scan!int(scan!int * 2).chunks(2).map!(a => Coord(a[0], a[1])).array;
