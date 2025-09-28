@@ -397,7 +397,7 @@ void problem() {
 
   auto mazes = iota(2).map!((dir) {
     Coord[] ret;
-    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 3)) {
+    foreach(d; iota(-1 - ((N + 2) / 3) * 6, N * 2, 1)) {
       foreach(coord; crossLine(GOAL, d, dir)) ret ~= coord;
     }
     return ret.filter!(coord => !coord.of(blocked)).array;
