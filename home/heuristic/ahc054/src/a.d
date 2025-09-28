@@ -7,7 +7,7 @@ void problem() {
   bool elapsed(int ms) { return (ms <= (MonoTime.currTime() - StartTime).total!"msecs"); }
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
-  enum long INF = long.max / 3;
+  enum int INF = int.max / 3;
 
   int N = scan!int;
   int TR = scan!int;
@@ -98,6 +98,19 @@ void problem() {
     int max() { return .max(r, c); }
   }
 
+  Coord[][int] memoCoordAround;
+  Coord[] around(Coord coord) {
+    auto id = coord.id;
+    if (id in memoCoordAround) return memoCoordAround[id];
+
+    Coord[] ret;
+    foreach(dr, dc; zip([-1, 1, 0, 0], [0, 0, -1, 1])) {
+      auto t = Coord(coord.r + dr, coord.c + dc);
+      if (t.valid) ret ~= t;
+    }
+    return memoCoordAround[id] = ret;
+  }
+
   Coord GOAL = Coord(TR, TC);
   Coord START = Coord(0, N / 2);
 
@@ -184,6 +197,30 @@ void problem() {
         }
       }
       return tuple(v[GOAL.id], visits);
+    }
+
+    int[] calcDistances(Coord to) {
+      // debf("calculate distance from: %s", to);
+      auto pb = revealed & blocked;
+      auto ret = INF.repeat(N^^2).array;
+      if (blocked[to.id]) return ret;
+
+      ret[to.id] = 0;
+
+      for(auto queue = DList!Coord([to]); !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront();
+
+        auto nr = ret[cur.id] + 1;
+        foreach(next; around(cur)) {
+          if (blocked[next.id] || ret[next.id] <= nr) continue;
+
+          ret[next.id] = nr;
+          queue.insertBack(next);
+        }
+      }
+
+      return ret;
     }
 
     int scoreForAroundGoalMatirx(int[][] matrix) {
@@ -295,16 +332,6 @@ void problem() {
 
             if (!coord.valid || blocked[coord.id]) break;
             if (revealed[coord.id] || !(coord in candidates)) continue;
-
-            // if (coord.dist(GOAL) < 8) {
-            //   if (uniform(0, 20, RND) < 3) continue;
-            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
-            // }
-
-            // if (coord.dist(START) < 4) {
-            //   if (uniform(0, 20, RND) < 15) continue;
-            //   // if (uniform(0, 20, RND) < 10 && (coord.min == 0 || coord.max == N - 1)) continue;
-            // }
 
             auto preEval = reachable(from);
             auto postEval = reachable(from, coord);
