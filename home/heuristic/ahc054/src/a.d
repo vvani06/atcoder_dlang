@@ -267,6 +267,21 @@ void problem() {
       }
     }
 
+    void applyRandomBlock(int requiredCount) {
+      int rest = requiredCount - blocked.count.to!int;
+      while(rest > 0) {
+        auto r = uniform(0, N, RND);
+        auto c = uniform(0, N, RND);
+        auto coord = Coord(r, c);
+
+        if (priorBlock.canFind(coord)) continue;
+        if (revealed[coord.id] || blocked[coord.id]) continue;
+
+        priorBlock ~= coord;
+        rest--;
+      }
+    }
+
     Coord[] simulatePlayerWalked(Coord from) {
       foreach(dr, dc; zip([-1, 0, 1, 0], [0, -1, 0, 1])) {
         auto coord = Coord(from.r + dr, from.c + dc);
@@ -391,6 +406,7 @@ void problem() {
   auto bestIndex = mazes.map!((maze) {
     auto sim = new Simulator(true, maze);
     sim.applyAroundGoalMatrix(aroundGoalMatrix);
+    sim.applyRandomBlock(N * 2);
     while(true) {
       auto from = sim.simulatePlayerNext();
       Coord[] revealed = sim.simulatePlayerWalked(from);
@@ -402,6 +418,7 @@ void problem() {
 
   Simulator sim = new Simulator(false, mazes[bestIndex]);
   sim.applyAroundGoalMatrix(aroundGoalMatrix);
+  sim.applyRandomBlock(N * 2);
   while(true) {
     Coord from = Coord(scan!int, scan!int);
     Coord[] revealed = scan!int(scan!int * 2).chunks(2).map!(a => Coord(a[0], a[1])).array;
