@@ -38,6 +38,7 @@ declare -A TOOLS_URLS=(
   ["AHC051"]="https://img.atcoder.jp/ahc051/jdd9gfQC.zip"
   ["AHC052"]="https://img.atcoder.jp/ahc052/ZN1uhrbm.zip"
   ["AHC053"]="https://img.atcoder.jp/ahc053/Q405bDmv.zip"
+  ["AHC054"]="https://img.atcoder.jp/ahc054/YDAxDRZr_v2.zip"
 )
 
 rm -rf tools tools.zip
@@ -48,7 +49,7 @@ cd tools
 cargo build -r --bin vis
 cp target/release/vis /usr/bin/vis
 
-seq 0 1999 > seeds
+seq 0 9999 > seeds
 cargo run -r --bin gen seeds
 rm -rf /ahc_in
 cp -r in /ahc_in/
