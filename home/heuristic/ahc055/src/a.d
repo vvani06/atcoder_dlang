@@ -45,13 +45,40 @@ void problem() {
   }
 
   auto targets = (N.iota.filter!(i => ins[i] == 0).array).redBlackTree;
+  targets = N.iota.redBlackTree;
+  
   auto weapons = new int[](0).redBlackTree;
   bool[] opened = new bool[](N);
 
   auto healthBoxes = H.dup;
   auto healthWeapons = C.dup;
   auto methods = new Edge[](0).heapify;
+
   Edge[] outputs;
+
+  int assumeBestWeapon() {
+    int bestScore, bestWeapon;
+    foreach(w; 0..N) {
+      if (opened[w]) continue;
+
+      int score;
+      int[] tmpHealthBoxes = healthBoxes.dup;
+      foreach(_; 0..healthWeapons[w]) {
+        int bestDelta, bestBox;
+        foreach(t; targets) {
+          if (bestDelta.chmax(tmpHealthBoxes[t] - max(0, tmpHealthBoxes[t] - A[w][t]))) bestBox = t;
+        }
+
+        tmpHealthBoxes[bestBox] -= A[w][bestBox];
+        tmpHealthBoxes[bestBox] = max(0, tmpHealthBoxes[bestBox]);
+        score += bestDelta;
+      }
+
+      if (bestScore.chmax(score)) bestWeapon = w;
+    }
+
+    return bestWeapon;
+  }
 
   int tries;
   while(opened.canFind(false)) {
@@ -66,17 +93,23 @@ void problem() {
         return cur;
       }
 
-      int mini = int.max;
-      int target;
-      foreach(t; targets) {
-        if (mini.chmin(healthBoxes[t])) target = t;
-      }
+      // int mini = int.max;
+      // int target;
+      // foreach(t; targets) {
+      //   if (mini.chmin(healthBoxes[t])) target = t;
+      // }
 
+      int target = assumeBestWeapon();
       return Edge(-1, target, 1);
     }();
 
     if (method.from >= 0) {
       if (--healthWeapons[method.from]) {
+      }
+    } else {
+      while(healthBoxes[method.to] > method.value) {
+        healthBoxes[method.to] -= method.value;
+        outputs ~= method;
       }
     }
 
@@ -89,9 +122,9 @@ void problem() {
         if (!opened[to]) methods.insert(Edge(obtained, to, A[obtained][to]));
       }
 
-      foreach(e; graph[obtained]) {
-        if (--ins[e.to] == 0) {
-          if (!opened[e.to]) targets.insert(e.to);
+      foreach(to; graph[obtained].map!"a.to") {
+        if (--ins[to] == 0) {
+          if (!opened[to]) targets.insert(to);
         }
       }
     }
