@@ -44,106 +44,152 @@ void problem() {
     }
   }
 
-  auto targets = (N.iota.filter!(i => ins[i] == 0).array).redBlackTree;
-  targets = N.iota.redBlackTree;
+  class Sim {
+    RedBlackTree!int targets;
+    RedBlackTree!int weapons;
+    bool[] opened;
+    int[] healthBoxes;
+    int[] healthWeapons;
+    BinaryHeap!(Edge[]) methods;
+    Edge[] outputs;
+    int calcedTurns;
 
-  auto weapons = new int[](0).redBlackTree;
-  bool[] opened = new bool[](N);
-
-  auto healthBoxes = H.dup;
-  auto healthWeapons = C.dup;
-  auto methods = new Edge[](0).heapify;
-
-  Edge[] outputs;
-
-  int assumeBestWeapon() {
-    int bestScore, bestWeapon;
-    foreach(w; 0..N) {
-      if (opened[w]) continue;
-
-      int score;
-      int[] tmpHealthBoxes = healthBoxes.dup;
-      foreach(_; 0..healthWeapons[w]) {
-        int bestDelta, bestBox;
-        foreach(t; targets) {
-          if (bestDelta.chmax(tmpHealthBoxes[t] - max(0, tmpHealthBoxes[t] - A[w][t]))) bestBox = t;
-        }
-
-        tmpHealthBoxes[bestBox] -= A[w][bestBox];
-        tmpHealthBoxes[bestBox] = max(0, tmpHealthBoxes[bestBox]);
-        score += bestDelta;
-      }
-
-      score *= 100_000;
-      score /= healthBoxes[w];
-
-      if (bestScore.chmax(score)) bestWeapon = w;
+    this() {
+      targets = N.iota.redBlackTree;
+      weapons = new int[](0).redBlackTree;
+      opened = new bool[](N);
+      healthBoxes = H.dup;
+      healthWeapons = C.dup;
+      methods = new Edge[](0).heapify;
     }
 
-    return bestWeapon;
+    Sim dup() {
+      Sim ret = new Sim();
+      ret.targets = targets.dup;
+      ret.weapons = weapons.dup;
+      ret.opened = opened.dup;
+      ret.healthBoxes = healthBoxes.dup;
+      ret.healthWeapons = healthWeapons.dup;
+      ret.methods = methods.dup;
+      ret.outputs = outputs.dup;
+      ret.calcedTurns = calcedTurns;
+      return ret;
+    }
+
+    long turns() {
+      return opened.canFind(false) ? int.max : calcedTurns;
+    }
+
+    int[] assumeBestWeapon() {
+      int[][] evals;
+      foreach(w; targets) {
+        if (opened[w]) continue;
+
+        int score;
+        int[] tmpHealthBoxes = healthBoxes.dup;
+        foreach(_; 0..healthWeapons[w]) {
+          int bestDelta, bestBox;
+          foreach(t; targets) {
+            if (t == w) continue;
+            if (bestDelta.chmax(tmpHealthBoxes[t] - max(0, tmpHealthBoxes[t] - A[w][t]))) bestBox = t;
+          }
+
+          tmpHealthBoxes[bestBox] -= A[w][bestBox];
+          tmpHealthBoxes[bestBox] = max(0, tmpHealthBoxes[bestBox]);
+          score += bestDelta;
+        }
+
+        score *= 100_000;
+        score /= healthBoxes[w];
+        evals ~= [w, score];
+      }
+
+      evals.sort!"a[1] > b[1]";
+      // evals[0..min(5, $)].deb;
+      return evals.sort!"a[1] > b[1]".map!"a[0]".array;
+    }
+
+    void run(int maxPriority = 1) {
+      while(opened.canFind(false)) {
+        Edge method = {
+          while(!methods.empty) {
+            auto cur = methods.front;
+            if (healthWeapons[cur.from] <= 0 || opened[cur.to]) {
+              methods.removeFront();
+              continue;
+            }
+
+            int realEffect = healthBoxes[cur.to] - max(0, healthBoxes[cur.to] - cur.value);
+            if (realEffect != cur.value) {
+              methods.removeFront();
+              methods.insert(Edge(cur.from, cur.to, realEffect));
+              continue;
+            }
+
+            return cur;
+          }
+
+          int target = {
+            auto nextWeapons = assumeBestWeapon();
+            return nextWeapons[0..min($, maxPriority)].choice(RND);
+          }();
+          return Edge(-1, target, 1);
+        }();
+
+        if (method.from >= 0) {
+          if (--healthWeapons[method.from] <= 0) {
+            weapons.removeKey(method.from);
+          }
+        } else {
+          if (healthBoxes[method.to] > method.value) {
+            outputs ~= Edge(method.from, method.to, healthBoxes[method.to] - method.value);
+            calcedTurns += healthBoxes[method.to] - method.value;
+            healthBoxes[method.to] = method.value;
+          }
+        }
+
+        auto obtained = method.to;
+        healthBoxes[obtained] -= method.value;
+        if (healthBoxes[obtained] <= 0) {
+          opened[obtained] = true;
+          weapons.insert(obtained);
+          targets.removeKey(obtained);
+          foreach(to; 0..N) {
+            if (!opened[to] && A[obtained][to] > 1) methods.insert(Edge(obtained, to, A[obtained][to]));
+          }
+
+          foreach(to; graph[obtained].map!"a.to") {
+            if (--ins[to] == 0) {
+              if (!opened[to]) targets.insert(to);
+            }
+          }
+        }
+
+        outputs ~= Edge(method.from, method.to, 1);
+        calcedTurns++;
+      }
+    }
+
+    void writeAns() {
+      foreach(m; outputs) {
+        foreach(_; 0..m.value) {
+          writefln("%s %s", m.from, m.to);
+        }
+      }
+    }
   }
-
-  int tries;
-  while(opened.canFind(false)) {
-    Edge method = {
-      while(!methods.empty) {
-        auto cur = methods.front;
-        if (healthWeapons[cur.from] <= 0 || opened[cur.to]) {
-          methods.removeFront();
-          continue;
-        }
-
-        int realEffect = healthBoxes[cur.to] - max(0, healthBoxes[cur.to] - cur.value);
-        if (realEffect != cur.value) {
-          methods.removeFront();
-          methods.insert(Edge(cur.from, cur.to, realEffect));
-          continue;
-        }
-
-        return cur;
-      }
-
-      int target = {
-        // int mini = int.max;
-        // int target;
-        // foreach(t; targets) {
-        //   if (mini.chmin(healthBoxes[t])) target = t;
-        // }
-        return assumeBestWeapon();
-      }();
-      return Edge(-1, target, 1);
-    }();
-
-    if (method.from >= 0) {
-      if (--healthWeapons[method.from]) {
-      }
-    } else {
-      while(healthBoxes[method.to] > method.value) {
-        healthBoxes[method.to] -= method.value;
-        outputs ~= method;
-      }
+  
+  Sim bestSim = new Sim();
+  bestSim.run(1);
+  int prior = 3;
+  while(!elapsed(1800)) {
+    Sim sim = new Sim();
+    sim.run(prior);
+    if (bestSim.turns > sim.turns) {
+      bestSim = sim;
     }
-
-    auto obtained = method.to;
-    healthBoxes[obtained] -= method.value;
-    if (healthBoxes[obtained] <= 0) {
-      targets.removeKey(obtained);
-      opened[obtained] = true;
-      foreach(to; 0..N) {
-        if (!opened[to]) methods.insert(Edge(obtained, to, A[obtained][to]));
-      }
-
-      foreach(to; graph[obtained].map!"a.to") {
-        if (--ins[to] == 0) {
-          if (!opened[to]) targets.insert(to);
-        }
-      }
-    }
-
-    outputs ~= method;
   }
-
-  foreach(m; outputs) writefln("%s %s", m.from, m.to);
+  bestSim.writeAns();
 }
 
 // ----------------------------------------------
