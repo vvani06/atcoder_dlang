@@ -63,19 +63,6 @@ void problem() {
       methods = new Edge[](0).heapify;
     }
 
-    Sim dup() {
-      Sim ret = new Sim();
-      ret.targets = targets.dup;
-      ret.weapons = weapons.dup;
-      ret.opened = opened.dup;
-      ret.healthBoxes = healthBoxes.dup;
-      ret.healthWeapons = healthWeapons.dup;
-      ret.methods = methods.dup;
-      ret.outputs = outputs.dup;
-      ret.calcedTurns = calcedTurns;
-      return ret;
-    }
-
     long turns() {
       return opened.canFind(false) ? int.max : calcedTurns;
     }
@@ -181,10 +168,9 @@ void problem() {
   
   Sim bestSim = new Sim();
   bestSim.run(1);
-  int prior = 3;
-  while(!elapsed(1800)) {
+  while(!elapsed(1900)) {
     Sim sim = new Sim();
-    sim.run(prior);
+    sim.run(uniform(2, 6, RND));
     if (bestSim.turns > sim.turns) {
       bestSim = sim;
     }
