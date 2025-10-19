@@ -93,16 +93,24 @@ void problem() {
           continue;
         }
 
+        int realEffect = healthBoxes[cur.to] - max(0, healthBoxes[cur.to] - cur.value);
+        if (realEffect != cur.value) {
+          methods.removeFront();
+          methods.insert(Edge(cur.from, cur.to, realEffect));
+          continue;
+        }
+
         return cur;
       }
 
-      // int mini = int.max;
-      // int target;
-      // foreach(t; targets) {
-      //   if (mini.chmin(healthBoxes[t])) target = t;
-      // }
-
-      int target = assumeBestWeapon();
+      int target = {
+        // int mini = int.max;
+        // int target;
+        // foreach(t; targets) {
+        //   if (mini.chmin(healthBoxes[t])) target = t;
+        // }
+        return assumeBestWeapon();
+      }();
       return Edge(-1, target, 1);
     }();
 
