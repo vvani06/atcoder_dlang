@@ -46,7 +46,7 @@ void problem() {
 
   auto targets = (N.iota.filter!(i => ins[i] == 0).array).redBlackTree;
   targets = N.iota.redBlackTree;
-  
+
   auto weapons = new int[](0).redBlackTree;
   bool[] opened = new bool[](N);
 
@@ -73,6 +73,9 @@ void problem() {
         tmpHealthBoxes[bestBox] = max(0, tmpHealthBoxes[bestBox]);
         score += bestDelta;
       }
+
+      score *= 100_000;
+      score /= healthBoxes[w];
 
       if (bestScore.chmax(score)) bestWeapon = w;
     }
