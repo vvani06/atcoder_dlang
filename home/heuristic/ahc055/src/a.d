@@ -14,7 +14,11 @@ void problem() {
   int[] C = scan!int(N);
   int[][] A = scan!int(N ^^ 2).chunks(N).array;
 
-  
+  foreach(i; 0..N) {
+    foreach(_; 0..H[i]) {
+      writefln("%s %s", -1, i);
+    }
+  }
 }
 
 // ----------------------------------------------
