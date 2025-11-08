@@ -60,25 +60,33 @@ void problem() {
   }();
   
   auto cur = id(XY[0][0], XY[0][1]);
-  int[] steps;
-  foreach(gr, gc; XY.asTuples!2) {
+  int currentState;
+  int[][] walked = new int[][](K - 1, 0);
+  int[] goals;
+  foreach(gr, gc; XY[1..$].asTuples!2) {
     auto goal = id(gr, gc);
+    goals ~= goal;
+
     while(cur != goal) {
+      walked[currentState] ~= cur;
       auto dir = nextsFor[goal][cur];
-      steps ~= dir;
       cur += [-1, -N, 1, N][dir];
     }
+
+    currentState++;
   }
 
-  writefln("%s %s %s", 1, steps.length, steps.length);
+  writefln("%s %s %s", N^^2, K - 1, walked.joiner.walkLength);
   foreach(r; 0..N) {
-    writefln("%(%s %)", 0.repeat(N));
+    writefln("%(%s %)", iota(r * N, r * N + N));
   }
-  foreach(i, s; steps) {
-    writefln("%s %s %s %s %s", 0, i, 0, i + 1 == steps.length ? 0 : i + 1, dirForAns(s));
+  foreach(state, goal, nodes; zip(iota(K - 1), goals, walked)) {
+    foreach(node; nodes) {
+      auto dir = nextsFor[goal][node];
+      auto nextState = (state + (node == nodes.back ? 1 : 0)) % (K - 1);
+      writefln("%s %s %s %s %s", node, state, node, nextState, dirForAns(dir));
+    }
   }
-
-
 }
 
 // ----------------------------------------------
