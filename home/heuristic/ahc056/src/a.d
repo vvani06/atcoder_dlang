@@ -16,13 +16,68 @@ void problem() {
   bool[][] H = scan!string(N - 1).map!(s => s.map!(c => c == '0').array).array;
   int[][] XY = scan!int(2 * K).chunks(2).array;
 
-  BitArray[] grid = iota(N^^2).map!(_ => BitArray(false.repeat(4).array)).array;
-  foreach(r; 0..N) foreach(c; 0..N) {
-    if (c > 0) grid[r * N + c][0] = V[r][c - 1];
-    if (r > 0) grid[r * N + c][1] = H[r - 1][c];
-    if (c < N - 1) grid[r * N + c][2] = V[r][c];
-    if (r < N - 1) grid[r * N + c][3] = H[r][c];
+  int id(int r, int c) { return r * N + c; }
+  string dirForAns(int dir) { return "LURDS"[dir..dir + 1]; }
+
+  struct Coord {
+    int r, c;
+
+    int id() { return r * N + c; }
   }
+
+  BitArray[] walkable = iota(N^^2).map!(_ => BitArray(false.repeat(4).array)).array;
+  foreach(r; 0..N) foreach(c; 0..N) {
+    if (c > 0) walkable[r * N + c][0] = V[r][c - 1];
+    if (r > 0) walkable[r * N + c][1] = H[r - 1][c];
+    if (c < N - 1) walkable[r * N + c][2] = V[r][c];
+    if (r < N - 1) walkable[r * N + c][3] = H[r][c];
+  }
+  
+  int[][] nextsFor = {
+    int[][] ret = new int[][](N^^2, N^^2);
+    foreach(gr; 0..N) foreach(gc; 0..N) {
+      int goal = id(gr, gc);
+      ret[goal][] = -1;
+      ret[goal][goal] = 9;
+      auto queue = DList!int([goal]);
+
+      while(!queue.empty) {
+        auto cur = queue.front;
+        queue.removeFront();
+
+        foreach(dir, d; zip(iota(4), [-1, -N, 1, N])) {
+          if (!walkable[cur][dir]) continue;
+
+          auto to = cur + d;
+          if (ret[goal][to] == -1) {
+            ret[goal][to] = (dir + 2) % 4;
+            queue.insertBack(to);
+          }
+        }
+      }
+    }
+    return ret;
+  }();
+  
+  auto cur = id(XY[0][0], XY[0][1]);
+  int[] steps;
+  foreach(gr, gc; XY.asTuples!2) {
+    auto goal = id(gr, gc);
+    while(cur != goal) {
+      auto dir = nextsFor[goal][cur];
+      steps ~= dir;
+      cur += [-1, -N, 1, N][dir];
+    }
+  }
+
+  writefln("%s %s %s", 1, steps.length, steps.length);
+  foreach(r; 0..N) {
+    writefln("%(%s %)", 0.repeat(N));
+  }
+  foreach(i, s; steps) {
+    writefln("%s %s %s %s %s", 0, i, 0, i + 1 == steps.length ? 0 : i + 1, dirForAns(s));
+  }
+
 
 }
 
@@ -60,80 +115,10 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
-
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
-
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
-    }
-
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
+auto asTuples(int L, T)(T matrix) {
+  static if (__traits(compiles, L)) {
+    return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
+  } else {
+    return matrix.map!(row => tuple());
   }
 }
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;
