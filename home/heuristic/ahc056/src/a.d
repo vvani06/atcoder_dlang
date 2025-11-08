@@ -7,7 +7,7 @@ void problem() {
   bool elapsed(int ms) { return (ms <= (MonoTime.currTime() - StartTime).total!"msecs"); }
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
-  enum long INF = long.max / 3;
+  enum int INF = int.max / 1000;
 
   int N = scan!int;
   int K = scan!int;
@@ -32,33 +32,96 @@ void problem() {
     if (c < N - 1) walkable[r * N + c][2] = V[r][c];
     if (r < N - 1) walkable[r * N + c][3] = H[r][c];
   }
-  
-  int[][] nextsFor = {
-    int[][] ret = new int[][](N^^2, N^^2);
-    foreach(gr; 0..N) foreach(gc; 0..N) {
-      int goal = id(gr, gc);
-      ret[goal][] = -1;
-      ret[goal][goal] = 9;
-      auto queue = DList!int([goal]);
 
-      while(!queue.empty) {
-        auto cur = queue.front;
-        queue.removeFront();
+  struct Simulation {
+    int[][] dirs;
+    int[][] distances;
 
-        foreach(dir, d; zip(iota(4), [-1, -N, 1, N])) {
-          if (!walkable[cur][dir]) continue;
+    this(bool[] blocked) {
+      dirs = new int[][](N^^2, N^^2);
+      distances = new int[][](N^^2, N^^2);
 
-          auto to = cur + d;
-          if (ret[goal][to] == -1) {
-            ret[goal][to] = (dir + 2) % 4;
-            queue.insertBack(to);
+      foreach(gr; 0..N) foreach(gc; 0..N) {
+        int goal = id(gr, gc);
+        dirs[goal][] = -1;
+        dirs[goal][goal] = 9;
+        distances[goal][] = INF;
+        distances[goal][goal] = 0;
+        auto queue = DList!int([goal]);
+
+        while(!queue.empty) {
+          auto cur = queue.front;
+          queue.removeFront();
+
+          foreach(dir, d; zip(iota(4), [-1, -N, 1, N])) {
+            if (!walkable[cur][dir]) continue;
+
+            auto to = cur + d;
+            if (blocked[to]) continue;
+
+            if (dirs[goal][to] == -1) {
+              dirs[goal][to] = (dir + 2) % 4;
+              distances[goal][to] = distances[goal][cur] + 1;
+              queue.insertBack(to);
+            }
           }
         }
       }
     }
-    return ret;
-  }();
-  
+
+    int totalDistance() {
+      int ret;
+      auto cur = id(XY[0][0], XY[0][1]);
+      foreach(gr, gc; XY[1..$].asTuples!2) {
+        auto goal = id(gr, gc);
+        ret += distances[goal][cur];
+        cur = goal;
+      }
+      return ret;
+    }
+  }
+
+  auto simulation = Simulation(false.repeat(N^^2).array);
+  int[] usedCount = new int[](N^^2); {
+    auto cur = id(XY[0][0], XY[0][1]);
+    foreach(gr, gc; XY[1..$].asTuples!2) {
+      auto goal = id(gr, gc);
+      while(cur != goal) {
+        usedCount[cur]++;
+        cur += [-1, -N, 1, N][simulation.dirs[goal][cur]];
+      }
+    }
+  }
+
+  auto goalNodes = new bool[](N^^2);
+  foreach(r, c; XY.asTuples!2) goalNodes[id(r, c)] = true;
+  auto blockCandidates = usedCount.enumerate(0).array.sort!"a[1] < b[1]".map!"a[0]".array;
+
+  Simulation simulateBlockBound(int blockBound) {
+    bool[] blocked = new bool[](N ^^ 2);
+    foreach(i, b; blockCandidates) {
+      if (i >= blockBound) break;
+
+      blocked[b] = !goalNodes[b];
+    }
+    
+    blocked.deb;
+    return Simulation(blocked);
+  }
+
+  bool[] blocked;
+  {
+    bool isOk(int blockBound) {
+      auto sim = simulateBlockBound(blockBound);
+      return sim.totalDistance() <= T;
+    }
+
+    auto bound = binarySearch(&isOk, 0, N^^2);
+    simulation = simulateBlockBound(bound);
+    bound.deb;
+    simulation.totalDistance.deb;
+  }
+
   auto cur = id(XY[0][0], XY[0][1]);
   int currentState;
   int[][] walked = new int[][](K - 1, 0);
@@ -69,22 +132,24 @@ void problem() {
 
     while(cur != goal) {
       walked[currentState] ~= cur;
-      auto dir = nextsFor[goal][cur];
+      auto dir = simulation.dirs[goal][cur];
       cur += [-1, -N, 1, N][dir];
     }
-
     currentState++;
   }
 
-  writefln("%s %s %s", N^^2, K - 1, walked.joiner.walkLength);
-  foreach(r; 0..N) {
-    writefln("%(%s %)", iota(r * N, r * N + N));
-  }
+  auto compressed = walked.joiner.array.sort.array.uniq.array;
+  int[] rev = new int[](N^^2);
+  foreach(i, c; compressed.enumerate(0)) rev[c] = i;
+
+  writefln("%s %s %s", compressed.length, K - 1, walked.joiner.walkLength);
+  writefln("%(%s %)", rev);
+
   foreach(state, goal, nodes; zip(iota(K - 1), goals, walked)) {
     foreach(node; nodes) {
-      auto dir = nextsFor[goal][node];
       auto nextState = (state + (node == nodes.back ? 1 : 0)) % (K - 1);
-      writefln("%s %s %s %s %s", node, state, node, nextState, dirForAns(dir));
+      auto dir = simulation.dirs[goal][node];
+      writefln("%s %s %s %s %s", rev[node], state, rev[node], nextState, dirForAns(dir));
     }
   }
 }
@@ -129,4 +194,32 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
 }
