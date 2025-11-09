@@ -97,30 +97,16 @@ void problem() {
   foreach(r, c; XY.asTuples!2) goalNodes[id(r, c)] = true;
   auto blockCandidates = usedCount.enumerate(0).array.sort!"a[1] < b[1]".map!"a[0]".array;
 
-  Simulation simulateBlockBound(int blockBound) {
-    bool[] blocked = new bool[](N ^^ 2);
-    foreach(i, b; blockCandidates) {
-      if (i >= blockBound) break;
+  bool[] blocked = new bool[](N^^2);
+  foreach(candidate; 0..N^^2) {
+    if (goalNodes[candidate]) continue;
 
-      blocked[b] = !goalNodes[b];
-    }
-    
-    blocked.deb;
-    return Simulation(blocked);
+    blocked[candidate] = true;
+    auto sim = Simulation(blocked);
+    if (sim.totalDistance() > T) blocked[candidate] = false;
   }
 
-  bool[] blocked;
-  {
-    bool isOk(int blockBound) {
-      auto sim = simulateBlockBound(blockBound);
-      return sim.totalDistance() <= T;
-    }
-
-    auto bound = binarySearch(&isOk, 0, N^^2);
-    simulation = simulateBlockBound(bound);
-    bound.deb;
-    simulation.totalDistance.deb;
-  }
+  simulation = Simulation(blocked);
 
   auto cur = id(XY[0][0], XY[0][1]);
   int currentState;
