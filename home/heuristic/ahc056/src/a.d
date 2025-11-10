@@ -17,7 +17,9 @@ void problem() {
   int[][] XY = scan!int(2 * K).chunks(2).array;
 
   int id(int r, int c) { return r * N + c; }
-  string dirForAns(int dir) { return "LURDS"[dir..dir + 1]; }
+  string dirStr(int dir) { return "LURDS"[dir..dir + 1]; }
+  int dirIndex(dchar d) { return "LURDS".countUntil(d).to!int; }
+  int delta(dchar d) { return [-1, -N, 1, N][dirIndex(d)]; }
 
   struct Coord {
     int r, c;
@@ -82,62 +84,94 @@ void problem() {
   }
 
   auto simulation = Simulation(false.repeat(N^^2).array);
-  int[] usedCount = new int[](N^^2); {
-    auto cur = id(XY[0][0], XY[0][1]);
-    foreach(gr, gc; XY[1..$].asTuples!2) {
-      auto goal = id(gr, gc);
-      while(cur != goal) {
-        usedCount[cur]++;
-        cur += [-1, -N, 1, N][simulation.dirs[goal][cur]];
-      }
-    }
-  }
-
-  auto goalNodes = new bool[](N^^2);
-  foreach(r, c; XY.asTuples!2) goalNodes[id(r, c)] = true;
-  auto blockCandidates = usedCount.enumerate(0).array.sort!"a[1] < b[1]".map!"a[0]".array;
-
-  bool[] blocked = new bool[](N^^2);
-  foreach(candidate; 0..N^^2) {
-    if (goalNodes[candidate]) continue;
-
-    blocked[candidate] = true;
-    auto sim = Simulation(blocked);
-    if (sim.totalDistance() > T) blocked[candidate] = false;
-  }
-
-  simulation = Simulation(blocked);
-
-  auto cur = id(XY[0][0], XY[0][1]);
-  int currentState;
+  
   int[][] walked = new int[][](K - 1, 0);
   int[] goals;
-  foreach(gr, gc; XY[1..$].asTuples!2) {
-    auto goal = id(gr, gc);
-    goals ~= goal;
+  int[] route;
+  
+  string moves = {
+    string ret;
+    auto cur = id(XY[0][0], XY[0][1]);
+    int currentState;
+    foreach(gr, gc; XY[1..$].asTuples!2) {
+      auto goal = id(gr, gc);
+      goals ~= goal;
 
-    while(cur != goal) {
-      walked[currentState] ~= cur;
-      auto dir = simulation.dirs[goal][cur];
-      cur += [-1, -N, 1, N][dir];
+      while(cur != goal) {
+        route ~= cur;
+        walked[currentState] ~= cur;
+        auto dir = simulation.dirs[goal][cur];
+        ret ~= dirStr(dir);
+        cur += [-1, -N, 1, N][dir];
+      }
+      currentState++;
     }
-    currentState++;
+    return ret;
+  }();
+
+  moves = moves[0] ~ moves ~ moves[$ - 1];
+  string dirSorted;
+  foreach(c; moves) {
+    if (!dirSorted.canFind(c)) dirSorted ~= c;
+    if (dirSorted.length == 4) break;
   }
 
-  auto compressed = walked.joiner.array.sort.array.uniq.array;
-  int[] rev = new int[](N^^2);
-  foreach(i, c; compressed.enumerate(0)) rev[c] = i;
+  int[] deltas;
+  foreach(d; dirSorted) deltas ~= delta(d);
+  deltas.deb;
 
-  writefln("%s %s %s", compressed.length, K - 1, walked.joiner.walkLength);
-  writefln("%(%s %)", rev);
-
-  foreach(state, goal, nodes; zip(iota(K - 1), goals, walked)) {
-    foreach(node; nodes) {
-      auto nextState = (state + (node == nodes.back ? 1 : 0)) % (K - 1);
-      auto dir = simulation.dirs[goal][node];
-      writefln("%s %s %s %s %s", rev[node], state, rev[node], nextState, dirForAns(dir));
-    }
+  string[][] stepByNodes = new string[][](N ^^ 2, 0);
+  foreach(i, c, node; zip(iota(1, moves.length.to!int - 1), moves[1..$ - 1], route)) {
+    auto steps = moves[i..i + 2];
+    stepByNodes[node] ~= steps;
   }
+
+  auto stepSequences = stepByNodes.map!(ss => ss.map!"a[$ - 1]".to!string).array;
+  auto chunkedSequences = stepSequences.dup.sort.array.uniq.array;
+  chunkedSequences.each!deb;
+
+  string sequence;
+  foreach(seq; chunkedSequences.sort!"a.length > b.length") {
+    if (sequence.canFind(seq)) continue;
+
+    sequence ~= seq;
+    seq.deb;
+  }
+  sequence.length.deb;
+  sequence.deb;
+
+  int[] colors = new int[](N^^2);
+  foreach(i, steps; stepSequences.enumerate(0)) {
+    colors[i] = sequence.countUntil(steps).to!int;
+  }
+
+  auto cur = id(XY[0][0], XY[0][1]);
+  int curIndex, dir;
+  int[] curColors = colors.dup;
+  string[] cqs;
+  bool[][] used = new bool[][](sequence.length, 4);
+  foreach(_; 0..T) {
+    if (cur == id(XY[curIndex][0], XY[curIndex][1])) curIndex++;
+    if (curIndex == K) break;
+
+    auto color = curColors[cur];
+    auto nextDir = dirSorted.countUntil(sequence[color]).to!int;
+    auto nextColor = (color + 1) % sequence.length.to!int;
+
+    if (!used[color][dir]) {
+      cqs ~= format("%s %s %s %s %s", color, dir, nextColor, nextDir, dirSorted[dir..dir + 1]);
+      used[color][dir] = true;
+    }
+    curColors[cur] = nextColor;
+
+    cur += deltas[dir];
+    // deb(sequence[color..color+1], [cur - deltas[dir], cur], " : ",  cqs[$ - 1], [stepSequences[cur - deltas[dir]]]);
+    dir = nextDir;
+  }
+
+  writefln("%s %s %s", sequence.length, 4, cqs.length);
+  writefln("%(%s %)", colors);
+  foreach(s; cqs) writeln(s);
 }
 
 // ----------------------------------------------
