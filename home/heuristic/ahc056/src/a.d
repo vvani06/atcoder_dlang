@@ -84,22 +84,16 @@ void problem() {
   }
 
   auto simulation = Simulation(false.repeat(N^^2).array);
-  
-  int[][] walked = new int[][](K - 1, 0);
-  int[] goals;
   int[] route;
-  
   string moves = {
     string ret;
     auto cur = id(XY[0][0], XY[0][1]);
     int currentState;
     foreach(gr, gc; XY[1..$].asTuples!2) {
       auto goal = id(gr, gc);
-      goals ~= goal;
 
       while(cur != goal) {
         route ~= cur;
-        walked[currentState] ~= cur;
         auto dir = simulation.dirs[goal][cur];
         ret ~= dirStr(dir);
         cur += [-1, -N, 1, N][dir];
@@ -109,69 +103,69 @@ void problem() {
     return ret;
   }();
 
-  moves = moves[0] ~ moves ~ moves[$ - 1];
-  string dirSorted;
-  foreach(c; moves) {
-    if (!dirSorted.canFind(c)) dirSorted ~= c;
-    if (dirSorted.length == 4) break;
-  }
+  int tourSize = route.length.to!int;
+  int bestScore = int.max;
+  int bestColorSize;
+  foreach(colorSize; 1..tourSize + 1) {
+    int color;
+    int state;
 
-  int[] deltas;
-  foreach(d; dirSorted) deltas ~= delta(d);
-  deltas.deb;
-
-  string[][] stepByNodes = new string[][](N ^^ 2, 0);
-  foreach(i, c, node; zip(iota(1, moves.length.to!int - 1), moves[1..$ - 1], route)) {
-    auto steps = moves[i..i + 2];
-    stepByNodes[node] ~= steps;
-  }
-
-  auto stepSequences = stepByNodes.map!(ss => ss.map!"a[$ - 1]".to!string).array;
-  auto chunkedSequences = stepSequences.dup.sort.array.uniq.array;
-  chunkedSequences.each!deb;
-
-  string sequence;
-  foreach(seq; chunkedSequences.sort!"a.length > b.length") {
-    if (sequence.canFind(seq)) continue;
-
-    sequence ~= seq;
-    seq.deb;
-  }
-  sequence.length.deb;
-  sequence.deb;
-
-  int[] colors = new int[](N^^2);
-  foreach(i, steps; stepSequences.enumerate(0)) {
-    colors[i] = sequence.countUntil(steps).to!int;
-  }
-
-  auto cur = id(XY[0][0], XY[0][1]);
-  int curIndex, dir;
-  int[] curColors = colors.dup;
-  string[] cqs;
-  bool[][] used = new bool[][](sequence.length, 4);
-  foreach(_; 0..T) {
-    if (cur == id(XY[curIndex][0], XY[curIndex][1])) curIndex++;
-    if (curIndex == K) break;
-
-    auto color = curColors[cur];
-    auto nextDir = dirSorted.countUntil(sequence[color]).to!int;
-    auto nextColor = (color + 1) % sequence.length.to!int;
-
-    if (!used[color][dir]) {
-      cqs ~= format("%s %s %s %s %s", color, dir, nextColor, nextDir, dirSorted[dir..dir + 1]);
-      used[color][dir] = true;
+    foreach(node, dir, step; zip(route, moves, iota(tourSize))) {
+      if (step < tourSize - 1 && ++color >= colorSize) {
+        color %= colorSize;
+        state++;
+      }
     }
-    curColors[cur] = nextColor;
 
-    cur += deltas[dir];
-    // deb(sequence[color..color+1], [cur - deltas[dir], cur], " : ",  cqs[$ - 1], [stepSequences[cur - deltas[dir]]]);
-    dir = nextDir;
+    if (bestScore.chmin(colorSize + state)) {
+      bestColorSize = colorSize;
+    }
+  }
+  
+  alias Next = Tuple!(int, "color", int, "state", dchar, "dir");
+  alias Key = Tuple!(int, "color", int, "state");
+  Next[Key] bestFn;
+  int[] bestColors;
+  int bestStateSize;
+  int best = int.max;
+
+  foreach(colorSize; [bestColorSize]) {
+    int[][] colors = new int[][](N^^2, 0);
+    int[][] states = new int[][](N^^2, 0);
+    int[] visited = new int[](N^^2);
+    Next[Key] fn;
+    int color;
+    int state;
+    foreach(node, dir, step; zip(route, moves, iota(tourSize))) {
+      if (!colors[node].empty) {
+        auto preKey = Key(colors[node].back, states[node].back);
+        fn[preKey].color = color;
+      }
+
+      colors[node] ~= color;
+      states[node] ~= state;
+      auto key = Key(color, state);
+      if (step < tourSize - 1 && ++color >= colorSize) {
+        color %= colorSize;
+        state++;
+      }
+      fn[key] = Next(0, state, dir);
+      visited[node]++;
+    }
+
+    if (best.chmin(colorSize + state)) {
+      bestFn = fn;
+      bestColors = colors.map!(cs => cs.empty ? 0 : cs.front).array;
+      bestStateSize = state + 1;
+    }
   }
 
-  writefln("%s %s %s", sequence.length, 4, cqs.length);
-  writefln("%(%s %)", colors);
-  foreach(s; cqs) writeln(s);
+  writefln("%s %s %s", bestColorSize, bestStateSize, bestFn.length);
+  foreach(col; bestColors.chunks(N)) writefln("%(%s %)", col);
+  foreach(k, v; bestFn) {
+    writefln("%s %s %s %s %s", k.color, k.state, v.color, v.state, v.dir);
+  }
+
 }
 
 // ----------------------------------------------
