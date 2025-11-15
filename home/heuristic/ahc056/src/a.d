@@ -115,16 +115,20 @@ void problem() {
   int bestColorSize, bestStateSize;
   int best = int.max;
   
-  foreach(stateSize; 1..route.length.to!real.sqrt.to!int * 2) {
+  int[] stateSizes = [18];
+  stateSizes = iota(route.length.to!real.sqrt.to!int / 2, route.length.to!real.sqrt.to!int * 2).array;
+  foreach(stateSize; stateSizes) {
     int[] nextColorByState = new int[](stateSize);
     int[][] colorByNode = new int[][](N^^2, 0);
     Next[Key] fn;
 
     DirState[] sequence;
     int[] graph = new int[](route.length);
+    graph[] = -1;
     int[] graphColor = new int[](route.length);
     int[][] revGraph = new int[][](route.length, 0);
     int[][DirState] dsSeqs;
+    int[][] indicesByNode = new int[][](N^^2, 0);
 
     int addNode(DirState ds, int color) {
       auto index = sequence.length.to!int;
@@ -148,7 +152,7 @@ void problem() {
         if (step == gl) return true;
 
         auto next = graph[cur];
-        if (sequence[next] == dss[step] && dfs(graph[cur], step + 1)) return true;
+        if (next >= 0 && sequence[next] == dss[step] && dfs(graph[cur], step + 1)) return true;
         return false;
       }
 
@@ -158,12 +162,12 @@ void problem() {
       return -1;
     }
 
-    foreach(dsn; dirStatesPerNode) {
+    foreach(dsn; dirStatesPerNode.sort!"a.dirStates.length > b.dirStates.length") {
       auto node = dsn.node;
       auto preKey = Key(-1, -1);
       int preIndex;
       auto dirStates = dsn.dirStates.map!(ds => DirState(ds.dir, ds.state % stateSize)).array;
-      // dirStates.deb;
+
       foreach(dsi, ds; dirStates) {
         auto reusable = findGraph(dirStates[dsi..$]);
         if (reusable >= 0) {
@@ -173,6 +177,7 @@ void problem() {
             fn[preKey].color = color;
             addEdge(preIndex, reusable);
           }
+          
           break;
         }
 
@@ -181,6 +186,7 @@ void problem() {
         colorByNode[node] ~= color;
         nextColorByState[state]++;
         auto index = addNode(ds, color);
+        indicesByNode[node] ~= index;
 
         auto key = Key(color, state);
         fn[key] = Next(0, (state + 1) % stateSize, ds.dir);
