@@ -27,6 +27,9 @@ void problem() {
     int id() { return r * N + c; }
   }
 
+  alias DirState = Tuple!(dchar, "dir", int, "state");
+  alias DirStatesPerNode = Tuple!(int, "node", DirState[], "dirStates");
+
   BitArray[] walkable = iota(N^^2).map!(_ => BitArray(false.repeat(4).array)).array;
   foreach(r; 0..N) foreach(c; 0..N) {
     if (c > 0) walkable[r * N + c][0] = V[r][c - 1];
@@ -35,7 +38,7 @@ void problem() {
     if (r < N - 1) walkable[r * N + c][3] = H[r][c];
   }
 
-  struct Simulation {
+  struct Route {
     int[][] dirs;
     int[][] distances;
 
@@ -71,7 +74,7 @@ void problem() {
       }
     }
 
-    int totalDistance() {
+    int length() {
       int ret;
       auto cur = id(XY[0][0], XY[0][1]);
       foreach(gr, gc; XY[1..$].asTuples!2) {
@@ -81,82 +84,122 @@ void problem() {
       }
       return ret;
     }
+
+    DirStatesPerNode[] dirStatesPerNode() {
+      DirStatesPerNode[] ret = iota(N^^2).map!(node => DirStatesPerNode(node, new DirState[](0))).array;
+
+      auto cur = id(XY[0][0], XY[0][1]);
+      int step;
+      foreach(gr, gc; XY[1..$].asTuples!2) {
+        auto goal = id(gr, gc);
+
+        while(cur != goal) {
+          auto dir = dirs[goal][cur];
+          ret[cur].dirStates ~= DirState(dirStr(dir)[0], step);
+          cur += [-1, -N, 1, N][dir];
+          step++;
+        }
+      }
+      return ret;
+    }
   }
 
-  auto simulation = Simulation(false.repeat(N^^2).array);
-  int[] route;
-  string moves = {
-    string ret;
-    auto cur = id(XY[0][0], XY[0][1]);
-    int currentState;
-    foreach(gr, gc; XY[1..$].asTuples!2) {
-      auto goal = id(gr, gc);
-
-      while(cur != goal) {
-        route ~= cur;
-        auto dir = simulation.dirs[goal][cur];
-        ret ~= dirStr(dir);
-        cur += [-1, -N, 1, N][dir];
-      }
-      currentState++;
-    }
-    return ret;
-  }();
-
-  int tourSize = route.length.to!int;
-  int bestScore = int.max;
-  int bestColorSize;
-  foreach(colorSize; 1..tourSize + 1) {
-    int color;
-    int state;
-
-    foreach(node, dir, step; zip(route, moves, iota(tourSize))) {
-      if (step < tourSize - 1 && ++color >= colorSize) {
-        color %= colorSize;
-        state++;
-      }
-    }
-
-    if (bestScore.chmin(colorSize + state)) {
-      bestColorSize = colorSize;
-    }
-  }
+  auto route = Route(false.repeat(N^^2).array);
+  auto dirStatesPerNode = route.dirStatesPerNode();
+  // dirStatesPerNode.each!deb;
   
   alias Next = Tuple!(int, "color", int, "state", dchar, "dir");
   alias Key = Tuple!(int, "color", int, "state");
   Next[Key] bestFn;
   int[] bestColors;
-  int bestStateSize;
+  int bestColorSize, bestStateSize;
   int best = int.max;
-
-  foreach(colorSize; [bestColorSize]) {
-    int[][] colors = new int[][](N^^2, 0);
-    int[][] states = new int[][](N^^2, 0);
-    int[] visited = new int[](N^^2);
+  
+  foreach(stateSize; 1..route.length.to!real.sqrt.to!int * 2) {
+    int[] nextColorByState = new int[](stateSize);
+    int[][] colorByNode = new int[][](N^^2, 0);
     Next[Key] fn;
-    int color;
-    int state;
-    foreach(node, dir, step; zip(route, moves, iota(tourSize))) {
-      if (!colors[node].empty) {
-        auto preKey = Key(colors[node].back, states[node].back);
-        fn[preKey].color = color;
-      }
 
-      colors[node] ~= color;
-      states[node] ~= state;
-      auto key = Key(color, state);
-      if (step < tourSize - 1 && ++color >= colorSize) {
-        color %= colorSize;
-        state++;
-      }
-      fn[key] = Next(0, state, dir);
-      visited[node]++;
+    DirState[] sequence;
+    int[] graph = new int[](route.length);
+    int[] graphColor = new int[](route.length);
+    int[][] revGraph = new int[][](route.length, 0);
+    int[][DirState] dsSeqs;
+
+    int addNode(DirState ds, int color) {
+      auto index = sequence.length.to!int;
+      sequence ~= ds;
+      dsSeqs[ds] ~= index;
+      graphColor[index] = color;
+      return index;
     }
 
-    if (best.chmin(colorSize + state)) {
+    void addEdge(int u, int v) {
+      graph[u] = v;
+      revGraph[v] ~= u;
+    }
+
+    int findGraph(DirState[] dss) {
+      if (dss.empty) return 0;
+      if (!(dss.front in dsSeqs)) return -1;
+
+      int gl = dss.length.to!int;
+      bool dfs(int cur, int step) {
+        if (step == gl) return true;
+
+        auto next = graph[cur];
+        if (sequence[next] == dss[step] && dfs(graph[cur], step + 1)) return true;
+        return false;
+      }
+
+      foreach(from; dsSeqs[dss.front]) {
+        if (dfs(from, 1)) return from;
+      }
+      return -1;
+    }
+
+    foreach(dsn; dirStatesPerNode) {
+      auto node = dsn.node;
+      auto preKey = Key(-1, -1);
+      int preIndex;
+      auto dirStates = dsn.dirStates.map!(ds => DirState(ds.dir, ds.state % stateSize)).array;
+      // dirStates.deb;
+      foreach(dsi, ds; dirStates) {
+        auto reusable = findGraph(dirStates[dsi..$]);
+        if (reusable >= 0) {
+          auto color = graphColor[reusable];
+          colorByNode[node] ~= color;
+          if (preKey.color != -1) {
+            fn[preKey].color = color;
+            addEdge(preIndex, reusable);
+          }
+          break;
+        }
+
+        auto state = ds.state % stateSize;
+        auto color = nextColorByState[state];
+        colorByNode[node] ~= color;
+        nextColorByState[state]++;
+        auto index = addNode(ds, color);
+
+        auto key = Key(color, state);
+        fn[key] = Next(0, (state + 1) % stateSize, ds.dir);
+        if (preKey.color != -1) {
+          fn[preKey].color = color;
+          addEdge(preIndex, index);
+        }
+        preKey = key;
+        preIndex = index;
+      }
+    }
+
+    auto colorSize = nextColorByState.maxElement;
+    auto score = colorSize + stateSize;
+    if (best.chmin(score)) {
+      bestColorSize = colorSize;
+      bestStateSize = stateSize;
       bestFn = fn;
-      bestColors = colors.map!(cs => cs.empty ? 0 : cs.front).array;
-      bestStateSize = state + 1;
+      bestColors = colorByNode.map!(colors => colors.empty ? 0 : colors.front).array;
     }
   }
 
@@ -237,3 +280,81 @@ T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
  
   return ok;
 }
+
+struct UnionFindWith(T = UnionFindExtra) {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+  T[] extras;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = new T[](size);
+  }
+ 
+  this(int size, T[] ex) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = ex.dup;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+
+  T extra(int x) {
+    return extras[root(x)];
+  }
+
+  T setExtra(int x, T t) {
+    return extras[root(x)] = t;
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    // if (rootX < rootY) {
+    //   swap(x, y);
+    //   swap(rootX, rootY);
+    //   w *= -1;
+    // }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    extras[rootX] = extras[rootX].merge(extras[rootY]);
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+
+  auto dup() {
+    auto dupe = UnionFindWith!T(roots.length.to!int);
+    dupe.roots = roots.dup;
+    dupe.sizes = sizes.dup;
+    dupe.weights = weights.dup;
+    dupe.extras = extras.dup;
+    return dupe;
+  }
+}
+
+struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
+alias UnionFind = UnionFindWith!UnionFindExtra;
