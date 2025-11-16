@@ -312,11 +312,15 @@ void problem() {
   // ----------------------------------------------------------------------------------------------------
   // state で向きを、color で方向転換を表現するやつ ムラがありすぎるが稀に強い
 
+  foreach(visitedCost; [10, 0, 20, 30, 40, 50, 100]) {
+  if (elapsed(1900)) break;
   BASE: foreach(baseMove; [[0, 1], [0, 3], [0, 1, 3], [0, 1, 2], [0, 2, 3], [0, 1, 2, 3]]) {
+    if (elapsed(1900)) break;
     deb("----------------------------------------------------------------------------------------------------");
-    deb(baseMove);
+    deb("cost = ", visitedCost, ", moves = ", baseMove);
     deb("----------------------------------------------------------------------------------------------------");
-    auto route = Route(10, baseMove);
+
+    auto route = Route(visitedCost, baseMove);
     int currentDir;
     foreach(i; 0..K - 1) {
       currentDir = route.walk(XYI[i], currentDir, XYI[i + 1]);
@@ -331,76 +335,81 @@ void problem() {
       movesByNode[node] ~= move;
       stepsByNode[node] ~= i;
     }
-    int[] sequence;
-    int[] nexts = (-1).repeat(route.route.length).array;
 
-    int findReusable(int[] moves, int depth = 0) {
-      NODE: foreach(start; 0..sequence.length.to!int) {
-        auto cur = start;
-        auto pre = -1;
-        foreach(i, m; moves) {
-          if (cur == -1) {
-            continue NODE;
-            // if (depth >= 0) continue NODE;
-            // auto dig = findReusable(moves[i..$], depth + 1);
-            // if (dig == -1) continue NODE;
+    foreach(dimension; [1]) {
+      if (elapsed(1900)) continue BASE;
+      int[] sequence;
+      int[] nexts = (-1).repeat(route.route.length).array;
 
-            // deb([[[pre, nexts[pre], dig]]]);
-            // nexts[pre] = dig;
-            // return start; 
+      int findReusable(int[] moves, int depth = 0) {
+        NODE: foreach(start; 0..sequence.length.to!int) {
+          auto cur = start;
+          auto pre = -1;
+          foreach(i, m; moves) {
+            if (cur == -1) {
+              continue NODE;
+              // if (depth >= 0) continue NODE;
+              // auto dig = findReusable(moves[i..$], depth + 1);
+              // if (dig == -1) continue NODE;
+
+              // deb([[[pre, nexts[pre], dig]]]);
+              // nexts[pre] = dig;
+              // return start; 
+            }
+            if (m != sequence[cur]) continue NODE;
+
+            pre = cur;
+            cur = nexts[cur];
           }
-          if (m != sequence[cur]) continue NODE;
-
-          pre = cur;
-          cur = nexts[cur];
+          return start;
         }
-        return start;
+        return -1;
       }
-      return -1;
-    }
 
-    int[][] colors = new int[][](N^^2, 0);
-    int currentColor = 0;
-    foreach(node, moves; movesByNode.enumerate(0).array.sort!"a[1].length > b[1].length") {
-      int pre = -1;
-      foreach(i; 0..moves.length) {
-        auto reuse = findReusable(moves[i..$]);
+      int[][] colors = new int[][](N^^2, 0);
+      int currentColor = 0;
+      foreach(node, moves; movesByNode.enumerate(0).array.sort!"a[1].length > b[1].length") {
+        int pre = -1;
+        foreach(i; 0..moves.length) {
+          auto reuse = findReusable(moves[i..$]);
 
-        if (reuse != -1) {
-          if (pre == -1) {
-            colors[node] ~= reuse;
-          } else {
-            nexts[pre] = reuse;
+          if (reuse != -1) {
+            if (pre == -1) {
+              colors[node] ~= reuse;
+            } else {
+              nexts[pre] = reuse;
+            }
+            break;
           }
-          break;
+
+          auto color = currentColor;
+          colors[node] ~= color;
+          sequence ~= moves[i];
+          if (pre != -1) {
+            nexts[pre] = color;
+          }
+          pre = color;
+          currentColor++;
         }
 
-        auto color = currentColor;
-        colors[node] ~= color;
-        sequence ~= moves[i];
-        if (pre != -1) {
-          nexts[pre] = color;
+        if (pre != -1 && nexts[pre] == -1) {
+          nexts[pre] = pre;
         }
-        pre = color;
-        currentColor++;
       }
 
-      if (pre != -1 && nexts[pre] == -1) {
-        nexts[pre] = pre;
+      if (currentColor + 4 < candidates[0].score || true) {
+        string[] fns;
+        foreach(color, move, nextColor; zip(iota(sequence.length), sequence, nexts)) {
+          foreach(state; 0..4) {
+            auto nextState = (state + move) % 4;
+            fns ~= format("%s %s %s %s %s", color, state, max(0, nextColor), nextState, DIRS[nextState]);
+          }
+        }
+        candidates ~= Ans(currentColor, 4, colors.map!(c => c.empty ? 0 : c[0]).array, fns);
+        deb("score = ", currentColor + 4);
       }
     }
-
-    if (currentColor + 4 < candidates[0].score || true) {
-      string[] fns;
-      foreach(color, move, nextColor; zip(iota(sequence.length), sequence, nexts)) {
-        foreach(state; 0..4) {
-          auto nextState = (state + move) % 4;
-          fns ~= format("%s %s %s %s %s", color, state, max(0, nextColor), nextState, DIRS[nextState]);
-        }
-      }
-      candidates ~= Ans(currentColor, 4, colors.map!(c => c.empty ? 0 : c[0]).array, fns);
-      deb("score = ", currentColor + 4);
-    }
+  }
   }
   
   candidates.map!"a.score".deb;
