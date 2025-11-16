@@ -12,20 +12,17 @@ void problem() {
   int N = scan!int;
   int K = scan!int;
   int T = scan!int;
+
+  int id(int r, int c) { return r * N + c; }
+
   bool[][] V = scan!string(N).map!(s => s.map!(c => c == '0').array).array;
   bool[][] H = scan!string(N - 1).map!(s => s.map!(c => c == '0').array).array;
   int[][] XY = scan!int(2 * K).chunks(2).array;
+  int[] XYI = XY.map!(xy => id(xy[0], xy[1])).array;
 
-  int id(int r, int c) { return r * N + c; }
-  
   const DELTA = [-1, -N, 1, N];
   const DIR_DELTA = [-1: 'L', -N: 'U', 1: 'R', N: 'D'];
   const DIRS = "LURDS";
-
-  struct Coord {
-    int r, c;
-    int id() { return r * N + c; }
-  }
 
   alias DirState = Tuple!(dchar, "dir", int, "state");
   alias DirStatesPerNode = Tuple!(int, "node", DirState[], "dirStates");
@@ -45,205 +42,148 @@ void problem() {
     int[] visitCount;
 
     int[] route;
-    dchar[] moves;
+    int[] moves;
     int visitedCost;
+
+    // int calcId;
+    // int[400][4] calced;
+    // Queue[400][4] froms;
+    // int[400][4] costs;
 
     this(int visitedCost) {
       dirs = new int[][](N^^2, N^^2);
       distances = new int[][](N^^2, N^^2);
       visitCount = new int[](N^^2);
       this.visitedCost = visitedCost;
-
-      foreach(gr; 0..N) foreach(gc; 0..N) {
-        int goal = id(gr, gc);
-        dirs[goal][] = -1;
-        dirs[goal][goal] = 9;
-        distances[goal][] = INF;
-        distances[goal][goal] = 0;
-        auto queue = DList!int([goal]);
-
-        while(!queue.empty) {
-          auto cur = queue.front;
-          queue.removeFront();
-
-          foreach(dir, d; zip(iota(4), [-1, -N, 1, N])) {
-            if (!walkable[cur][dir]) continue;
-
-            auto to = cur + d;
-            if (dirs[goal][to] == -1) {
-              dirs[goal][to] = (dir + 2) % 4;
-              distances[goal][to] = distances[goal][cur] + 1;
-              queue.insertBack(to);
-            }
-          }
-        }
-      }
     }
 
-    void walk(int start, int goal) {
-      alias Queue = Tuple!(int, "node", int, "cost");
+    int walk(int start, int startDir, int goal) {
+      alias Queue = Tuple!(int, "node", int, "dir", int, "cost");
 
-      int[] deltas = new int[](N^^2);
-      int[] costs = new int[](N^^2);
-      costs[] = INF;
-      costs[start] = 0;
+      Queue[][] froms = new Queue[][](N^^2, 4);
+      int[][] costs = new int[][](N^^2, 4);
+      foreach(ref c; costs) c[] = INF;
+      costs[start][startDir] = 0;
+      froms[start][startDir] = Queue(start, startDir, 0);
 
-      for (auto queue = [Queue(start, 0)].heapify!"a.cost > b.cost"; !queue.empty;) {
+      auto queue = [Queue(start, startDir, 0)].heapify!"a.cost > b.cost";
+      while (!queue.empty) {
         auto cur = queue.front;
+        if (costs[cur.node][cur.dir] != cur.cost) continue;
+
+        if (cur.node == goal) break;
         queue.removeFront();
 
-        foreach(dir; 0..4) {
-          if (!walkable[cur.node][dir]) continue;
+        foreach(dd; 0..2) {
+          auto turned = (cur.dir + dd) % 4;
+          auto to = cur.node + (walkable[cur.node][turned] ? DELTA[turned] : 0);
 
-          auto to = cur.node + DELTA[dir];
           auto cost = cur.cost + moveCost + visitCount[to]*visitedCost;
-          if (costs[to].chmin(cost)) {
-            deltas[to] = (dir + 2) % 4;
-            queue.insert(Queue(to, cost));
+          if (costs[to][turned].chmin(cost)) {
+            froms[to][turned] = cur;
+            queue.insert(Queue(to, turned, cost));
           }
         }
       }
 
-      for (int node = goal; node != start; node = node + deltas[node]) {
+      auto node = goal;
+      auto dir = queue.front.dir;
+      DList!int backtrack;
+      DList!int backtrackMove;
+      while (!(node == start && dir == startDir)) {
         visitCount[node]++;
-        route ~= node;
-        moves ~= DIR_DELTA[deltas[node]];
+        backtrack.insertFront(node);
+        backtrackMove.insertFront(dir == froms[node][dir].dir ? 0 : 1);
+
+        auto nn = froms[node][dir].node;
+        dir = froms[node][dir].dir;
+        node = nn;
       }
-    }
+      backtrack.insertFront(node);
+      backtrackMove.insertFront(dir == froms[node][dir].dir ? 0 : 1);
 
-    int length() {
-      int ret;
-      auto cur = id(XY[0][0], XY[0][1]);
-      foreach(gr, gc; XY[1..$].asTuples!2) {
-        auto goal = id(gr, gc);
-        ret += distances[goal][cur];
-        cur = goal;
-      }
-      return ret;
-    }
-
-    DirStatesPerNode[] dirStatesPerNode() {
-      DirStatesPerNode[] ret = iota(N^^2).map!(node => DirStatesPerNode(node, new DirState[](0))).array;
-
-      auto cur = id(XY[0][0], XY[0][1]);
-      int step;
-      foreach(gr, gc; XY[1..$].asTuples!2) {
-        auto goal = id(gr, gc);
-
-        while(cur != goal) {
-          auto dir = dirs[goal][cur];
-          ret[cur].dirStates ~= DirState(DIRS[dir], step);
-          cur += [-1, -N, 1, N][dir];
-          step++;
-        }
-      }
-      return ret;
+      route ~= backtrack.array[0..$ - 1];
+      moves ~= backtrackMove.array[1..$];
+      return queue.front.dir;
     }
   }
 
-  auto route = Route(0);
-  auto dirStatesPerNode = route.dirStatesPerNode();
-  // dirStatesPerNode.each!deb;
-  
-  alias Next = Tuple!(int, "color", int, "state", dchar, "dir");
-  alias Key = Tuple!(int, "color", int, "state");
-  Next[Key] bestFn;
-  int[] bestColors;
-  int bestColorSize, bestStateSize;
-  int best = int.max;
-  
-  foreach(stateSize; 1..route.length.to!real.sqrt.to!int * 2) {
-    int[] nextColorByState = new int[](stateSize);
-    int[][] colorByNode = new int[][](N^^2, 0);
-    Next[Key] fn;
+  auto route = Route(10);
 
-    DirState[] sequence;
-    int[] graph = new int[](route.length);
-    int[] graphColor = new int[](route.length);
-    int[][] revGraph = new int[][](route.length, 0);
-    int[][DirState] dsSeqs;
+  int currentDir;
+  foreach(i; 0..K - 1) {
+    currentDir = route.walk(XYI[i], currentDir, XYI[i + 1]);
+  }
+  route.route.deb;
 
-    int addNode(DirState ds, int color) {
-      auto index = sequence.length.to!int;
-      sequence ~= ds;
-      dsSeqs[ds] ~= index;
-      graphColor[index] = color;
-      return index;
-    }
+  int[][] movesByNode = new int[][](N^^2, 0);
+  int[][] stepsByNode = new int[][](N^^2, 0);
+  foreach(i, node, move; zip(iota(route.route.length.to!int), route.route, route.moves)) {
+    movesByNode[node] ~= move;
+    stepsByNode[node] ~= i;
+  }
+  // movesByNode.each!deb;
+  int[] sequence;
+  int[] nexts = (-1).repeat(route.route.length).array;
 
-    void addEdge(int u, int v) {
-      graph[u] = v;
-      revGraph[v] ~= u;
-    }
+  int findReusable(int[] moves) {
+    NODE: foreach(start; 0..sequence.length.to!int) {
+      auto cur = start;
+      foreach(m; moves) {
+        if (cur == -1 || m != sequence[cur]) continue NODE;
 
-    int findGraph(DirState[] dss) {
-      if (dss.empty) return 0;
-      if (!(dss.front in dsSeqs)) return -1;
-
-      int gl = dss.length.to!int;
-      bool dfs(int cur, int step) {
-        if (step == gl) return true;
-
-        auto next = graph[cur];
-        if (sequence[next] == dss[step] && dfs(graph[cur], step + 1)) return true;
-        return false;
+        cur = nexts[cur];
       }
-
-      foreach(from; dsSeqs[dss.front]) {
-        if (dfs(from, 1)) return from;
-      }
-      return -1;
+      return start;
     }
+    return -1;
+  }
 
-    foreach(dsn; dirStatesPerNode) {
-      auto node = dsn.node;
-      auto preKey = Key(-1, -1);
-      int preIndex;
-      auto dirStates = dsn.dirStates.map!(ds => DirState(ds.dir, ds.state % stateSize)).array;
-      // dirStates.deb;
-      foreach(dsi, ds; dirStates) {
-        auto reusable = findGraph(dirStates[dsi..$]);
-        if (reusable >= 0) {
-          auto color = graphColor[reusable];
-          colorByNode[node] ~= color;
-          if (preKey.color != -1) {
-            fn[preKey].color = color;
-            addEdge(preIndex, reusable);
-          }
-          break;
+  int[][] colors = new int[][](N^^2, 0);
+  int currentColor;
+  foreach(node, moves; movesByNode.enumerate(0).array.sort!"a[1].length > b[1].length") {
+    if (node == 190) moves.deb;
+
+    int pre = -1;
+    foreach(i; 0..moves.length) {
+      auto reuse = findReusable(moves[i..$]);
+
+      if (reuse != -1) {
+        if (pre == -1) {
+          colors[node] ~= reuse;
+        } else {
+          nexts[pre] = reuse;
         }
-
-        auto state = ds.state % stateSize;
-        auto color = nextColorByState[state];
-        colorByNode[node] ~= color;
-        nextColorByState[state]++;
-        auto index = addNode(ds, color);
-
-        auto key = Key(color, state);
-        fn[key] = Next(0, (state + 1) % stateSize, ds.dir);
-        if (preKey.color != -1) {
-          fn[preKey].color = color;
-          addEdge(preIndex, index);
-        }
-        preKey = key;
-        preIndex = index;
+        break;
       }
-    }
 
-    auto colorSize = nextColorByState.maxElement;
-    auto score = colorSize + stateSize;
-    if (best.chmin(score)) {
-      bestColorSize = colorSize;
-      bestStateSize = stateSize;
-      bestFn = fn;
-      bestColors = colorByNode.map!(colors => colors.empty ? 0 : colors.front).array;
+      auto color = currentColor;
+      colors[node] ~= color;
+      sequence ~= moves[i];
+      if (pre != -1) {
+        nexts[pre] = color;
+      }
+      pre = color;
+      currentColor++;
     }
   }
 
-  writefln("%s %s %s", bestColorSize, bestStateSize, bestFn.length);
-  foreach(col; bestColors.chunks(N)) writefln("%(%s %)", col);
-  foreach(k, v; bestFn) {
-    writefln("%s %s %s %s %s", k.color, k.state, v.color, v.state, v.dir);
+  {
+    int seq = colors[190][0];
+    foreach(_; 0..10) {
+      if (seq == -1) break;
+      deb([seq, sequence[seq]]);
+      seq = nexts[seq];
+    }
+  }
+
+  writefln("%s %s %s", currentColor, 4, currentColor * 4);
+  foreach(col; colors.map!(c => c.empty ? 0 : c[0]).chunks(N)) writefln("%(%s %)", col);
+  foreach(color, move, nextColor; zip(iota(sequence.length), sequence, nexts)) {
+    foreach(state; 0..4) {
+      auto nextState = (state + move) % 4;
+      writefln("%s %s %s %s %s", color, state, max(0, nextColor), nextState, DIRS[nextState]);
+    }
   }
 
 }
