@@ -176,7 +176,7 @@ void problem() {
     int[] colors;
     string[] fn;
 
-    const int score() { return colorCount + stateCount + 1; }
+    const int score() { return colorCount + stateCount; }
 
     void outputAsAns() {
       writefln("%s %s %s", colorCount, stateCount, fn.length);
@@ -191,9 +191,12 @@ void problem() {
 
   Ans[] candidates;
 
-  // sqrt(最短ルート) * 2 のスコアをほぼ保証できるやつ
+  // ----------------------------------------------------------------------------------------------------
+
+  // sqrt(最短ルート) * 2 のスコアをほぼ保証できるやつ 基本解とする
   candidates ~= {
     auto route = Route(0, []);
+    route.length.deb;
     auto dirStatesPerNode = route.dirStatesPerNode();
     // dirStatesPerNode.each!deb;
     
@@ -305,7 +308,14 @@ void problem() {
     return Ans(bestColorSize, bestStateSize, bestColors, fns);
   }();
 
-  BASE: foreach(baseMove; [[0, 1], [0, 3], [0, 1, 3]]) {
+
+  // ----------------------------------------------------------------------------------------------------
+  // state で向きを、color で方向転換を表現するやつ ムラがありすぎるが稀に強い
+
+  BASE: foreach(baseMove; [[0, 1], [0, 3], [0, 1, 3], [0, 1, 2], [0, 2, 3], [0, 1, 2, 3]]) {
+    deb("----------------------------------------------------------------------------------------------------");
+    deb(baseMove);
+    deb("----------------------------------------------------------------------------------------------------");
     auto route = Route(10, baseMove);
     int currentDir;
     foreach(i; 0..K - 1) {
@@ -324,12 +334,24 @@ void problem() {
     int[] sequence;
     int[] nexts = (-1).repeat(route.route.length).array;
 
-    int findReusable(int[] moves) {
+    int findReusable(int[] moves, int depth = 0) {
       NODE: foreach(start; 0..sequence.length.to!int) {
         auto cur = start;
-        foreach(m; moves) {
-          if (cur == -1 || m != sequence[cur]) continue NODE;
+        auto pre = -1;
+        foreach(i, m; moves) {
+          if (cur == -1) {
+            continue NODE;
+            // if (depth >= 0) continue NODE;
+            // auto dig = findReusable(moves[i..$], depth + 1);
+            // if (dig == -1) continue NODE;
 
+            // deb([[[pre, nexts[pre], dig]]]);
+            // nexts[pre] = dig;
+            // return start; 
+          }
+          if (m != sequence[cur]) continue NODE;
+
+          pre = cur;
           cur = nexts[cur];
         }
         return start;
@@ -340,8 +362,6 @@ void problem() {
     int[][] colors = new int[][](N^^2, 0);
     int currentColor = 0;
     foreach(node, moves; movesByNode.enumerate(0).array.sort!"a[1].length > b[1].length") {
-      if (node == 190) moves.deb;
-
       int pre = -1;
       foreach(i; 0..moves.length) {
         auto reuse = findReusable(moves[i..$]);
@@ -364,9 +384,13 @@ void problem() {
         pre = color;
         currentColor++;
       }
+
+      if (pre != -1 && nexts[pre] == -1) {
+        nexts[pre] = pre;
+      }
     }
 
-    if (currentColor + 4 < candidates[0].score) {
+    if (currentColor + 4 < candidates[0].score || true) {
       string[] fns;
       foreach(color, move, nextColor; zip(iota(sequence.length), sequence, nexts)) {
         foreach(state; 0..4) {
@@ -375,9 +399,11 @@ void problem() {
         }
       }
       candidates ~= Ans(currentColor, 4, colors.map!(c => c.empty ? 0 : c[0]).array, fns);
+      deb("score = ", currentColor + 4);
     }
   }
-
+  
+  candidates.map!"a.score".deb;
   candidates.minElement.outputAsAns();
 }
 
