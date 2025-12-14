@@ -16,6 +16,55 @@ void problem() {
   long[] A = scan!long(N);
   long[][] C = scan!long(N * L).chunks(N).array;
 
+  real apple = 1.00001;
+  real velocity = 0;
+  long[][] powers = new long[][](N, L);
+  real[][] machines = new real[][](N, L);
+  foreach(ref m; machines) m[] = 1;
+
+  real cost(int id, int level) {
+    return C[level][id] * (powers[id][level] + 1);
+  }
+
+  string amplify(int id, int level) {
+    apple -= cost(id, level);
+    powers[id][level] += 1;
+    return "%s %s".format(level, id);
+  }
+
+  foreach(turn; 0..T) {
+
+    real performance(int id) {
+      auto rest = T - turn;
+      auto turnsNeeded = max(0, cost(id, 0) - apple) / velocity;
+      auto value = A[id] * (rest - turnsNeeded);
+      return value / cost(id, 0);
+    }
+
+    auto targets = iota(N).array.sort!((a, b) => performance(a) > performance(b));
+    targets.deb;
+
+    string output = "-1";
+    TARGET: foreach(target; targets) {
+      foreach(level; iota(L - 1, -1, -1)) {
+        if (apple >= cost(target, level)) {
+          output = amplify(target, level);
+          break TARGET;
+        }
+      }
+    }
+    [apple.to!long].deb;
+    writeln(output);
+
+    real pre = apple;
+    foreach(id; 0..N) {
+      apple += machines[id][0] * powers[id][0] * A[id];
+      foreach(level; 1..L) {
+        machines[id][level - 1] += machines[id][level] * powers[id][level];
+      }
+    }
+    velocity = apple - pre;
+  }
 }
 
 // ----------------------------------------------
