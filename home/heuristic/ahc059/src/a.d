@@ -35,27 +35,34 @@ void problem() {
     }
 
     Pair removeChild() {
-      auto childChild = child.child;
-      if (childChild) childChild.parent = this;
+      deb("removeChild:", this.num);
+      // auto childChild = child.child;
+      // if (childChild) childChild.parent = this;
 
       child.parent = null;
       auto p = child;
-      child = childChild;
+      child = null;
       return p;
     }
 
     Pair removeNext() {
-      auto nextNext = next.next;
-      if (nextNext) nextNext.pre = this;
+      deb("removeNext:", this.num);
+      // auto nextNext = next.next;
+      // if (nextNext) nextNext.pre = this;
 
       next.pre = null;
       auto p = next;
-      next = nextNext;
+      // next = nextNext;
+      next = null;
       return p;
     }
 
     bool isFree() {
       return child is null || next is null;
+    }
+
+    override string toString() {
+      return "Pairs(%s [%s]) => %s".format(num, child, next);
     }
   }
 
@@ -91,11 +98,46 @@ void problem() {
       }
     }
 
-    Pair choice() {
-      foreach(i; 0..MAX) {
+    this(Pairs ps) {
+      root = new Pair(-1);
+      all = new Pair[](MAX);
+
+      void dfs(Pair cur) {
+        if (cur.child) {
+          all[cur.child.num] = new Pair(cur.child.num);
+          all[cur.num].setChild(all[cur.child.num]);
+          dfs(cur.child);
+        }
+
+        if (cur.next) {
+          all[cur.next.num] = new Pair(cur.next.num);
+          all[cur.num].setNext(all[cur.next.num]);
+          dfs(cur.next);
+        }
+      }
+
+      all[ps.root.child.num] = new Pair(ps.root.child.num);
+      root.setChild(all[ps.root.child.num]);
+      dfs(ps.root.child);
+    }
+
+    Pair choiceFree() {
+      auto candidates = array.sort.uniq.array;
+      foreach(i; candidates.randomShuffle(RND)) {
         if (all[i].isFree) return all[i];
       }
       assert(false, "no candidates");
+    }
+
+    Pair choiceLeaf() {
+      foreach(i; iota(MAX).array.randomShuffle(RND)) {
+        if (all[i].child is null && all[i].next is null) return all[i];
+      }
+      assert(false, "no candidates");
+    }
+
+    Pair choiceAll() {
+      return all[uniform(0, MAX, RND)];
     }
 
     int[] array() {
@@ -172,7 +214,44 @@ void problem() {
     }
   }
 
-  writeln(Sim(pairs.array).asAns());
+  Pairs bestPairs = new Pairs(pairs);
+  Sim bestSim = Sim(bestPairs.array);
+
+  bestPairs.array.deb;
+  
+  // foreach(_; 0..100) {
+  int tried;
+  while(!elapsed(1900)) {
+    tried++;
+    Pair swappee = pairs.choiceAll();
+    if (swappee == pairs.root.child) continue;
+
+    if (swappee.pre) {
+      swappee.pre.removeNext();
+    } else {
+      swappee.parent.removeChild();
+    }
+
+    Pair swapTo = pairs.choiceFree();
+    if (swapTo.next is null) {
+      swapTo.setNext(swappee);
+    } else {
+      swapTo.setChild(swappee);
+    }
+
+    auto sim = Sim(pairs.array);
+    if (bestSim.moves > sim.moves) {
+      bestSim = sim;
+      bestPairs = new Pairs(pairs);
+      sim.moves.deb;
+      tried = 0;
+    } else if (tried > 0) {
+      pairs = new Pairs(bestPairs);
+      tried = 0;
+    }
+  }
+
+  writeln(bestSim.asAns());
 }
 
 // ----------------------------------------------
