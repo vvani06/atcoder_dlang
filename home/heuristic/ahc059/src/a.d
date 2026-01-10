@@ -57,6 +57,44 @@ void problem() {
       return p;
     }
 
+    Pair removeChildThrough() {
+      deb("removeChildThrough:", this.num);
+      auto childChild = child.child;
+      auto childNext = child.next;
+
+      if (childNext && next) return null;
+
+      child.child = null;
+      child.next = null;
+      if (childChild) childChild.parent = this;
+      if (childNext) childNext.pre = this;
+
+      child.parent = null;
+      auto p = child;
+      child = childChild;
+      if (childNext) next = childNext;
+      return p;
+    }
+
+    Pair removeNextThrough() {
+      deb("removeNextThrough:", this.num);
+      auto childChild = next.child;
+      auto childNext = next.next;
+
+      if (childChild && child) return null;
+
+      next.child = null;
+      next.next = null;
+      if (childChild) childChild.parent = this;
+      if (childNext) childNext.pre = this;
+
+      next.pre = null;
+      auto p = next;
+      next = childNext;
+      if (childChild) child = childChild;
+      return p;
+    }
+
     bool isFree() {
       return child is null || next is null;
     }
@@ -85,10 +123,10 @@ void problem() {
           auto nodeNum = usable.array.choice(RND);
           auto node = all[nodeNum];
 
-          if (node.child is null) {
-            node.setChild(all[n]);
-          } else {
+          if (node.next is null) {
             node.setNext(all[n]);
+          } else {
+            node.setChild(all[n]);
           }
 
           if (!node.isFree) usable.removeKey(nodeNum);
@@ -229,13 +267,13 @@ void problem() {
   int tried;
   int turn;
   auto pairs = new Pairs(bestPairs);
-  while(!elapsed(1950)) {
+  while(!elapsed(19500)) {
     tried++;
 
     Pair swappee = pairs.choiceAll();
     if (swappee == pairs.root.child) continue;
 
-    if (turn % 10 < 10) {
+    if (turn % 10 < 8) {
       if (swappee.pre) {
         swappee.pre.removeNext();
       } else {
@@ -243,7 +281,24 @@ void problem() {
       }
 
       Pair swapTo = pairs.choiceFree();
-      if (swapTo.next is null) {
+      if (uniform(0, 10, RND) < 10 && swapTo.child is null) {
+        swapTo.setChild(swappee);
+      } else if (swapTo.next is null) {
+        swapTo.setNext(swappee);
+      } else {
+        swapTo.setChild(swappee);
+      }
+    } else {
+      if (swappee.pre) {
+        if (swappee.pre.removeNextThrough() is null) continue;
+      } else {
+        if (swappee.parent.removeChildThrough() is null) continue;
+      }
+
+      Pair swapTo = pairs.choiceFree();
+      if (uniform(0, 10, RND) < 10 && swapTo.child is null) {
+        swapTo.setChild(swappee);
+      } else if (swapTo.next is null) {
         swapTo.setNext(swappee);
       } else {
         swapTo.setChild(swappee);
@@ -256,7 +311,7 @@ void problem() {
       bestPairs = new Pairs(pairs);
       sim.moves.deb;
       tried = 0;
-    } else if (tried > 0) {
+    } else if (tried > 2 || sim.moves - sim.moves/100 > bestSim.moves) {
       pairs = new Pairs(bestPairs);
       tried = 0;
     }
