@@ -4,7 +4,7 @@ void problem() {
   auto N = scan!int;
   auto A = scan!int(N);
 
-  auto solve() {
+  auto solveNaive() {
     bool[int[]] ans;
 
     foreach(l; 0..N) foreach(r; l + 1..N + 1) {
@@ -15,6 +15,37 @@ void problem() {
     }
 
     return ans.length;
+  }
+
+  auto solveNaive2() {
+    long ans = N;
+    ans = ans * (ans + 1) / 2;
+
+    foreach(i; 0..N) {
+      foreach(left; A[0..i]) {
+        if (left >= A[i]) continue;
+
+        ans += A[i..$].count!(a => a < A[i]);
+      }
+    }
+
+    return ans;
+  }
+
+  auto solve() {
+    long ans = N;
+    ans = ans * (ans + 1) / 2;
+
+    auto lt = SegTree!("a + b", long)(0L.repeat(N + 1).array);
+    auto rt = SegTree!("a + b", long)(1L.repeat(N + 1).array);
+
+    foreach(a; A) {
+      rt.update(a, 0L);
+      ans += lt.sum(1, a) * rt.sum(1, a);
+      lt.update(a, 1L);
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -72,6 +103,38 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+static struct TypicalLazySegTree(S) {
+  static struct VS {
+    S value;
+    int size;
+  }
+  static VS withSize(S d) { return VS(d, 1); }
+  static VS[] withSize(S[] data) { return data.map!withSize.array; }
+
+  alias MinAdd = LazySegTree!(S, minFunc, sMax, S, addFunc, addFunc, sZero);
+  alias MinUpdate = LazySegTree!(S, minFunc, sMax, S, updateFunc!sMax, updateFunc!sMax, sMax);
+  alias MaxAdd = LazySegTree!(S, maxFunc, sMin, S, addFunc, addFunc, sZero);
+  alias MaxUpdate = LazySegTree!(S, maxFunc, sMin, S, updateFunc!sMin, updateFunc!sMin, sMin);
+  alias SumAdd = LazySegTree!(VS, addVSFunc, vsZero, S, addVSMapping, addFunc, sZero);
+  alias SumAddPositive = LazySegTree!(VS, addVSPositiveFunc, vsZero, S, addVSMapping, addFunc, sZero);
+  alias SumUpdate = LazySegTree!(VS, addVSFunc, vsZero, S, updateVSMapping!sMax, updateFunc!sMax, sMax);
+
+  private:
+    enum minFunc = "min(a, b)";
+    enum maxFunc = "max(a, b)";
+    enum addFunc = "a + b";
+    enum updateFunc(alias id) = (S f, S x) => f == unaryFun!id() ? x : f;
+    enum sMax = () => S.max / 3;
+    enum sMin = () => S.min / 3;
+    enum sZero = () => 0.to!S;
+
+    enum addVSFunc = (VS a, VS b) => VS(a.value + b.value, a.size + b.size);
+    enum addVSPositiveFunc = (VS a, VS b) => VS(max(0, a.value) + max(0, b.value), a.size + b.size);
+    enum addVSMapping = (S f, VS x) => VS(x.value + f*x.size, x.size);
+    enum updateVSMapping(alias id) = (S f, VS x) => VS(f == unaryFun!id() ? x.value : f*x.size, x.size);
+    enum vsZero = () => VS(0, 1);
 }
 
 struct SegTree(alias pred = "a + b", T = long) {

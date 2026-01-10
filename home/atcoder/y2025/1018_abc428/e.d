@@ -1,82 +1,54 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!int();
-  auto W = scan!int();
-  auto G = scan!string(H).map!"a.array".array;
-  auto seed = unpredictableSeed;
-
-  alias Grid = bool[][];
+  auto N = scan!int();
+  auto E = scan!int(2 * N - 2).map!"a - 1".chunks(2).array;
+  enum int INF = int.max / 3;
 
   auto solve() {
-    int tr, tc;
-    foreach(r; 0..H) foreach(c; 0..W) {
-      if (G[r][c] == 'T') {
-        tr = r;
-        tc = c;
-        G[r][c] = '.';
-      }
+    auto graph = new int[][](N, 0);
+    foreach(u, v; E.asTuples!2) {
+      graph[u] ~= v;
+      graph[v] ~= u;
     }
 
-    long matrixHash(Grid g) {
-      long ret;
-      foreach(r; 0..H) foreach(c; 0..W) {
-        if (g[r][c]) ret ^= (r * 1000 + c).hashOf(seed);
-      }
-      return ret;
-    }
+    int[] bfs(int from) {
+      int[] ret = INF.repeat(N).array;
+      ret[from] = 0;
 
-    Grid shift(Grid grid, int dir) {
-      enum DR = [-1, 0, 1, 0];
-      enum DC = [0, -1, 0, 1];
+      for(auto queue = DList!int(from); !queue.empty;) {
+        auto cur = queue.front;
+        queue.removeFront();
 
-      auto ret = new bool[][](H, W);
-      foreach(r; 0..H) foreach(c; 0..W) {
-        auto nr = r + DR[dir];
-        auto nc = c + DC[dir];
+        foreach(next; graph[cur]) {
+          if (ret[next] != INF) continue;
 
-        if (min(nr, nc) < 0 || nr >= H || nc >= W) {
-          continue;
-        }
-
-        ret[r][c] = grid[nr][nc];
-      }
-      return ret;
-    }
-
-    auto boolGrid = G.map!(row => row.map!(c => c == '#').array).array;
-
-    auto queue = [matrixHash(boolGrid)].redBlackTree;
-    auto pre = queue.dup;
-
-    int[long] score = [matrixHash(boolGrid): 0];
-    Grid[long] memo = [matrixHash(boolGrid): boolGrid.map!array.array];
-
-    foreach(step; 0..100_000) {
-      swap(queue, pre);
-      queue.clear;
-      foreach(hash; pre) {
-        // hash.deb;
-        auto grid = memo[hash];
-        if (!grid.joiner.canFind(true)) return step;
-
-        foreach(dir; 0..4) {
-          auto next = shift(grid, dir);
-          // next.deb;
-          if (next[tr][tc]) continue;
-
-          auto nextHash = matrixHash(next);
-          if (nextHash in memo) continue;
-
-          memo[nextHash] = next.map!array.array;
-          queue.insert(nextHash);
+          ret[next] = ret[cur] + 1;
+          queue.insertBack(next);
         }
       }
 
-      if (queue.empty) break;
+      return ret;
+    }
+    
+    int maxCorner(int[] dists) {
+      auto maxi = dists.maxElement;
+      foreach(i; iota(N).retro) if (dists[i] == maxi) return i;
+      return -1;
     }
 
-    return -1;
+    auto c1 = maxCorner(bfs(0));
+    auto c2 = maxCorner(bfs(c1));
+
+    int[] maxs = 0.repeat(N).array;
+    int[] ans = new int[](N);
+    foreach(corner; [c1, c2].sort!"a > b") {
+      foreach(i, d; bfs(corner)) {
+        if (maxs[i].chmax(d)) ans[i] = corner + 1;
+      }
+    }
+    
+    foreach(a; ans) writeln(a);
   }
 
   outputForAtCoder(&solve);
