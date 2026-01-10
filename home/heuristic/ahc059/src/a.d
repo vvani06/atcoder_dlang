@@ -70,13 +70,13 @@ void problem() {
     Pair root;
     Pair[] all;
 
-    this() {
+    this(int[] order = []) {
       root = new Pair(-1);
       all = new Pair[](MAX);
 
       auto usable = new int[](0).redBlackTree;
 
-      foreach(n; iota(MAX).array.randomShuffle(RND)) {
+      foreach(n; order.empty ? iota(MAX).array.randomShuffle(RND).array : order) {
         all[n] = new Pair(n);
 
         if (usable.empty) {
@@ -154,8 +154,6 @@ void problem() {
     }
   }
 
-  auto pairs = new Pairs();
-
   int[] rs = new int[](N^^2);
   int[] cs = new int[](N^^2);
   {
@@ -167,6 +165,16 @@ void problem() {
       ofs[num] = MAX;
     }
   }
+
+  int[] distances = new int[](MAX);
+  foreach(i; 0..MAX) {
+    distances[i] = min(
+      rs[i] + cs[i],
+      rs[i + MAX] + cs[i + MAX],
+    );
+  }
+
+  int[] order = distances.enumerate(0).array.sort!"a[1] < b[1]".map!"a[0]".array;
 
   struct Sim {
     int moves;
@@ -214,29 +222,32 @@ void problem() {
     }
   }
 
-  Pairs bestPairs = new Pairs(pairs);
+  Pairs bestPairs = new Pairs(order);
   Sim bestSim = Sim(bestPairs.array);
-
   bestPairs.array.deb;
   
-  // foreach(_; 0..100) {
   int tried;
-  while(!elapsed(1900)) {
+  int turn;
+  auto pairs = new Pairs(bestPairs);
+  while(!elapsed(1950)) {
     tried++;
+
     Pair swappee = pairs.choiceAll();
     if (swappee == pairs.root.child) continue;
 
-    if (swappee.pre) {
-      swappee.pre.removeNext();
-    } else {
-      swappee.parent.removeChild();
-    }
+    if (turn % 10 < 10) {
+      if (swappee.pre) {
+        swappee.pre.removeNext();
+      } else {
+        swappee.parent.removeChild();
+      }
 
-    Pair swapTo = pairs.choiceFree();
-    if (swapTo.next is null) {
-      swapTo.setNext(swappee);
-    } else {
-      swapTo.setChild(swappee);
+      Pair swapTo = pairs.choiceFree();
+      if (swapTo.next is null) {
+        swapTo.setNext(swappee);
+      } else {
+        swapTo.setChild(swappee);
+      }
     }
 
     auto sim = Sim(pairs.array);
@@ -249,6 +260,8 @@ void problem() {
       pairs = new Pairs(bestPairs);
       tried = 0;
     }
+
+    turn++;
   }
 
   writeln(bestSim.asAns());
