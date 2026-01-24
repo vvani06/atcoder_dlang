@@ -6,15 +6,15 @@ void problem() {
   auto XY = scan!long(2 * N).chunks(2);
   auto AB = scan!int(2 * Q).chunks(2);
 
-  struct Coord {
+  struct ArgumentCoord {
     int id;
     long x, y;
 
-    inout long cross(inout Coord other) {
+    inout long cross(inout ArgumentCoord other) {
       return x * other.y - y * other.x;
     }
 
-    inout int opCmp(inout Coord other) {
+    inout int opCmp(inout ArgumentCoord other) {
       auto ap = [0L, 0L] >= [y, x];
       auto aq = [0L, 0L] >= [other.y, other.x];
       if (ap < aq) return -1;
@@ -24,15 +24,19 @@ void problem() {
       if (cross(other) > 0) return -1;
       return 0;
     }
+
+    bool opEquals(ArgumentCoord other) {
+      return cmp([this], [other]) == 0;
+    }
   }
 
   auto solve() {
-    auto sorted = iota(N).map!(i => Coord(i + 1, XY[i][0], XY[i][1])).array.sort!"a > b".array;
+    auto sorted = iota(N).map!(i => ArgumentCoord(i + 1, XY[i][0], XY[i][1])).array.sort!"a > b";
 
     auto uf = UnionFind(N + 1);
     foreach(l; 0..N) {
       auto r = (l + 1) % N;
-      if (cmp([sorted[l]], [sorted[r]]) == 0) uf.unite(sorted[l].id, sorted[r].id);
+      if (sorted[l] == sorted[r]) uf.unite(sorted[l].id, sorted[r].id);
     }
 
     int[] gMin = new int[](N + 1);
