@@ -2,56 +2,24 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto PV = scan!int(2 * N).chunks(2).array;
+  auto S = scan!string(N);
 
   auto solve() {
-    auto memo = new long[][](N + 1, M + 1);
-    memo[0][0] = 0;
+    auto accB = S.map!(s => 0 ~ s.map!"a == '#' ? 1 : 0".cumulativeFold!"a + b".array).array;
 
-    long bestV;
-    auto froms = new byte[][](N + 1, M + 1);
-
-    foreach(i, p, v; zip(iota(N), PV.map!"a[0]", PV.map!"a[1]")) {
-      foreach(fromM; 0..M + 1) {
-        if (memo[i + 1][fromM].chmax(memo[i][fromM])) {
-          froms[i + 1][fromM] = 0;
-        }
-        if (memo[i + 1][fromM] == memo[i][fromM]) froms[i + 1][fromM] |= 1;
-
-        auto toM = fromM + p;
-        if (toM > M) continue;
-
-        auto toV = memo[i][fromM] + v;
-        if (memo[i + 1][toM].chmax(toV)) {
-          froms[i + 1][toM] = 0;
-          bestV = max(bestV, toV);
-        }
-        if (memo[i + 1][toM] == toV) froms[i + 1][toM] |= 2;
+    auto memo = new int[](N + 1);
+    auto pre = new int[](N + 1);
+    foreach(r; 0..N) {
+      swap(memo, pre);
+      
+      int preMin = int.max;
+      foreach_reverse(c; 0..N + 1) {
+        preMin = min(preMin, pre[c]);
+        memo[c] = preMin + accB[r][c] + (N - accB[r].back) - (c - accB[r][c]);
       }
     }
 
-    auto use = new bool[](N);
-    auto skip = new bool[](N);
-    auto reachable = new bool[][](N + 1, M + 1);
-    foreach(j; 0..M + 1) reachable[N][j] = memo[N][j] == bestV;
-
-    foreach(i; iota(1, N + 1).retro) foreach(j; 0..M + 1) {
-      if (!reachable[i][j]) continue;
-
-      if (froms[i][j] & 1) {
-        reachable[i - 1][j] = true;
-        skip[i - 1] = true;
-      }
-
-      auto p = PV[i - 1][0];
-      if (froms[i][j] & 2) {
-        reachable[i - 1][j - p] = true;
-        use[i - 1] = true;
-      }
-    }
-
-    return iota(N).map!(i => use[i] && !skip[i] ? 'A' : use[i] && skip[i] ? 'B' : 'C').to!string;
+    return memo.minElement;
   }
 
   outputForAtCoder(&solve);
