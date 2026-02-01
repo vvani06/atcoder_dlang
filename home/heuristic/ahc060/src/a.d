@@ -105,6 +105,10 @@ void problem() {
       }
     }
 
+    if (chosen.route.empty) {
+      break;
+    }
+
     auto valuable = chosen.hasValue;
     pre = chosen.route.length == 1 ? from : chosen.route[$ - 2];
     from = chosen.end;
