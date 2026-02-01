@@ -41,27 +41,43 @@ void problem() {
   int pre = 0;
   bool[] corn;
   foreach(turn; 0..T) {
-    turn.deb;
-
-    if (!isShop(cur) && !isWhite[cur] && uniform(T * 20, T^^2, RND) < turn^^2) {
+    if (!isShop(cur) && !isWhite[cur] && uniform(0.0, 1.0, RND) <= (turn.to!double / T)^^4) {
       isWhite[cur] = true;
       writeln(-1);
       continue;
     }
 
-    int next;
-    foreach(_; 0..5) {
-      next = rests[cur][pre].choice(RND);
-      if (isShop(next)) {
-        auto ba = BitArray(corn);
-        if (ba in stocks[next]) continue;
+    int next = -1;
+    foreach(s; rests[cur][pre]) {
+      if (!isShop(s)) continue;
 
-        stocks[next][ba] = true;
-        corn.length = 0;
-      } else {
-        corn ~= isWhite[next];
+      auto ba = BitArray(corn);
+      if (ba !in stocks[s]) {
+        next = s;
+        break;
       }
-      break;
+    }
+
+    if (next == -1) {
+      foreach(_; 0..10) {
+        next = rests[cur][pre].choice(RND);
+        
+        if (isShop(next)) {
+          auto ba = BitArray(corn);
+          if (ba in stocks[next]) continue;
+        }
+      }
+    }
+
+    if (isShop(next)) {
+      auto ba = BitArray(corn);
+      if (ba in stocks[next]) {
+        deb("dup ice");
+      }
+      stocks[next][ba] = true;
+      corn.length = 0;
+    } else {
+      corn ~= isWhite[next];
     }
 
     writeln(next);
