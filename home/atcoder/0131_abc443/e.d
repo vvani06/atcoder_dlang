@@ -1,26 +1,52 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto Q = scan!int;
-  auto A = scan!long(N);
+  auto T = scan!int;
+
+  auto subSolve(int N, int C, string[] G) {
+    C--;
+    bool[] breakable = new bool[](N);
+    bool[] visited = new bool[](N);
+    
+    bool[] pre = false.repeat(N).array;
+    bool[] cur = false.repeat(N).array;
+    cur[C] = true;
+    foreach(row; iota(N - 1).retro) {
+      bool passible(int col) {
+        return G[row][col] == '.' || breakable[col];
+      }
+
+      swap(cur, pre);
+      cur[] = false;
+      foreach(col, p; pre.enumerate(0)) {
+        if (!p) continue;
+
+        if (col > 0) cur[col - 1] = true;
+        cur[col] = true;
+        if (col < N - 1) cur[col + 1] = true; 
+      }
+
+      foreach(col, p; cur.enumerate(0)) {
+        if (!p) continue;
+
+        if (!visited[col]) {
+          visited[col] = true;
+
+          auto lowers = iota(row + 1, N).map!(r => G[r][col]);
+          breakable[col] = !lowers.canFind('#');
+        }
+        cur[col] &= passible(col); 
+      }
+    }
+
+    return cur.map!(c => c ? '1' : '0').to!string;
+  }
 
   auto solve() {
-    auto acc = 0L ~ A.cumulativeFold!"a + b".array;
-    
-    foreach(_; 0..Q) {
-      auto T = scan!int;
-
-      if (T == 1) {
-        auto X = scan!int;
-        acc[X] -= A[X - 1];
-        acc[X] += A[X];
-        A.swapAt(X - 1, X);
-      } else {
-        auto L = scan!int - 1;
-        auto R = scan!int;
-        writeln(acc[R] - acc[L]);
-      }
+    foreach(_; 0..T) {
+      auto N = scan!int;
+      auto C = scan!int;
+      writeln(subSolve(N, C, scan!string(N)));
     }
   }
 

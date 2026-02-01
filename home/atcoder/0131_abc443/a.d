@@ -1,27 +1,10 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto Q = scan!int;
-  auto A = scan!long(N);
+  auto S = scan!string;
 
   auto solve() {
-    auto acc = 0L ~ A.cumulativeFold!"a + b".array;
-    
-    foreach(_; 0..Q) {
-      auto T = scan!int;
-
-      if (T == 1) {
-        auto X = scan!int;
-        acc[X] -= A[X - 1];
-        acc[X] += A[X];
-        A.swapAt(X - 1, X);
-      } else {
-        auto L = scan!int - 1;
-        auto R = scan!int;
-        writeln(acc[R] - acc[L]);
-      }
-    }
+    return S ~ "s";
   }
 
   outputForAtCoder(&solve);
@@ -72,3 +55,11 @@ void runSolver() {
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
+
+auto asTuples(int L, T)(T matrix) {
+  static if (__traits(compiles, L)) {
+    return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
+  } else {
+    return matrix.map!(row => tuple());
+  }
+}

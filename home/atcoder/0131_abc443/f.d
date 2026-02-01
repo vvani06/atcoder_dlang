@@ -2,73 +2,24 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto XY = scan!long(2 * N).chunks(2);
-  auto AB = scan!int(2 * Q).chunks(2);
-
-  struct ArgumentCoord {
-    int id;
-    long x, y;
-
-    long cross(ref const ArgumentCoord other) {
-      return x * other.y - y * other.x;
-    }
-
-    int opCmp(ref const ArgumentCoord other) {
-      auto ap = [0L, 0L] >= [y, x];
-      auto aq = [0L, 0L] >= [other.y, other.x];
-      if (ap < aq) return -1;
-      if (ap > aq) return 1;
-
-      const cr = cross(other);
-      if (cr < 0) return 1;
-      if (cr > 0) return -1;
-      return 0;
-    }
-
-    bool opEquals(ref const ArgumentCoord other) {
-      return cmp([this], [other]) == 0;
-    }
-
-    bool argLess(ref const ArgumentCoord other) {
-      return this > other;
-    }
-
-    bool argEquals(ref const ArgumentCoord other) {
-      return cmp([this], [other]) == 0;
-    }
-  }
+  auto S = scan!string(N);
 
   auto solve() {
-    auto sorted = iota(N).map!(i => ArgumentCoord(i + 1, XY[i][0], XY[i][1])).array.sort!"a.argLess(b)";
+    auto accB = S.map!(s => 0 ~ s.map!"a == '#' ? 1 : 0".cumulativeFold!"a + b".array).array;
 
-    auto uf = UnionFind(N + 1);
-    foreach(l; 0..N) {
-      auto r = (l + 1) % N;
-      if (sorted[l].argEquals(sorted[r])) uf.unite(sorted[l].id, sorted[r].id);
+    auto memo = new int[](N + 1);
+    auto pre = new int[](N + 1);
+    foreach(r; 0..N) {
+      swap(memo, pre);
+      
+      int preMin = int.max;
+      foreach_reverse(c; 0..N + 1) {
+        preMin = min(preMin, pre[c]);
+        memo[c] = preMin + accB[r][c] + (N - accB[r].back) - (c - accB[r][c]);
+      }
     }
 
-    int[] gMin = new int[](N + 1);
-    int[] gMax = new int[](N + 1);
-    foreach(i; 0..N) {
-      auto id = uf.root(sorted[i].id);
-      gMin[id] = i;
-      gMax[id] = i;
-    }
-    foreach(i; 0..N) {
-      auto root = uf.root(sorted[i].id);
-      gMin[root].chmin(i);
-      gMax[root].chmax(i);
-    }
-
-    foreach(a, b; AB.asTuples!2) {
-      auto l = gMin[uf.root(a)];
-      auto r = gMax[uf.root(b)];
-      [[a, b], [l, r]].deb;
-
-      if (l > r) r += N;
-      writeln(r - l + 1);
-    }
+    return memo.minElement;
   }
 
   outputForAtCoder(&solve);
@@ -127,81 +78,3 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => tuple());
   }
 }
-
-struct UnionFindWith(T = UnionFindExtra) {
-  int[] roots;
-  int[] sizes;
-  long[] weights;
-  T[] extras;
- 
-  this(int size) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = new T[](size);
-  }
- 
-  this(int size, T[] ex) {
-    roots = size.iota.array;
-    sizes = 1.repeat(size).array;
-    weights = 0L.repeat(size).array;
-    extras = ex.dup;
-  }
- 
-  int root(int x) {
-    if (roots[x] == x) return x;
-
-    const root = root(roots[x]);
-    weights[x] += weights[roots[x]];
-    return roots[x] = root;
-  }
-
-  int size(int x) {
-    return sizes[root(x)];
-  }
-
-  T extra(int x) {
-    return extras[root(x)];
-  }
-
-  T setExtra(int x, T t) {
-    return extras[root(x)] = t;
-  }
- 
-  bool unite(int x, int y, long w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
-    if (rootX == rootY) return weights[x] - weights[y] == w;
- 
-    if (sizes[rootX] < sizes[rootY]) {
-      swap(x, y);
-      swap(rootX, rootY);
-      w *= -1;
-    }
-
-    sizes[rootX] += sizes[rootY];
-    weights[rootY] = weights[x] - weights[y] - w;
-    extras[rootX] = extras[rootX].merge(extras[rootY]);
-    roots[rootY] = rootX;
-    return true;
-  }
- 
-  bool same(int x, int y, int w = 0) {
-    int rootX = root(x);
-    int rootY = root(y);
- 
-    return rootX == rootY && weights[rootX] - weights[rootY] == w;
-  }
-
-  auto dup() {
-    auto dupe = UnionFindWith!T(roots.length.to!int);
-    dupe.roots = roots.dup;
-    dupe.sizes = sizes.dup;
-    dupe.weights = weights.dup;
-    dupe.extras = extras.dup;
-    return dupe;
-  }
-}
-
-struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
-alias UnionFind = UnionFindWith!UnionFindExtra;

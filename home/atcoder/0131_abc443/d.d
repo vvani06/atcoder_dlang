@@ -1,26 +1,41 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto Q = scan!int;
-  auto A = scan!long(N);
+  auto T = scan!int;
+
+  struct IndexValue {
+    int index;
+    long value;
+  }
+
+  auto subSolve(int N, long[] R) {
+    long[] decreased = R.dup;
+    auto heap = iota(N).map!(i => IndexValue(i, R[i])).array.heapify!"a.value > b.value";
+
+    void decrease(int index, long valueTo) {
+      if (index < 0 || index >= N || decreased[index] <= valueTo) return;
+
+      decreased[index] = valueTo;
+      heap.insert(IndexValue(index, decreased[index]));
+    }
+
+    while(!heap.empty) {
+      auto lowest = heap.front;
+      heap.removeFront();
+      if (lowest.value != decreased[lowest.index]) continue;
+
+      foreach(neighbor; [lowest.index - 1, lowest.index + 1]) {
+        decrease(neighbor, lowest.value + 1);
+      }
+    }
+
+    return R.sum - decreased.sum;
+  }
 
   auto solve() {
-    auto acc = 0L ~ A.cumulativeFold!"a + b".array;
-    
-    foreach(_; 0..Q) {
-      auto T = scan!int;
-
-      if (T == 1) {
-        auto X = scan!int;
-        acc[X] -= A[X - 1];
-        acc[X] += A[X];
-        A.swapAt(X - 1, X);
-      } else {
-        auto L = scan!int - 1;
-        auto R = scan!int;
-        writeln(acc[R] - acc[L]);
-      }
+    foreach(_; 0..T) {
+      auto N = scan!int;
+      writeln(subSolve(N, scan!long(N)));
     }
   }
 
