@@ -8,6 +8,7 @@ void problem() {
   auto seed = 983_741_243;
   auto RND = Xorshift(seed);
   enum long INF = long.max / 3;
+  enum TIME_LIMIT = 1800;
 
   int N = scan!int;
   int M = scan!int;
@@ -29,116 +30,145 @@ void problem() {
     }
   }
 
-  bool[BitArray][] stocks;
-  stocks.length = K;
-
   bool isShop(int node) {
     return node < K;
   }
 
-  bool[] isRed = new bool[](N);
-  struct Path {
-    int start, end;
-    int[] route;
+  class Sim {
+    bool[BitArray][] stocks;
+    bool[] isRed;
+    int[][] ans;
+    int STEP_LIMIT;
+    Path[][] pathes;
+    bool initiated;
 
-    BitArray asIce() {
-      if (route.length <= 1) return BitArray(new bool[](0));
+    int pathIndex(int from, int to, int step) { return step * K^^2 + to * K + from; }
 
-      int cur = start;
-      bool[] ice = new bool[](route.length - 1);
-      foreach(i, next; route[0..$ - 1]) {
-        ice[i] = isRed[next];
-        cur = next;
-      }
-      return BitArray(ice);
-    }
+    struct Path {
+      int start, end;
+      int[] route;
 
-    bool hasValue() {
-      return (asIce in stocks[end]) is null;
-    }
+      BitArray asIce(Sim sim) {
+        if (route.length <= 1) return BitArray(new bool[](0));
 
-    bool availableFrom(int from) {
-      return route[0] != from;
-    }
-  }
-
-  enum STEP_LIMIT = 13;
-  int pathIndex(int from, int to, int step) { return step * K^^2 + to * K + from; }
-  auto pathes = new Path[][](K * K * STEP_LIMIT, 0);
-
-  foreach(from; 0..K) {
-    DList!int route;
-    void dfs(int cur, int pre, int step) {
-      if (step >= STEP_LIMIT) return;
-
-      foreach(next; cur == pre ? graph[cur] : rests[cur][pre]) {
-        route.insertBack(next);
-        if (isShop(next)) {
-          pathes[pathIndex(from, next, step)] ~= Path(from, next, route.array);
-        } else {
-          dfs(next, cur, step + 1);
+        int cur = start;
+        bool[] ice = new bool[](route.length - 1);
+        foreach(i, next; route[0..$ - 1]) {
+          ice[i] = sim.isRed[next];
+          cur = next;
         }
-        route.removeBack();
+        return BitArray(ice);
+      }
+
+      bool hasValue(Sim sim) {
+        return (asIce(sim) in sim.stocks[end]) is null;
+      }
+
+      bool availableFrom(int from) {
+        return route[0] != from;
       }
     }
-    dfs(from, from, 0);
-  }
 
-  int[][] ans;
-  int moves;
-  int from, pre;
-  while(moves < T) {
-    auto tos = iota(K).array.randomCover(RND);
-    Path chosen;
+    this(int limit) {
+      stocks.length = K;
+      isRed = new bool[](N);
+      STEP_LIMIT = limit;
+      pathes = new Path[][](K * K * STEP_LIMIT, 0);
 
-    MAIN: foreach(step; 0..STEP_LIMIT) {
-      foreach(to; tos) {
-        auto ps = pathes[pathIndex(from, to, step)];
-        foreach(path; ps.randomSample(min(50, ps.length), RND)) {
-          if (!path.availableFrom(pre)) continue;
+      foreach(from; 0..K) {
+        DList!int route;
+        void dfs(int cur, int pre, int step) {
+          if (elapsed(TIME_LIMIT)) return;
+          if (step >= STEP_LIMIT) return;
 
-          chosen = path;
-          if (path.hasValue) {
-            break MAIN;
+          foreach(next; cur == pre ? graph[cur] : rests[cur][pre]) {
+            route.insertBack(next);
+            if (isShop(next)) {
+              pathes[pathIndex(from, next, step)] ~= Path(from, next, route.array);
+            } else {
+              dfs(next, cur, step + 1);
+            }
+            route.removeBack();
           }
         }
+        dfs(from, from, 0);
       }
+
+      initiated = true;
     }
 
-    if (chosen.route.empty) {
-      break;
-    }
+    void simulate() {
+      if (!initiated) return;
 
-    auto valuable = chosen.hasValue;
-    pre = chosen.route.length == 1 ? from : chosen.route[$ - 2];
-    from = chosen.end;
-    stocks[chosen.end][chosen.asIce] = true;
+      int moves;
+      int from, pre;
+      while(moves < T) {
+        if (elapsed(TIME_LIMIT)) return;
+        
+        auto tos = iota(K).array.randomCover(RND);
+        Path chosen;
 
-    auto ansRoute = chosen.route.dup;
-    if (!valuable) {
-      auto flipCandidate = chosen.route[0..$ - 1].filter!(i => !isRed[i]).array;
-      if (!flipCandidate.empty) {
-        auto flipNode = flipCandidate.choice(RND);
-        isRed[flipNode] = true;
-        foreach_reverse(i, node; ansRoute) {
-          if (node == flipNode) {
-            ansRoute = ansRoute[0..i + 1] ~ (-1) ~ ansRoute[i + 1..$];
-            break;
+        MAIN: foreach(step; 0..STEP_LIMIT) {
+          foreach(to; tos) {
+            auto ps = pathes[pathIndex(from, to, step)];
+            foreach(path; ps.randomSample(min(50, ps.length), RND)) {
+              if (!path.availableFrom(pre)) continue;
+
+              chosen = path;
+              if (path.hasValue(this)) {
+                break MAIN;
+              }
+            }
           }
         }
+
+        if (chosen.route.empty) break;
+
+        auto valuable = chosen.hasValue(this);
+        pre = chosen.route.length == 1 ? from : chosen.route[$ - 2];
+        from = chosen.end;
+        stocks[chosen.end][chosen.asIce(this)] = true;
+
+        auto ansRoute = chosen.route.dup;
+        if (!valuable) {
+          auto flipCandidate = chosen.route[0..$ - 1].filter!(i => !isRed[i]).array;
+          if (!flipCandidate.empty) {
+            auto flipNode = flipCandidate.choice(RND);
+            isRed[flipNode] = true;
+            foreach_reverse(i, node; ansRoute) {
+              if (node == flipNode) {
+                ansRoute = ansRoute[0..i + 1] ~ (-1) ~ ansRoute[i + 1..$];
+                break;
+              }
+            }
+          }
+        }
+
+        moves += ansRoute.length.to!int;
+        if (moves <= T) ans ~= ansRoute;
       }
     }
 
-    moves += ansRoute.length.to!int;
+    size_t score() {
+      return stocks.map!"a.values.length".sum;
+    }
 
-    if (moves <= T) {
-      ans ~= ansRoute;
+    void outputAsAns() {
+      foreach(a; ans) writefln("%(%s %)", a);
     }
   }
+  
+  Sim bestSim = new Sim(0);
+  foreach(stepSize; 8..25) {
+    if (elapsed(TIME_LIMIT)) break;
 
-  foreach(a; ans) {
-    writefln("%(%s %)", a);
+    auto sim = new Sim(stepSize);
+    sim.simulate();
+    if (bestSim.score < sim.score) {
+      bestSim = sim;
+    }
   }
+  bestSim.outputAsAns();
 }
 
 // ----------------------------------------------
