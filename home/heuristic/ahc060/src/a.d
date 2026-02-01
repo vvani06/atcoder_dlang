@@ -31,60 +31,110 @@ void problem() {
 
   bool[BitArray][] stocks;
   stocks.length = K;
-  bool[] isWhite = new bool[](N);
 
   bool isShop(int node) {
     return node < K;
   }
 
-  int cur = 0;
-  int pre = 0;
-  bool[] corn;
-  foreach(turn; 0..T) {
-    if (!isShop(cur) && !isWhite[cur] && uniform(0.0, 1.0, RND) <= (turn.to!double / T)^^4) {
-      isWhite[cur] = true;
-      writeln(-1);
-      continue;
+  bool[] isRed = new bool[](N);
+  struct Path {
+    int start, end;
+    int[] route;
+
+    BitArray asIce() {
+      if (route.length <= 1) return BitArray(new bool[](0));
+
+      int cur = start;
+      bool[] ice = new bool[](route.length - 1);
+      foreach(i, next; route[0..$ - 1]) {
+        ice[i] = isRed[next];
+        cur = next;
+      }
+      return BitArray(ice);
     }
 
-    int next = -1;
-    foreach(s; rests[cur][pre]) {
-      if (!isShop(s)) continue;
+    bool hasValue() {
+      return (asIce in stocks[end]) is null;
+    }
 
-      auto ba = BitArray(corn);
-      if (ba !in stocks[s]) {
-        next = s;
-        break;
+    bool availableFrom(int from) {
+      return route[0] != from;
+    }
+  }
+
+  enum STEP_LIMIT = 13;
+  int pathIndex(int from, int to, int step) { return step * K^^2 + to * K + from; }
+  auto pathes = new Path[][](K * K * STEP_LIMIT, 0);
+
+  foreach(from; 0..K) {
+    DList!int route;
+    void dfs(int cur, int pre, int step) {
+      if (step >= STEP_LIMIT) return;
+
+      foreach(next; cur == pre ? graph[cur] : rests[cur][pre]) {
+        route.insertBack(next);
+        if (isShop(next)) {
+          pathes[pathIndex(from, next, step)] ~= Path(from, next, route.array);
+        } else {
+          dfs(next, cur, step + 1);
+        }
+        route.removeBack();
       }
     }
+    dfs(from, from, 0);
+  }
 
-    if (next == -1) {
-      foreach(_; 0..10) {
-        next = rests[cur][pre].choice(RND);
-        
-        if (isShop(next)) {
-          auto ba = BitArray(corn);
-          if (ba in stocks[next]) continue;
+  int[][] ans;
+  int moves;
+  int from, pre;
+  while(moves < T) {
+    auto tos = iota(K).array.randomCover(RND);
+    Path chosen;
+
+    MAIN: foreach(step; 0..STEP_LIMIT) {
+      foreach(to; tos) {
+        auto ps = pathes[pathIndex(from, to, step)];
+        foreach(path; ps.randomSample(min(50, ps.length), RND)) {
+          if (!path.availableFrom(pre)) continue;
+
+          chosen = path;
+          if (path.hasValue) {
+            break MAIN;
+          }
         }
       }
     }
 
-    if (isShop(next)) {
-      auto ba = BitArray(corn);
-      if (ba in stocks[next]) {
-        deb("dup ice");
+    auto valuable = chosen.hasValue;
+    pre = chosen.route.length == 1 ? from : chosen.route[$ - 2];
+    from = chosen.end;
+    stocks[chosen.end][chosen.asIce] = true;
+
+    auto ansRoute = chosen.route.dup;
+    if (!valuable) {
+      auto flipCandidate = chosen.route[0..$ - 1].filter!(i => !isRed[i]).array;
+      if (!flipCandidate.empty) {
+        auto flipNode = flipCandidate.choice(RND);
+        isRed[flipNode] = true;
+        foreach_reverse(i, node; ansRoute) {
+          if (node == flipNode) {
+            ansRoute = ansRoute[0..i + 1] ~ (-1) ~ ansRoute[i + 1..$];
+            break;
+          }
+        }
       }
-      stocks[next][ba] = true;
-      corn.length = 0;
-    } else {
-      corn ~= isWhite[next];
     }
 
-    writeln(next);
-    pre = cur;
-    cur = next;
+    moves += ansRoute.length.to!int;
+
+    if (moves <= T) {
+      ans ~= ansRoute;
+    }
   }
 
+  foreach(a; ans) {
+    writefln("%(%s %)", a);
+  }
 }
 
 // ----------------------------------------------
