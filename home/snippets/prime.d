@@ -101,3 +101,41 @@ struct Eratosthenes {
     return memo[num] = ret;
   }
 }
+
+struct LinearSieze {
+  int limit;
+  int[] primes;
+  int[] spf;
+
+  this(int limit) {
+    this.limit = limit;
+    spf = new int[](limit + 1);
+
+    foreach(d; iota(2, limit + 1)) {
+      if (spf[d] == 0) {
+        spf[d] = d;
+        primes ~= d;
+      }
+
+      foreach(p; primes) {
+        if (p * d > limit || p > spf[d]) break; else spf[p * d] = p;
+      }
+    }
+  }
+
+  alias Factors = Tuple!(int, int)[];
+  Factors factors(int n) {
+    Factors ret;
+    for(auto prime = spf[n]; prime > 1;) {
+      int count;
+      while(n % prime == 0) {
+        count++;
+        n /= prime;
+      }
+
+      ret ~= tuple(prime, count);
+      prime = spf[n];
+    }
+    return ret;
+  }
+}
