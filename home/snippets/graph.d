@@ -1,4 +1,38 @@
 
+struct Tree {
+  int size;
+  int[][] graph;
+
+  this(int nodes, int[][] edges) {
+    size = nodes;
+    graph = new int[][](nodes, 0);
+    foreach(u, v; edges.asTuples!2) {
+      graph[u] ~= v;
+      graph[v] ~= u;
+    }
+  }
+
+  int degrees(int node) {
+    return graph[node].length.to!int;
+  }
+
+  void topological(void delegate(int, int[]) fn) {
+    auto degrees = graph.map!"a.length".array;
+    for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
+      auto cur = queue.front;
+      queue.removeFront();
+
+      if (degrees[cur] == -1) continue;
+      degrees[cur] = -1;
+      fn(cur, graph[cur]);
+
+      foreach(next; graph[cur]) {
+        if (--degrees[next] == 1) queue.insertBack(next);
+      }
+    }
+  }
+}
+
 struct Graph {
   long size;
   long[][] g;

@@ -1,71 +1,14 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto T = scan!int;
-
-  struct Tree {
-    int size;
-    int[][] graph;
-
-    this(int nodes, int[][] edges) {
-      size = nodes;
-      graph = new int[][](nodes, 0);
-      foreach(u, v; edges.asTuples!2) {
-        graph[u] ~= v;
-        graph[v] ~= u;
-      }
-    }
-
-    int degrees(int node) {
-      return graph[node].length.to!int;
-    }
-
-    void topological(void delegate(int, int[]) fn) {
-      auto degrees = graph.map!"a.length".array;
-      for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        if (degrees[cur] == -1) continue;
-        degrees[cur] = -1;
-        fn(cur, graph[cur]);
-
-        foreach(next; graph[cur]) {
-          if (--degrees[next] == 1) queue.insertBack(next);
-        }
-      }
-    }
-  }
-
-  auto subSolve(int N, int[][] E) {
-    auto tree = Tree(N, E);
-    auto memo = new int[](N);
-    memo[] = -1;
-    int ans = 1;
-
-    void walk(int node, int[] nexts) {
-      auto around = nexts.map!(n => memo[n]).array.sort!"a > b";
-      if (tree.degrees(node) <= 2) {
-        memo[node] = 0;
-      } else if (tree.degrees(node) == 3) {
-        memo[node] = 1;
-        ans = max(ans, around[0] + 1);
-      } else {
-        memo[node] = around[0] + 1;
-        ans = max(ans, around[0..2].sum + 1);
-      }
-    }
-
-    tree.topological(&walk);
-    return ans;
-  }
+  auto N = scan!int;
+  auto M = scan!int;
+  auto A = scan!long(N);
+  auto B = scan!long(M);
 
   auto solve() {
-    foreach(_; 0..T) {
-      auto N = scan!int;
-      auto E = scan!int(2 * N - 2).map!"a - 1".array.chunks(2).array;
-      writeln(subSolve(N, E));
-    }
+    foreach(b; B) foreach(i; max(0, b - 2)..min(N, b + 1)) A[i]++;
+    return A;
   }
 
   outputForAtCoder(&solve);

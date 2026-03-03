@@ -1,71 +1,17 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto T = scan!int;
-
-  struct Tree {
-    int size;
-    int[][] graph;
-
-    this(int nodes, int[][] edges) {
-      size = nodes;
-      graph = new int[][](nodes, 0);
-      foreach(u, v; edges.asTuples!2) {
-        graph[u] ~= v;
-        graph[v] ~= u;
-      }
-    }
-
-    int degrees(int node) {
-      return graph[node].length.to!int;
-    }
-
-    void topological(void delegate(int, int[]) fn) {
-      auto degrees = graph.map!"a.length".array;
-      for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        if (degrees[cur] == -1) continue;
-        degrees[cur] = -1;
-        fn(cur, graph[cur]);
-
-        foreach(next; graph[cur]) {
-          if (--degrees[next] == 1) queue.insertBack(next);
-        }
-      }
-    }
-  }
-
-  auto subSolve(int N, int[][] E) {
-    auto tree = Tree(N, E);
-    auto memo = new int[](N);
-    memo[] = -1;
-    int ans = 1;
-
-    void walk(int node, int[] nexts) {
-      auto around = nexts.map!(n => memo[n]).array.sort!"a > b";
-      if (tree.degrees(node) <= 2) {
-        memo[node] = 0;
-      } else if (tree.degrees(node) == 3) {
-        memo[node] = 1;
-        ans = max(ans, around[0] + 1);
-      } else {
-        memo[node] = around[0] + 1;
-        ans = max(ans, around[0..2].sum + 1);
-      }
-    }
-
-    tree.topological(&walk);
-    return ans;
-  }
+  auto N = scan!long;
+  auto K = scan!long;
+  auto Q = scan!long;
+  auto A = scan!long(N);
+  auto LR = scan!long(2 * Q).chunks(2);
 
   auto solve() {
-    foreach(_; 0..T) {
-      auto N = scan!int;
-      auto E = scan!int(2 * N - 2).map!"a - 1".array.chunks(2).array;
-      writeln(subSolve(N, E));
-    }
+    auto acc = (0L ~ A.cumulativeFold!"a + b".array).assumeSorted;
+    auto goals = iota(N).map!(i => min(N, acc.lowerBound(K + acc[i] + 1).length)).array;
+    auto gAcc = 0L ~ goals.cumulativeFold!"a + b".array;
+    return LR.map!(lr => gAcc[lr[1]] - gAcc[lr[0] - 1]);
   }
 
   outputForAtCoder(&solve);
@@ -123,4 +69,61 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
 }

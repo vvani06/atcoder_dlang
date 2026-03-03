@@ -1,71 +1,29 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto T = scan!int;
+  auto N = scan!int;
+  auto XY = scan!long(2 * N).chunks(2).array;
+  enum long INF = long.max / 3;
 
-  struct Tree {
-    int size;
-    int[][] graph;
-
-    this(int nodes, int[][] edges) {
-      size = nodes;
-      graph = new int[][](nodes, 0);
-      foreach(u, v; edges.asTuples!2) {
-        graph[u] ~= v;
-        graph[v] ~= u;
-      }
+  auto solve() {
+    long dist(int f, int t) {
+      return (XY[f][0] - XY[t][0])^^2 + (XY[f][1] - XY[t][1])^^2;
     }
 
-    int degrees(int node) {
-      return graph[node].length.to!int;
-    }
+    auto memo = new long[][](2^^N, N);
+    foreach(ref m; memo) m[] = INF;
+    memo[1][0] = 0;
+    foreach(fromState; 1..2^^N) {
+      foreach(from; iota(N).filter!(b => (fromState & (2^^b)) != 0)) {
+        foreach(to; iota(N).filter!(b => (fromState & (2^^b)) == 0)) {
+          auto toState = fromState | (2^^to);
 
-    void topological(void delegate(int, int[]) fn) {
-      auto degrees = graph.map!"a.length".array;
-      for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        if (degrees[cur] == -1) continue;
-        degrees[cur] = -1;
-        fn(cur, graph[cur]);
-
-        foreach(next; graph[cur]) {
-          if (--degrees[next] == 1) queue.insertBack(next);
+          memo[toState][to].chmin(memo[fromState][from] + dist(from, to));
         }
       }
     }
-  }
 
-  auto subSolve(int N, int[][] E) {
-    auto tree = Tree(N, E);
-    auto memo = new int[](N);
-    memo[] = -1;
-    int ans = 1;
-
-    void walk(int node, int[] nexts) {
-      auto around = nexts.map!(n => memo[n]).array.sort!"a > b";
-      if (tree.degrees(node) <= 2) {
-        memo[node] = 0;
-      } else if (tree.degrees(node) == 3) {
-        memo[node] = 1;
-        ans = max(ans, around[0] + 1);
-      } else {
-        memo[node] = around[0] + 1;
-        ans = max(ans, around[0..2].sum + 1);
-      }
-    }
-
-    tree.topological(&walk);
-    return ans;
-  }
-
-  auto solve() {
-    foreach(_; 0..T) {
-      auto N = scan!int;
-      auto E = scan!int(2 * N - 2).map!"a - 1".array.chunks(2).array;
-      writeln(subSolve(N, E));
-    }
+    return iota(1, N).map!(i => memo.back[i] + dist(i, 0)).minElement;
   }
 
   outputForAtCoder(&solve);

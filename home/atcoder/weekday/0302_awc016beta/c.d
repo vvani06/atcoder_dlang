@@ -1,71 +1,17 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto T = scan!int;
-
-  struct Tree {
-    int size;
-    int[][] graph;
-
-    this(int nodes, int[][] edges) {
-      size = nodes;
-      graph = new int[][](nodes, 0);
-      foreach(u, v; edges.asTuples!2) {
-        graph[u] ~= v;
-        graph[v] ~= u;
-      }
-    }
-
-    int degrees(int node) {
-      return graph[node].length.to!int;
-    }
-
-    void topological(void delegate(int, int[]) fn) {
-      auto degrees = graph.map!"a.length".array;
-      for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        if (degrees[cur] == -1) continue;
-        degrees[cur] = -1;
-        fn(cur, graph[cur]);
-
-        foreach(next; graph[cur]) {
-          if (--degrees[next] == 1) queue.insertBack(next);
-        }
-      }
-    }
-  }
-
-  auto subSolve(int N, int[][] E) {
-    auto tree = Tree(N, E);
-    auto memo = new int[](N);
-    memo[] = -1;
-    int ans = 1;
-
-    void walk(int node, int[] nexts) {
-      auto around = nexts.map!(n => memo[n]).array.sort!"a > b";
-      if (tree.degrees(node) <= 2) {
-        memo[node] = 0;
-      } else if (tree.degrees(node) == 3) {
-        memo[node] = 1;
-        ans = max(ans, around[0] + 1);
-      } else {
-        memo[node] = around[0] + 1;
-        ans = max(ans, around[0..2].sum + 1);
-      }
-    }
-
-    tree.topological(&walk);
-    return ans;
-  }
+  auto N = scan!int;
+  auto L = scan!long;
+  auto R = scan!long;
+  auto T = scan!long;
+  auto PS = scan!long(2 * N).chunks(2);
 
   auto solve() {
-    foreach(_; 0..T) {
-      auto N = scan!int;
-      auto E = scan!int(2 * N - 2).map!"a - 1".array.chunks(2).array;
-      writeln(subSolve(N, E));
+    foreach(i, p, s; zip(iota(1, N + 1), PS.map!"a[0]", PS.map!"a[1]").array.multiSort!("a[1] < b[1]", "a[2] > b[2]", "a[0] < b[0]")) {
+      if (L <= p && p <= R && s >= T) return i;
     }
+    return -1;
   }
 
   outputForAtCoder(&solve);
@@ -122,5 +68,42 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
   } else {
     return matrix.map!(row => tuple());
+  }
+}
+
+struct Rational {
+  long u, l = 1;
+  this(long u) { this.u = u; }
+  this(long u, long l) {
+    if (l == 0) assert("lower number cannot be 0");
+
+    if (l < 0) {
+      u *= -1;
+      l *= -1;
+    }
+    const g = gcd(u.abs, l);
+    this.u = u / g;
+    this.l = l / g;
+  }
+
+  Rational add(Rational o) {
+    const nl = l * o.l;
+    const nu = u * o.l + o.u * l;
+    return Rational(nu, nl);
+  }
+  Rational sub(Rational o) { return add(Rational(-o.u, o.l)); }
+  Rational mul(Rational o) { return Rational(u * o.u, l * o.l); }
+  Rational div(Rational o) { return Rational(u * o.l, l * o.u); }
+
+  Rational opBinary(string op: "+")(Rational o) { return add(o); }
+  Rational opBinary(string op: "-")(Rational o) { return sub(o); }
+  Rational opBinary(string op: "*")(Rational o) { return mul(o); }
+  Rational opBinary(string op: "/")(Rational o) { return div(o); }
+  void opAssign(T)(t v) { u = v; }
+
+  int opCmp(Rational o) {
+    const me = u * o.l;
+    const other = o.u * l;
+    return me > other ? 1 : me < other ? -1 : 0;
   }
 }

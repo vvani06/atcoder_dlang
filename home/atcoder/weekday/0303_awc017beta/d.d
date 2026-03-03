@@ -1,71 +1,55 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto T = scan!int;
-
-  struct Tree {
-    int size;
-    int[][] graph;
-
-    this(int nodes, int[][] edges) {
-      size = nodes;
-      graph = new int[][](nodes, 0);
-      foreach(u, v; edges.asTuples!2) {
-        graph[u] ~= v;
-        graph[v] ~= u;
-      }
-    }
-
-    int degrees(int node) {
-      return graph[node].length.to!int;
-    }
-
-    void topological(void delegate(int, int[]) fn) {
-      auto degrees = graph.map!"a.length".array;
-      for(auto queue = DList!int(iota(size).filter!(i => degrees[i] <= 1).array); !queue.empty;) {
-        auto cur = queue.front;
-        queue.removeFront();
-
-        if (degrees[cur] == -1) continue;
-        degrees[cur] = -1;
-        fn(cur, graph[cur]);
-
-        foreach(next; graph[cur]) {
-          if (--degrees[next] == 1) queue.insertBack(next);
-        }
-      }
-    }
-  }
-
-  auto subSolve(int N, int[][] E) {
-    auto tree = Tree(N, E);
-    auto memo = new int[](N);
-    memo[] = -1;
-    int ans = 1;
-
-    void walk(int node, int[] nexts) {
-      auto around = nexts.map!(n => memo[n]).array.sort!"a > b";
-      if (tree.degrees(node) <= 2) {
-        memo[node] = 0;
-      } else if (tree.degrees(node) == 3) {
-        memo[node] = 1;
-        ans = max(ans, around[0] + 1);
-      } else {
-        memo[node] = around[0] + 1;
-        ans = max(ans, around[0..2].sum + 1);
-      }
-    }
-
-    tree.topological(&walk);
-    return ans;
-  }
+  auto N = scan!long;
+  auto M = scan!long;
+  auto K = scan!long;
+  auto A = scan!long(N);
+  auto UVB = scan!long(3 * M).chunks(3);
 
   auto solve() {
-    foreach(_; 0..T) {
-      auto N = scan!int;
-      auto E = scan!int(2 * N - 2).map!"a - 1".array.chunks(2).array;
-      writeln(subSolve(N, E));
+    auto debuff = new long[][](N, N);
+    foreach(u, v, b; UVB.asTuples!3) {
+      u--; v--;
+      debuff[u][v] = debuff[v][u] = b;
     }
+
+    int size;
+    long score;
+    long ans = long.min;
+    auto team = new int[](0).redBlackTree;
+
+    void add(int i) {
+      size++;
+      score += A[i];
+      foreach(t; team) score -= debuff[t][i];
+      team.insert(i);
+    }
+
+    void remove(int i) {
+      size--;
+      foreach(t; team) score += debuff[t][i];
+      score -= A[i];
+      team.removeKey(i);
+    }
+
+    void dfs(int cur) {
+      if (cur == N) return;
+
+      if (size < K) {
+        add(cur);
+        if (size == K) {
+          ans = max(ans, score);
+        } else {
+          dfs(cur + 1);
+        }
+
+        remove(cur);
+        dfs(cur + 1);
+      }
+    }
+    dfs(0);
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -123,4 +107,61 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
 }
