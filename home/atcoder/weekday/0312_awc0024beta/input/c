@@ -1,0 +1,27 @@
+3 3
+abc
+bca
+cab
+
+2 2
+aa
+aa
+
+4 6
+abcdef
+aghijk
+almnop
+aqrstu
+
+8 10
+abcdefghij
+abcdefghij
+klmnopqrst
+klmnopqrst
+uvwxabcdef
+uvwxabcdef
+ghijklmnop
+ghijklmnop
+
+1 1
+z
