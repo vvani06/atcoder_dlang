@@ -2,34 +2,21 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto X = iota(N).map!(_ => scan!int(scan!int)).array;
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
+    auto rbt = (iota(M + 1).array ~ 0.repeat(N).array).redBlackTree!true;
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+    foreach(x; X) {
+      foreach(a; x ~ 0) {
+        if (a in rbt) {
+          rbt.removeKey(a);
+          writeln(a);
+          break;
+        }
       }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    }
   }
 
   outputForAtCoder(&solve);

@@ -2,34 +2,40 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto E = scan!int(3 * M).chunks(3);
+  enum long INF = int.max;
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
+    long[][] graph = INF.repeat(N^^2).array.chunks(N).array;
+    foreach(u, v, w; E.asTuples!3) {
+      graph[u - 1][v - 1] = w;
+      graph[v - 1][u - 1] = w;
     }
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
+    foreach(i; 0..N) foreach(j; 0..N) foreach(k; 0..N) {
+      graph[i][k] = min(graph[i][k], graph[i][j] + graph[j][k]);
+    }
 
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
+    long[][] memo = new long[][](2^^N, N);
+    foreach(ref m; memo) m[] = INF;
+    memo[1][0] = 0;
 
-      foreach(s; counts[d]) {
-        swap(from, to);
+    foreach(fs; 0..2^^N) {
+      foreach(f; 0..N) {
+        if ((2^^f & fs) == 0 || memo[fs][f] == INF) continue;
 
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+        foreach(t; 0..N) {
+          if ((2^^t & fs) != 0 || graph[f][t] == INF) continue;
+
+          auto ts = fs | 2^^t;
+          memo[ts][t].chmin(memo[fs][f] + graph[f][t]);
+        }
       }
+    }
 
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    auto ans = iota(N).map!(last => memo.back[last] + graph[last][0]).minElement;
+    return ans >= INF ? -1 : ans;
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +93,96 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  int originSize;
+  T[] data;
+  T monoid;
+
+  T op(T a, T b) {
+    if (a == monoid) return b;
+    if (b == monoid) return a;
+    return predFun(a, b);
+  }
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+    originSize = src.length.to!int;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = op(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = op(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+
+  void add(int index, T value) {
+    update(index, op(get(index), value));
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return op(leftValue, rightValue);
+  }
+
+  T[] array() {
+    return size.iota.map!(i => get(i)).array;
+  }
+}
+
+private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+private T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+
+  return ok;
 }

@@ -2,34 +2,11 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto A = scan!long(N);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    auto leader = A.enumerate(1).array.multiSort!("a[1] > b[1]", "a[0] < b[0]").front;
+    return leader[0] == 1 ? -1 : leader[0];
   }
 
   outputForAtCoder(&solve);
@@ -88,3 +65,81 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => tuple());
   }
 }
+
+struct UnionFindWith(T = UnionFindExtra) {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+  T[] extras;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = new T[](size);
+  }
+ 
+  this(int size, T[] ex) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = ex.dup;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+
+  T extra(int x) {
+    return extras[root(x)];
+  }
+
+  T setExtra(int x, T t) {
+    return extras[root(x)] = t;
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    extras[rootX] = extras[rootX].merge(extras[rootY]);
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+
+  auto dup() {
+    auto dupe = UnionFindWith!T(roots.length.to!int);
+    dupe.roots = roots.dup;
+    dupe.sizes = sizes.dup;
+    dupe.weights = weights.dup;
+    dupe.extras = extras.dup;
+    return dupe;
+  }
+}
+
+struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
+alias UnionFind = UnionFindWith!UnionFindExtra;

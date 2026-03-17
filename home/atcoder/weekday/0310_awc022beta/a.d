@@ -1,35 +1,13 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto N = scan!long;
+  auto D = scan!long;
+  auto K = scan!long;
+  auto W = scan!long(N);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    return W.count!(w => w - D * K >= 1);
   }
 
   outputForAtCoder(&solve);

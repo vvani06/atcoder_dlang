@@ -2,34 +2,14 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto X = scan!long(N).sort;
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
+    bool isOk(long k) {
+      return zip(X[0..N - 1], X[1..N]).all!(a => a[1] - a[0] <= k);
     }
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    return binarySearch(&isOk, X.maxElement, -1);
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +67,61 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
+
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
+    }
+  }
+
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
 }

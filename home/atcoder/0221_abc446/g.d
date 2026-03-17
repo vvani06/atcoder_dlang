@@ -2,34 +2,51 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto C = scan!long;
+  auto E = scan!long(3 * N).chunks(3).array;
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
+    E.sort!"a[1] * b[0] > b[1] * a[0]"();
+    long ans;
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+    foreach(strictSize; 0..21) {
+      long rest = C - strictSize;
+      long value;
+      long[] added;
+      foreach(w, v, k; E.asTuples!3) {
+        if (rest >= w) {
+          auto add = min(k, rest / w);
+          rest -= add * w;
+          value += add * v;
+          added ~= add;
+        } else {
+          added ~= 0;
+        }
       }
 
-      ans += max(to[0], to[1]);
-    } 
+      long[] W, V;
+      auto maxC = rest + strictSize;
+      foreach(i; 0..N) {
+        foreach(_; 0..min(3, E[i][2] - added[i])) {
+          W ~= E[i][0];
+          V ~= E[i][1];
+        }
+      }
 
-    return N - ans;   
+      auto L = W.length.to!int;
+      auto memo = new long[](maxC + 1);
+      foreach(i, w, v; zip(iota(L), W, V)) {
+        foreach_reverse(from; 0..maxC) {
+          auto to = from + w;
+          if (to > maxC) continue;
+
+          memo[to] = max(memo[to], memo[from] + v);
+        }
+      }
+
+      ans = max(ans, value + (memo.empty ? 0L : memo.maxElement));
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);

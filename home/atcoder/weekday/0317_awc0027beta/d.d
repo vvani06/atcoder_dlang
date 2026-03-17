@@ -2,34 +2,27 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto HS = scan!long(2 * N).chunks(2);
+  auto P = scan!long(M);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
+    auto heap = HS.array.heapify!"a[0] > b[0]";
+    heap.insert([long.max, 0]);
+    auto sales = new long[](0).heapify;
+    long ans;
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+    foreach(p; P.sort) {
+      while(heap.front[0] <= p) {
+        sales.insert(heap.front[1]);
+        heap.removeFront();
       }
 
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+      if (sales.empty) return -1;
+      ans += sales.front;
+      sales.removeFront();
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -86,5 +79,32 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
   } else {
     return matrix.map!(row => tuple());
+  }
+}
+
+struct FunctionalGraph {
+  int nodeSize;
+  int[] graph;
+
+  this(int ns, int[] g) {
+    nodeSize = ns;
+    graph = g.dup;
+  }
+
+  this(int ns, int delegate(int) fn) {
+    nodeSize = ns;
+    graph = iota(ns).map!(i => fn(i)).array;
+  }
+
+  int[] walk(long step) {
+    int[] ret = iota(nodeSize).array;
+    auto nexts = graph.dup;
+    foreach(i; 0..63) {
+      if (step & 1) ret = ret.map!(x => nexts[x]).array;
+
+      nexts = iota(nodeSize).map!(j => nexts[nexts[j]]).array;
+      step >>= 1;
+    }
+    return ret;
   }
 }

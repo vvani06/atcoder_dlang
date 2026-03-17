@@ -311,7 +311,7 @@ void problem() {
       bestPairs = new Pairs(pairs);
       sim.moves.deb;
       tried = 0;
-    } else if (tried > 2 || sim.moves - sim.moves/100 > bestSim.moves) {
+    } else if (tried > 20 || sim.moves - sim.moves/10 > bestSim.moves) {
       pairs = new Pairs(bestPairs);
       tried = 0;
     }

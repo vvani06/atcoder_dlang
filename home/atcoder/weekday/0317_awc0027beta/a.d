@@ -2,34 +2,12 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
+  auto S = scan!int;
+  auto T = scan!int;
   auto A = scan!int(N);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    return A.count!(a => abs(a - S) <= T);
   }
 
   outputForAtCoder(&solve);

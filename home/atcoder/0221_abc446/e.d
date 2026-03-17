@@ -1,35 +1,30 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto A = scan!int;
+  auto B = scan!int;
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+    enum SIZE = 100;
+    bool isOk(int x, int y) {
+      int[] memo = new int[SIZE];
+      memo[0] = x;
+      memo[1] = y;
+      foreach(i; 2..SIZE) {
+        memo[i] = (A*memo[i - 1] + B*memo[i - 2]) % M;
       }
 
-      ans += max(to[0], to[1]);
-    } 
+      memo[0..10].deb;
 
-    return N - ans;   
+      return !memo.canFind(0);
+    }
+
+    int ans;
+    foreach(x; 0..M) foreach(y; 0..M) {
+      if (isOk(x, y)) ans++;
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);

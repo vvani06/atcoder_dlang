@@ -1,35 +1,35 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto T = scan!int;
 
-  auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
-    }
+  auto subSolve(int N, long M, long[] A) {
+    long total = N + M;
 
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
+    auto rbt = A.redBlackTree!true;
+    foreach(_; 0..M) {
+      long token;
+      if (_ % 2 == 0) {
+        token = rbt.back;
+        rbt.removeBack();
+      } else {
+        token = rbt.front;
+        rbt.removeBack();
       }
 
-      ans += max(to[0], to[1]);
-    } 
+      rbt.insert((token + 1) / 2);
+      rbt.insert(token / 2);
+    }
 
-    return N - ans;   
+    rbt.array.deb;
+    return rbt.array[$ / 2];
+  }
+
+  auto solve() {
+    foreach(_; 0..T) {
+      auto n = scan!int;
+      writeln(subSolve(n, scan!long, scan!long(n)));
+    }
   }
 
   outputForAtCoder(&solve);

@@ -1,35 +1,24 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto T = scan!int;
+
+  auto subSolve(int N, int D, int[] A, int[] B) {
+    auto heap = new int[](0).heapify!"a > b";
+    foreach(d, a, b; zip(iota(N), A, B)) {
+      foreach(_; 0..a) heap.insert(d + D);
+      foreach(_; 0..b) heap.removeFront();
+      while(!heap.empty && heap.front <= d) heap.removeFront();
+    }
+    return heap.array.length;
+  }
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
+    foreach(_; 0..T) {
+      auto N = scan!int;
+      auto D = scan!int;
+      writeln(subSolve(N, D, scan!int(N), scan!int(N)));
     }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
   }
 
   outputForAtCoder(&solve);

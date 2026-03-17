@@ -2,34 +2,24 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto K = scan!long;
+  auto A = scan!long(N);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
+    auto acc = 0L ~ A.map!(a=> a + M).cumulativeFold!"a + b"(0L).array;
+    // acc.deb;
+
+    auto ct = CompressTable!long(acc ~ acc.map!(a => a + K + 1).array);
+    auto segTree = SegTree!("a + b", long)(new long[](N * 3));
+    foreach(a; acc) segTree.add(ct[a], 1L);
+    
+    long ans;
+    foreach(a; acc) {
+      segTree.add(ct[a], -1L);
+      ans += segTree.sum(0, ct[a + K + 1]);
     }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -87,4 +77,110 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+struct CompressTable(T) {
+  SortedRange!(T[]) sorted;
+  int[T] rev;
+
+  this(T[] arr) {
+    sorted = arr.sort.uniq.array.assumeSorted;
+    foreach(i, a; sorted.enumerate(0)) rev[a] = i;
+  }
+
+  int opIndex(T i) {
+    return rev[i];
+  }
+}
+
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  int originSize;
+  T[] data;
+  T monoid;
+
+  T op(T a, T b) {
+    if (a == monoid) return b;
+    if (b == monoid) return a;
+    return predFun(a, b);
+  }
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
+    originSize = src.length.to!int;
+
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = op(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = op(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+
+  void add(int index, T value) {
+    update(index, op(get(index), value));
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return op(leftValue, rightValue);
+  }
+
+  T[] array() {
+    return size.iota.map!(i => get(i)).array;
+  }
+}
+
+private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+private T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+
+  return ok;
 }

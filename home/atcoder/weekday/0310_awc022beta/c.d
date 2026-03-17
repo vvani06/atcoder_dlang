@@ -2,34 +2,20 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto D = scan!int;
-  auto A = scan!int(N);
+  auto M = scan!int;
+  auto K = scan!int;
+  auto T = scan!int;
+  auto B = scan!int(M);
+  auto LR = scan!int(2 * K).chunks(2);
 
   auto solve() {
-    if (D == 0) {
-      return A.sort.group.map!"a[1] - 1".sum;
+    int[] broken = new int[](N);
+    foreach(b; B) broken[b - 1] = 1;
+    auto acc = 0 ~ broken.cumulativeFold!"a + b".array;
+
+    foreach(l, r; LR.asTuples!2) {
+      writeln(acc[r] - acc[l - 1] >= T ? "YES" : "NO");
     }
-
-    int[][] counts = new int[][](D, (A.maxElement + D) / D);
-    foreach(a; A) counts[a % D][a / D]++;
-
-    int ans;
-    foreach(d; 0..D) {
-      int pre;
-      int[2] from, to;
-
-      foreach(s; counts[d]) {
-        swap(from, to);
-
-        to[0] = max(from[0], from[1]);
-        to[1] = max(from[0], pre == 0 ? from[1] : 0) + s;
-        pre = s;
-      }
-
-      ans += max(to[0], to[1]);
-    } 
-
-    return N - ans;   
   }
 
   outputForAtCoder(&solve);
@@ -86,5 +72,42 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
   } else {
     return matrix.map!(row => tuple());
+  }
+}
+
+struct Rational {
+  long u, l = 1;
+  this(long u) { this.u = u; }
+  this(long u, long l) {
+    if (l == 0) assert("lower number cannot be 0");
+
+    if (l < 0) {
+      u *= -1;
+      l *= -1;
+    }
+    const g = gcd(u.abs, l);
+    this.u = u / g;
+    this.l = l / g;
+  }
+
+  Rational add(Rational o) {
+    const nl = l * o.l;
+    const nu = u * o.l + o.u * l;
+    return Rational(nu, nl);
+  }
+  Rational sub(Rational o) { return add(Rational(-o.u, o.l)); }
+  Rational mul(Rational o) { return Rational(u * o.u, l * o.l); }
+  Rational div(Rational o) { return Rational(u * o.l, l * o.u); }
+
+  Rational opBinary(string op: "+")(Rational o) { return add(o); }
+  Rational opBinary(string op: "-")(Rational o) { return sub(o); }
+  Rational opBinary(string op: "*")(Rational o) { return mul(o); }
+  Rational opBinary(string op: "/")(Rational o) { return div(o); }
+  void opAssign(T)(t v) { u = v; }
+
+  int opCmp(Rational o) {
+    const me = u * o.l;
+    const other = o.u * l;
+    return me > other ? 1 : me < other ? -1 : 0;
   }
 }
