@@ -3,31 +3,25 @@ void main() { runSolver(); }
 void problem() {
   auto N = scan!int;
   auto K = scan!long;
-  auto A = scan!long(N) ~ long.max / 3;
+  auto A = scan!long(N);
 
   auto solve() {
-
-    long subSolve(long k) {
-      int l, r;
-      auto rbt = new long[](0).redBlackTree!true;
-
-      long ans;
-      while(l < N) {
-        if (r <= N && (l == r || rbt.back - rbt.front <= k)) {
-          rbt.insert(A[r]);
-          r++;
-        } else {
-          rbt.removeKey(A[l]);
-          // [l, r, r - l - 1].deb;
-          ans += r - l - 1;
-          l++;
-        }
-      }
-      
-      return ans;
+    auto sorted = A.sort!"a > b".array;
+    auto r = sorted[0];
+    foreach(i; 1..N) {
+      auto add = (r - sorted[i]) / K;
+      sorted[i] += add * K;
+    }
+    sorted.sort!"a > b";
+    
+    auto ring = sorted.map!(a => a + K).array ~ sorted;
+    ring.deb;
+    long ans = long.max;
+    foreach(i; 0..N + 1) {
+      ans = min(ans, ring[i] - ring[i + N - 1]);
     }
 
-    return subSolve(K) - subSolve(K - 1);
+    return ans;
   }
 
   outputForAtCoder(&solve);

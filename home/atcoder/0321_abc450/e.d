@@ -1,33 +1,46 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto K = scan!long;
-  auto A = scan!long(N) ~ long.max / 3;
+  auto S = scan!string;
+  auto T = scan!string;
+  auto Q = scan!int;
+  auto LRC = Q.iota.map!(_ => tuple(scan!long, scan!long, scan!dchar)).array;
 
   auto solve() {
+    ulong[] lengths = [S.length, T.length];
+    ulong[][] counts = new ulong[][](256, 2);
+    foreach(c; 'a'..'z' + 1) counts[c][0] = S.count(c);
+    foreach(c; 'a'..'z' + 1) counts[c][1] = T.count(c);
 
-    long subSolve(long k) {
-      int l, r;
-      auto rbt = new long[](0).redBlackTree!true;
-
-      long ans;
-      while(l < N) {
-        if (r <= N && (l == r || rbt.back - rbt.front <= k)) {
-          rbt.insert(A[r]);
-          r++;
-        } else {
-          rbt.removeKey(A[l]);
-          // [l, r, r - l - 1].deb;
-          ans += r - l - 1;
-          l++;
-        }
-      }
-      
-      return ans;
+    ulong[][] counts3 = new ulong[][](256, S.length + T.length + 1);
+    foreach(x; 'a'..'z' + 1) {
+      foreach(i, c; T ~ S) counts3[x][i + 1] = counts3[x][i] + (c == x ? 1 : 0); 
     }
 
-    return subSolve(K) - subSolve(K - 1);
+    while(lengths.back < 10L^^18) {
+      lengths ~= lengths[$ - 1] + lengths[$ - 2];
+      foreach(c; 'a'..'z' + 1) counts[c] ~= counts[c][$ - 1] + counts[c][$ - 2];
+    }
+    
+    lengths = lengths[2..$];
+    foreach(c; 'a'..'z' + 1) counts[c] = counts[c][2..$];
+
+    long count(long index, dchar c) {
+      if (index == 0) return 0;
+
+      auto acci = lengths.assumeSorted.lowerBound(index + 1).length;
+      // [index, acci].deb;
+      
+      if (acci == 0 || index == lengths[0]) {
+        return counts3[c][index];
+      }
+
+      return counts[c][acci - 1] + count(index - lengths[acci - 1], c);
+    }
+    
+    foreach(l, r, c; LRC.asTuples!3) {
+      writeln(count(r, c) - count(l - 1, c));
+    }
   }
 
   outputForAtCoder(&solve);
@@ -86,3 +99,82 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => tuple());
   }
 }
+
+
+struct UnionFindWith(T = UnionFindExtra) {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+  T[] extras;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = new T[](size);
+  }
+ 
+  this(int size, T[] ex) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = ex.dup;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
+
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
+  }
+
+  int size(int x) {
+    return sizes[root(x)];
+  }
+
+  T extra(int x) {
+    return extras[root(x)];
+  }
+
+  T setExtra(int x, T t) {
+    return extras[root(x)] = t;
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    extras[rootX] = extras[rootX].merge(extras[rootY]);
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+
+  auto dup() {
+    auto dupe = UnionFindWith!T(roots.length.to!int);
+    dupe.roots = roots.dup;
+    dupe.sizes = sizes.dup;
+    dupe.weights = weights.dup;
+    dupe.extras = extras.dup;
+    return dupe;
+  }
+}
+
+struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
+alias UnionFind = UnionFindWith!UnionFindExtra;

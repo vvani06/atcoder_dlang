@@ -2,32 +2,14 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto K = scan!long;
-  auto A = scan!long(N) ~ long.max / 3;
+  auto C = iota(N).retro.map!(i => 0L.repeat(N - i).array ~ scan!long(i)).array;
 
   auto solve() {
-
-    long subSolve(long k) {
-      int l, r;
-      auto rbt = new long[](0).redBlackTree!true;
-
-      long ans;
-      while(l < N) {
-        if (r <= N && (l == r || rbt.back - rbt.front <= k)) {
-          rbt.insert(A[r]);
-          r++;
-        } else {
-          rbt.removeKey(A[l]);
-          // [l, r, r - l - 1].deb;
-          ans += r - l - 1;
-          l++;
-        }
-      }
-      
-      return ans;
+    foreach(a; 0..N - 2) foreach(b; a + 1..N - 1) foreach(c; b + 1..N) {
+      if (C[a][c] > C[a][b] + C[b][c]) return true;
     }
 
-    return subSolve(K) - subSolve(K - 1);
+    return false;
   }
 
   outputForAtCoder(&solve);

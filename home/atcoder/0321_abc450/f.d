@@ -2,32 +2,31 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto K = scan!long;
-  auto A = scan!long(N) ~ long.max / 3;
+  auto XY = scan!long(2 * N).chunks(2).array;
 
   auto solve() {
+    //                  20_000_000;
+    enum SEGMENT_SIZE =    200_000;
+    auto coords = iota(1, N).map!(i => [XY[i][0] / SEGMENT_SIZE, XY[i][0] & SEGMENT_SIZE ? XY[i][1] : -XY[i][1], i + 1]).array;
 
-    long subSolve(long k) {
-      int l, r;
-      auto rbt = new long[](0).redBlackTree!true;
-
-      long ans;
-      while(l < N) {
-        if (r <= N && (l == r || rbt.back - rbt.front <= k)) {
-          rbt.insert(A[r]);
-          r++;
-        } else {
-          rbt.removeKey(A[l]);
-          // [l, r, r - l - 1].deb;
-          ans += r - l - 1;
-          l++;
-        }
-      }
-      
-      return ans;
+    long curX = XY[0][0];
+    long curY = XY[0][1];
+    long dist;
+    long[] ans = [1];
+    foreach(x, y, i; coords.sort.asTuples!3) {
+      auto add = abs(curX - x) + abs(curY - y);
+      // [add].deb;
+      dist += add;
+      curX = x;
+      curY = y;
+      ans ~= i;
     }
+    dist += abs(curX - XY[0][0]) + abs(curY - XY[0][1]);
+    deb([dist <= 10L^^10]);
 
-    return subSolve(K) - subSolve(K - 1);
+    dist.deb;
+    deb(10L^^10);
+    return ans;
   }
 
   outputForAtCoder(&solve);

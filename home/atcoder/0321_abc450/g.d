@@ -2,32 +2,13 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto K = scan!long;
-  auto A = scan!long(N) ~ long.max / 3;
 
   auto solve() {
 
-    long subSolve(long k) {
-      int l, r;
-      auto rbt = new long[](0).redBlackTree!true;
-
-      long ans;
-      while(l < N) {
-        if (r <= N && (l == r || rbt.back - rbt.front <= k)) {
-          rbt.insert(A[r]);
-          r++;
-        } else {
-          rbt.removeKey(A[l]);
-          // [l, r, r - l - 1].deb;
-          ans += r - l - 1;
-          l++;
-        }
-      }
-      
-      return ans;
+    writeln(N);
+    foreach(_; 0..N) {
+      writefln("%s %s", uniform(0, 2*10^^7), uniform(0, 2*10^^7));
     }
-
-    return subSolve(K) - subSolve(K - 1);
   }
 
   outputForAtCoder(&solve);
