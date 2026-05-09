@@ -4,7 +4,7 @@ void problem() {
   auto T = scan!int;
 
   auto subSolve(int N, int M, int[][] E, int W, string[] S) {
-    int[][] graph = new int[][](W * N, 0);
+    int[][] graph = new int[][](W * N);
     
 
     foreach(day; 0..W) {
@@ -94,22 +94,19 @@ bool canTopologicalSort(int[][] g) {
   auto size = g.length.to!int;
   auto depth = new int[](size);
   foreach(e; g) foreach(p; e) depth[p]++;
-  auto initDepth = depth.dup;
 
-  auto q = heapify!"a > b"(new int[](0));
-  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+  int[] q;
+  q.reserve(size);
+  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
 
-  int[] sorted;
-  while(!q.empty) {
-    auto p = q.front;
-    q.removeFront;
+  int head = 0;
+  while(head < q.length) {
+    auto p = q[head++];
     foreach(n; g[p]) {
       depth[n]--;
-      if (depth[n] == 0) q.insert(n);
+      if (depth[n] == 0) q ~= n;
     }
-
-    if (initDepth[p] > 0 || !g[p].empty) sorted ~= p;
   }
 
-  return depth.all!"a == 0";
+  return head == size;
 }

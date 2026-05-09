@@ -70,11 +70,11 @@ void outputForAtCoder(T)(T delegate() fn) {
   else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
-void runSolver() {
+void runSolver(bool multiCase = false) {
   static import std.datetime.stopwatch;
   enum BORDER = "==================================";
-  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
-  else problem();
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
+  else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
 

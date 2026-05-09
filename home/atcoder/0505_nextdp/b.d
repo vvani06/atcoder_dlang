@@ -1,34 +1,25 @@
-void main() { runSolver(); }
+void main() { runSolver(true); }
 
 void problem() {
   auto N = scan!int;
   auto M = scan!int;
-  auto A = scan!int(N * M).chunks(M).array;
+  auto E = scan!int(2 * M).chunks(2).array;
 
   auto solve() {
-    auto counts = new int[][](N * M + 1, N);
-    foreach(i, arr; A.enumerate(0)) {
-      foreach(a; arr) counts[a][i]++;
+    auto graph = new int[][](N, 0);
+    foreach(u, v; E.asTuples!2) {
+      graph[u - 1] ~= v - 1;
     }
 
-    MInt9 ans;
-    foreach(x; 1..N*M + 1) {
-      MInt9 c0 = MInt9(1), c1 = MInt9(0);
-      foreach(c; counts[x]) {
-        MInt9 p0, p1;
-        swap(p0, c0);
-        swap(p1, c1);
-        
-        c0 += p0 * MInt9(M - c);
-        c1 += p0 * MInt9(c);
-        c1 += p1 * MInt9(M);
+    auto memo = new MInt9[](N);
+    memo[0] = MInt9(1);
+    foreach(node; topologicalSort(graph)) {
+      foreach(next; graph[node]) {
+        memo[next] += memo[node];
       }
-
-      // deb([x], [c0, c1, c2]);
-      ans += c1;
     }
 
-    return ans;
+    return memo[N - 1];
   }
 
   outputForAtCoder(&solve);
@@ -70,11 +61,11 @@ void outputForAtCoder(T)(T delegate() fn) {
   else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
-void runSolver() {
+void runSolver(bool multiCase = false) {
   static import std.datetime.stopwatch;
   enum BORDER = "==================================";
-  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
-  else problem();
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
+  else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
 
@@ -86,4 +77,28 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+int[] topologicalSort(int[][] g) {
+  auto size = g.length.to!int;
+  auto depth = new int[](size);
+  foreach(e; g) foreach(p; e) depth[p]++;
+  auto initDepth = depth.dup;
+
+  auto q = heapify!"a > b"(new int[](0));
+  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+
+  int[] sorted;
+  while(!q.empty) {
+    auto p = q.front;
+    q.removeFront;
+    foreach(n; g[p]) {
+      depth[n]--;
+      if (depth[n] == 0) q.insert(n);
+    }
+
+    if (initDepth[p] > 0 || !g[p].empty) sorted ~= p;
+  }
+
+  return sorted;
 }

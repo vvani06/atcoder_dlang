@@ -1,34 +1,36 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto A = scan!int(N * M).chunks(M).array;
+  auto T = scan!int;
+
+  auto subSolve(int N, int M, int[][] E, int W, string[] S) {
+    int[][] graph = new int[][](W * N, 0);
+    
+
+    foreach(day; 0..W) {
+      auto nd = (day + 1) % W;
+
+      foreach(a; 0..N) {
+        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
+      }
+      foreach(u, v; E.asTuples!2) {
+        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
+        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
+      }
+    }
+    return !canTopologicalSort(graph);
+  }
 
   auto solve() {
-    auto counts = new int[][](N * M + 1, N);
-    foreach(i, arr; A.enumerate(0)) {
-      foreach(a; arr) counts[a][i]++;
+    foreach(_; 0..T) {
+      auto N = scan!int;
+      auto M = scan!int;
+      auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
+      auto W = scan!int;
+      auto S = scan!string(N);
+
+      writeln(asAnswer(subSolve(N, M, E, W, S)));
     }
-
-    MInt9 ans;
-    foreach(x; 1..N*M + 1) {
-      MInt9 c0 = MInt9(1), c1 = MInt9(0);
-      foreach(c; counts[x]) {
-        MInt9 p0, p1;
-        swap(p0, c0);
-        swap(p1, c1);
-        
-        c0 += p0 * MInt9(M - c);
-        c1 += p0 * MInt9(c);
-        c1 += p1 * MInt9(M);
-      }
-
-      // deb([x], [c0, c1, c2]);
-      ans += c1;
-    }
-
-    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -70,11 +72,11 @@ void outputForAtCoder(T)(T delegate() fn) {
   else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
-void runSolver() {
+void runSolver(bool multiCase = false) {
   static import std.datetime.stopwatch;
   enum BORDER = "==================================";
-  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
-  else problem();
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
+  else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
 
@@ -86,4 +88,28 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+bool canTopologicalSort(int[][] g) {
+  auto size = g.length.to!int;
+  auto depth = new int[](size);
+  foreach(e; g) foreach(p; e) depth[p]++;
+  auto initDepth = depth.dup;
+
+  auto q = heapify!"a > b"(new int[](0));
+  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
+
+  int[] sorted;
+  while(!q.empty) {
+    auto p = q.front;
+    q.removeFront;
+    foreach(n; g[p]) {
+      depth[n]--;
+      if (depth[n] == 0) q.insert(n);
+    }
+
+    if (initDepth[p] > 0 || !g[p].empty) sorted ~= p;
+  }
+
+  return depth.all!"a == 0";
 }

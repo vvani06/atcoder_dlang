@@ -5,7 +5,7 @@ RUN apt update && apt install -y --no-install-recommends curl build-essential ca
 RUN git config --global user.name "allegrogiken"
 RUN git config --global user.email "vvani06+dev@gmail.com"
 
-ENV D_COMPLILER="ldc-1.32.2"
+ENV D_COMPLILER="ldc-1.41.0"
 
 RUN curl https://dlang.org/install.sh > /tmp/install.sh
 RUN chmod +x /tmp/install.sh

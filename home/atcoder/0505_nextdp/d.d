@@ -1,34 +1,25 @@
-void main() { runSolver(); }
+void main() { runSolver(true); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto A = scan!int(N * M).chunks(M).array;
+  auto N = scan!long;
 
   auto solve() {
-    auto counts = new int[][](N * M + 1, N);
-    foreach(i, arr; A.enumerate(0)) {
-      foreach(a; arr) counts[a][i]++;
+    auto memo = new long[](4);
+    memo[] = int.max;
+    memo[0] = 0;
+
+    foreach(d; ("0" ~ N.to!string).map!(c => (c - '0').to!long)) {
+      auto pre = new long[](4);
+      pre[] = int.max;
+      swap(pre, memo);
+
+      memo[0] = pre[0] + d;
+      memo[1] = pre[0] + d + 1;
+      memo[2] = min(pre[1], pre[2], pre[3]) + (10 - d);
+      memo[3] = min(pre[2], pre[3]) + d;
     }
 
-    MInt9 ans;
-    foreach(x; 1..N*M + 1) {
-      MInt9 c0 = MInt9(1), c1 = MInt9(0);
-      foreach(c; counts[x]) {
-        MInt9 p0, p1;
-        swap(p0, c0);
-        swap(p1, c1);
-        
-        c0 += p0 * MInt9(M - c);
-        c1 += p0 * MInt9(c);
-        c1 += p1 * MInt9(M);
-      }
-
-      // deb([x], [c0, c1, c2]);
-      ans += c1;
-    }
-
-    return ans;
+    return memo.minElement;
   }
 
   outputForAtCoder(&solve);
@@ -70,11 +61,11 @@ void outputForAtCoder(T)(T delegate() fn) {
   else static if (is(T == string)) fn().writeln;
   else asAnswer(fn()).writeln;
 }
-void runSolver() {
+void runSolver(bool multiCase = false) {
   static import std.datetime.stopwatch;
   enum BORDER = "==================================";
-  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(1)); BORDER.writeln; } }
-  else problem();
+  debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
+  else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
 enum YESNO = [true: "Yes", false: "No"];
 
