@@ -1,27 +1,32 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto X = scan!long(3);
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    auto fermet = FermetCalculator!998_244_353(10^^6 * 9);
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+    MInt9 ans;
+    auto cand = X[1] + 1;
+    foreach(one; 1..cand) {
+      if (one > X[0]) break;
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
-      }
+      auto t1 = MInt9(fermet.combine(cand, one));
+
+      auto freeOne = X[0] - one;
+      auto t2 = MInt9(fermet.combine(one + freeOne - 1, freeOne));
+
+      auto three = cand - one;
+      auto t3 = MInt9(fermet.combine(three + X[2] - 1, X[2]));
+
+      // [[one, freeOne, three]].deb;
+      // [t1, t2, t3, t1*t2*t3].deb;
+
+      auto t = t1 * t2 * t3;
+      ans += t;
     }
-    return !canTopologicalSort(graph);
+    
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -82,23 +87,42 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
-
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
-
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
+struct FermetCalculator(uint MD) {
+  long[] factrial; // 階乗
+  long[] inverse;  // 逆元
+  
+  this(long size) {
+    factrial = new long[size + 1];
+    inverse = new long[size + 1];
+    factrial[0] = 1;
+    inverse[0] = 1;
+    
+    for (long i = 1; i <= size; i++) {
+      factrial[i] = (factrial[i - 1] * i) % MD;  // 階乗を求める
+      inverse[i] = pow(factrial[i], MD - 2) % MD; // フェルマーの小定理で逆元を求める
     }
   }
+  
+  long combine(long n, long k) {
+    if (n < k) return 1;
+    return factrial[n] * inverse[k] % MD * inverse[n - k] % MD;
+  }
 
-  return head == size;
+  long permutation(long n, long k) {
+    if (n < k) return 1;
+
+    return factrial[n] % MD * inverse[n - k] % MD;
+  }
+  
+  long pow(long x, long n) { //x^n 計算量O(logn)
+    long ans = 1;
+    while (n > 0) {
+      if ((n & 1) == 1) {
+        ans = ans * x % MD;
+      }
+      x = x * x % MD; //一周する度にx, x^2, x^4, x^8となる
+      n >>= 1; //桁をずらす n = n >> 1
+    }
+    return ans;
+  }
 }

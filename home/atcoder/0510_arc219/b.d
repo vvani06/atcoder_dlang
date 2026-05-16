@@ -2,26 +2,19 @@ void main() { runSolver(true); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto P = scan!int(N);
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    MInt9 ans;
+    if (P == P.dup.sort.array) ans += MInt9(1);
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+    foreach(p, i; zip(P, iota(1, N + 1))) {
+      if (p != i) break;
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
-      }
+      ans += MInt9(N - i);
     }
-    return !canTopologicalSort(graph);
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -82,23 +75,121 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
 
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
+  T op(T a, T b) {
+    if (a == monoid) return b;
+    if (b == monoid) return a;
+    return predFun(a, b);
+  }
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
 
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
+      }
+    }
+    
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = op(data[b * 2], data[b * 2 + 1]);
+    }
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = op(data[i * 2], data[i * 2 + 1]);
     }
   }
 
-  return head == size;
+  void add(int index, T value) {
+    update(index, op(get(index), value));
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return op(leftValue, rightValue);
+  }
+
+  T[] array() {
+    return size.iota.map!(i => get(i)).array;
+  }
+
+  static if (__traits(hasMember, T, "opCmp")) {
+    int lowerBound(T border) {
+      return binarySearch((int t) => sum(0, t) < border, 0, size + 1);
+    }
+
+    int upperBound(T border) {
+      return binarySearch((int t) => sum(t, size) < border, size, -1);
+    }
+  }
+
+  private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+  private T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+    auto ok = l;
+    auto ng = r;
+    const T TWO = 2;
+  
+    bool again() {
+      static if (is(T == float) || is(T == double) || is(T == real)) {
+        return !ng.approxEqual(ok, 1e-08, 1e-08);
+      } else {
+        return abs(ng - ok) > 1;
+      }
+    }
+  
+    while(again()) {
+      const half = (ng + ok) / TWO;
+      const halfValue = fn(half);
+  
+      if (cond(halfValue)) {
+        ok = half;
+      } else {
+        ng = half;
+      }
+    }
+  
+    return ok;
+  }
+}
+
+long countInvertions(T)(T[] arr) {
+  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
+  long ret;
+  long pre = -1;
+  int[] adds;
+  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
+    auto i = a[0];
+    auto n = a[1];
+    if (pre != n) {
+      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
+      adds.length = 0;
+    }
+    adds ~= i;
+    pre = n;
+    ret += segtree.sum(0, i);
+  }
+  return ret;
 }

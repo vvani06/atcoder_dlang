@@ -1,27 +1,37 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
   auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
   auto S = scan!string(N);
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    auto set = iota(N).redBlackTree;
+    int rest = N;
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+    string ans;
+    foreach(i; 0..M) {
+      auto zero = set.array.filter!(s => S[s][i] == '0').array;
+      auto one = set.array.filter!(s => S[s][i] == '1').array;
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
+      if (zero.length > rest / 2) {
+        ans ~= '0';
+        rest -= zero.length;
+        set.removeKey(zero);
+      } else {
+        ans ~= '1';
+        rest -= one.length;
+        set.removeKey(one);
       }
     }
-    return !canTopologicalSort(graph);
+
+    // set.deb;
+    if (rest == 0) {
+      writeln(YESNO[true]);
+      writeln(ans);
+    } else {
+      writeln(YESNO[false]);
+    }
   }
 
   outputForAtCoder(&solve);
@@ -80,25 +90,4 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
-}
-
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
-
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
-
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
-    }
-  }
-
-  return head == size;
 }

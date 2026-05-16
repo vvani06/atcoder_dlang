@@ -1,27 +1,46 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
+  auto H = scan!long;
+  auto W = scan!long - 1;
   auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto RC = scan!long(2 * N).map!"a - 1".chunks(2).array;
+
+  struct Queue {
+    long r;
+    SortedRange!(long[], "a < b") sorted;
+
+    long lcost() {
+      return sorted.back * 2;
+    }
+
+    long _dcost = -1;
+    long dcost() {
+      if (_dcost >= 0) return _dcost;
+
+      auto ss = (0L ~ sorted.array ~ W);
+      auto maxSpan = iota(1L, ss.length).map!(i => ss[i] - ss[i - 1]).maxElement;
+      return _dcost = (W - maxSpan) * 2;
+    }
+  }
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    long[][long] perR;
+    foreach(r, c; RC.asTuples!2) perR[r] ~= c;
+    auto queues = perR.keys.map!(r => Queue(r, perR[r].sort)).array;
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+    long[] ans = [queues.map!"a.lcost".sum];
+    {
+      long cost = W * 2;
+      foreach(p; queues.map!"a.dcost".array.sort!"a > b".array.chunks(2)[1..$]) {
+        cost += min(W * 2, p.sum);
+      }
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
-      }
+      ans ~= cost;
     }
-    return !canTopologicalSort(graph);
+
+    ans.deb;
+    return ans.minElement;
   }
 
   outputForAtCoder(&solve);
@@ -82,23 +101,26 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-bool canTopologicalSort(int[][] g) {
+int[] topologicalSort(int[][] g) {
   auto size = g.length.to!int;
   auto depth = new int[](size);
   foreach(e; g) foreach(p; e) depth[p]++;
+  auto initDepth = depth.dup;
 
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
+  auto q = heapify!"a > b"(new int[](0));
+  foreach(i; 0..size) if (depth[i] == 0) q.insert(i);
 
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
+  int[] sorted;
+  while(!q.empty) {
+    auto p = q.front;
+    q.removeFront;
     foreach(n; g[p]) {
       depth[n]--;
-      if (depth[n] == 0) q ~= n;
+      if (depth[n] == 0) q.insert(n);
     }
+
+    if (initDepth[p] > 0 || !g[p].empty) sorted ~= p;
   }
 
-  return head == size;
+  return sorted;
 }

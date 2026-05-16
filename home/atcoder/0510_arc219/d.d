@@ -1,27 +1,25 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto K = scan!long;
+  auto A = scan!long(N);
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    bool isOk(long mini) {
+      long rest = K;
+      foreach(i, a; A.enumerate(1L)) {
+        long t = (max(0L, mini - a) + i - 1) / i;
+        rest -= t;
+        // [mini, i, a, t, rest, K + t].deb;
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+        if (rest < 0) return false;
+      }
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
-      }
+      return true;
     }
-    return !canTopologicalSort(graph);
+
+    return binarySearch(&isOk, 0, long.max / 2);
   }
 
   outputForAtCoder(&solve);
@@ -70,6 +68,7 @@ void runSolver(bool multiCase = false) {
   debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
   else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
+
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
@@ -82,23 +81,59 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
+K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+  auto ok = l;
+  auto ng = r;
+  const T TWO = 2;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !ng.approxEqual(ok, 1e-08, 1e-08);
+    } else {
+      return abs(ng - ok) > 1;
+    }
+  }
+ 
+  while(again()) {
+    const half = (ng + ok) / TWO;
+    const halfValue = fn(half);
+ 
+    if (cond(halfValue)) {
+      ok = half;
+    } else {
+      ng = half;
+    }
+  }
+ 
+  return ok;
+}
 
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
-
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
+enum TernarySearchTarget { Min, Max }
+Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
+  auto low = l;
+  auto high = r;
+  const T THREE = 3;
+ 
+  bool again() {
+    static if (is(T == float) || is(T == double) || is(T == real)) {
+      return !high.approxEqual(low, 1e-08, 1e-08);
+    } else {
+      return low != high;
     }
   }
 
-  return head == size;
+  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
+  while(again()) {
+    const v1 = (low * 2 + high) / THREE;
+    const v2 = (low + high * 2) / THREE;
+ 
+    if (compare(fn(v1), fn(v2))) {
+      low = v1 == low ? v2 : v1;
+    } else {
+      high = v2 == high ? v1 : v2;
+    }
+  }
+ 
+  return tuple(low, fn(low));
 }

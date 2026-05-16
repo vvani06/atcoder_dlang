@@ -1,27 +1,44 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto N = scan!long;
+  auto K = scan!int;
+  auto S = scan!string(K);
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
+    auto trie = new Trie!dchar();
+    foreach(s; S) trie.insert(s.array);
 
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
+    auto size = trie.nodes.length.to!int;
+    auto memo = new MInt9[](size);
+    memo[0] = MInt9(1);
 
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
-      }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
+    trie.nodes.map!(n => n.children).each!deb;
+
+    foreach(_; 0..min(1000, N)) {
+      auto pre = new MInt9[](size);
+      swap(memo, pre);
+
+      foreach(c; 0..26) {
+        auto dc = c + 'a';
+
+        foreach(i; 0..size) {
+          auto from = trie.nodes[i];
+          auto next = from.children.get(dc, from).id;
+          memo[next] += pre[i];
+        }
       }
     }
-    return !canTopologicalSort(graph);
+
+    MInt9 ans;
+    foreach(i; 0..size) {
+      if (trie.nodes[i].end) {
+        memo[i].deb;
+      } else {
+        ans += memo[i];
+      }
+    }
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -82,23 +99,33 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
-
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
-
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
-    }
+class Trie(T) {
+  class Node {
+    int id;
+    Node[T] children;
+    bool end;
   }
 
-  return head == size;
+  Node root;
+  Node[] nodes;
+
+  this() {
+    root = new Node();
+    nodes ~= root;
+  }
+
+  void insert(T[] s) {
+    auto node = root;
+
+    foreach(t; s) {
+      if (!(t in node.children)) {
+        auto n = new Node();
+        n.id = nodes.length.to!int;
+        nodes ~= n;
+        node.children[t] = n;
+      }
+      node = node.children[t];
+    }
+    node.end = true;
+  }
 }

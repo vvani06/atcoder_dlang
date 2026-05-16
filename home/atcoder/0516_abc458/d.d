@@ -1,27 +1,34 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!int;
-  auto M = scan!int;
-  auto E = scan!int(2 * M).map!"a - 1".array.chunks(2).array;
-  auto W = scan!int;
-  auto S = scan!string(N);
+  auto X = scan!long;
+  auto Q = scan!int;
+  auto AB = scan!long(2 * Q).chunks(2).array;
 
   auto solve() {
-    int[][] graph = new int[][](W * N);
-
-    foreach(day; 0..W) {
-      auto nd = (day + 1) % W;
-
-      foreach(a; 0..N) {
-        if (S[a][nd] == 'o') graph[a + N*day] ~= a + N*nd;
+    auto lt = [long.min].redBlackTree!true;
+    auto rt = [long.max].redBlackTree!true;
+    
+    long cur = X;
+    foreach(a, b; AB.asTuples!2) {
+      if (min(a, b, cur) == cur) {
+        rt.insert([a, b]);
+        lt.insert(cur);
+        cur = rt.front;
+        rt.removeFront();
+      } else if (max(a, b, cur) == cur) {
+        lt.insert([a, b]);
+        rt.insert(cur);
+        cur = lt.back;
+        lt.removeBack();
+      } else {
+        lt.insert(min(a, b));
+        rt.insert(max(a, b));
       }
-      foreach(u, v; E.asTuples!2) {
-        if (S[v][nd] == 'o') graph[u + N*day] ~= v + N*nd;
-        if (S[u][nd] == 'o') graph[v + N*day] ~= u + N*nd;
-      }
+
+      writeln(cur);
+      // [lt.array, rt.array].deb;
     }
-    return !canTopologicalSort(graph);
   }
 
   outputForAtCoder(&solve);
@@ -80,25 +87,4 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
-}
-
-bool canTopologicalSort(int[][] g) {
-  auto size = g.length.to!int;
-  auto depth = new int[](size);
-  foreach(e; g) foreach(p; e) depth[p]++;
-
-  int[] q;
-  q.reserve(size);
-  foreach(i; 0..size) if (depth[i] == 0) q ~= i;
-
-  int head = 0;
-  while(head < q.length) {
-    auto p = q[head++];
-    foreach(n; g[p]) {
-      depth[n]--;
-      if (depth[n] == 0) q ~= n;
-    }
-  }
-
-  return head == size;
 }
