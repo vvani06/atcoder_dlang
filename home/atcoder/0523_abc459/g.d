@@ -1,40 +1,17 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!int;
-  auto W = scan!int;
-
-  struct GridGraph {
-    int height, width;
-    int[][] graph;
-
-    this(int h, int w) {
-      width = w;
-      height = h;
-      graph = new int[][](width * height);
-
-      foreach(r; 0..h) foreach(c; 0..w) {
-        auto i = index(r, c);
-        static foreach(dr, dc; zip([0, -1, 0, 1], [-1, 0, 1, 0])) {{
-          auto rr = r + dr;
-          auto cc = c + dc;
-          if (0 <= rr && rr < h && 0 <= cc && cc < w) {
-            auto j = index(rr, cc);
-            graph[i] ~= j;
-          }
-        }}
-      }
-    }
-
-    int index(int r, int c) {
-      return r * width + c;
-    }
-  }
+  auto N = scan!int;
+  auto TX = scan!int(2 * N).chunks(2).array;
+  enum MAX = 3 * 10^^5 + 1;
 
   auto solve() {
-    foreach(ans; GridGraph(H, W).graph.map!"a.length".chunks(W)) {
-      writeln(asAnswer(ans));
-    }
+    auto segTree = SegTree!("a + b", int)(new int[](MAX));
+
+    auto xs = new int[][](MAX, 0);
+    foreach(t, x; TX.asTuples!2) xs[t] ~= x;
+
+    return segTree.sum(0, MAX);
   }
 
   outputForAtCoder(&solve);
@@ -83,6 +60,7 @@ void runSolver(bool multiCase = false) {
   debug { BORDER.writeln; while(!stdin.eof) { "<<< Process time: %s >>>".writefln(std.datetime.stopwatch.benchmark!problem(multiCase ? scan!int : 1)); BORDER.writeln; } }
   else foreach(_; 0..multiCase ? scan!int : 1) problem();
 }
+
 enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------

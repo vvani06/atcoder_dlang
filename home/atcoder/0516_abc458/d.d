@@ -6,28 +6,20 @@ void problem() {
   auto AB = scan!long(2 * Q).chunks(2).array;
 
   auto solve() {
-    auto lt = [long.min].redBlackTree!true;
-    auto rt = [long.max].redBlackTree!true;
+    auto lt = [long.min].heapify!"a < b";
+    auto rt = [long.max].heapify!"a > b";
     
     long cur = X;
     foreach(a, b; AB.asTuples!2) {
-      if (min(a, b, cur) == cur) {
-        rt.insert([a, b]);
-        lt.insert(cur);
-        cur = rt.front;
-        rt.removeFront();
-      } else if (max(a, b, cur) == cur) {
-        lt.insert([a, b]);
-        rt.insert(cur);
-        cur = lt.back;
-        lt.removeBack();
-      } else {
-        lt.insert(min(a, b));
-        rt.insert(max(a, b));
-      }
+      auto sorted = [lt.front, rt.front, cur, a, b].sort;
 
-      writeln(cur);
-      // [lt.array, rt.array].deb;
+      lt.removeFront();
+      rt.removeFront();
+      lt.insert(sorted[0]);
+      lt.insert(sorted[1]);
+      rt.insert(sorted[3]);
+      rt.insert(sorted[4]);
+      writeln(cur = sorted[2]);
     }
   }
 
