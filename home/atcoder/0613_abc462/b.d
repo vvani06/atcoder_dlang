@@ -1,11 +1,14 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto A = [0] ~ iota(N).map!(_ => scan!int(scan!int)).array;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    foreach(i; 1..N + 1) {
+      auto ans = iota(1, N + 1).filter!(x => A[x].canFind(i)).array;
+      writefln("%s %(%s %)", ans.length, ans);
+    }
   }
 
   outputForAtCoder(&solve);

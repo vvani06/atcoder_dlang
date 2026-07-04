@@ -1,11 +1,24 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto S = scan!string;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    auto counts = new int[](N + 1);
+    foreach(i, c; zip(iota(N).retro, S.retro)) {
+      counts[i] = counts[i + 1] + (c == 'o' ? 1 : 0);
+    }
+
+    DList!int ans;
+    foreach(i, c; counts[0..N].enumerate(1)) {
+      if (c % 2 == 0) {
+        ans.insertBack(i);
+      } else {
+        ans.insertFront(i);
+      }
+    }
+    return ans.array;
   }
 
   outputForAtCoder(&solve);

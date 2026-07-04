@@ -1,11 +1,29 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto M = scan!int;
+  auto ADB = scan!int(3 * N).chunks(3).array;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    int ans = ADB.map!"a[0]".array.sort.uniq.walkLength.to!int;
+
+    alias Change = Tuple!(int, "id", int, "from", int, "to");
+    auto changes = new Change[][](M + 1);
+    auto counts = new int[](N + 1);
+    foreach(i, a, d, b; zip(iota(N), ADB.map!"a[0]", ADB.map!"a[1]", ADB.map!"a[2]")) {
+      counts[a]++;
+      changes[d] ~= Change(i, a, b);
+    }
+
+    foreach(day; 1..M + 1) {
+      foreach(change; changes[day]) {
+        if (--counts[change.from] == 0) ans--;
+        if (++counts[change.to] == 1) ans++;
+      }
+
+      writeln(ans);
+    }
   }
 
   outputForAtCoder(&solve);

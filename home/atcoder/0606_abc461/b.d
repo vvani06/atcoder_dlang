@@ -1,11 +1,15 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto A = scan!int(N);
+  auto B = scan!int(N);
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    auto rev = new int[](N + 1);
+    foreach(i, b; B.enumerate(1)) rev[i] = b - 1;
+
+    return iota(N).all!(i => i == rev[A[i]]);
   }
 
   outputForAtCoder(&solve);

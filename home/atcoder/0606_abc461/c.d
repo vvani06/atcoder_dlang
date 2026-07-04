@@ -1,11 +1,38 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto K = scan!int;
+  auto M = scan!int;
+  auto CV = scan!long(N * 2).chunks(2);
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    auto heap = CV.redBlackTree!("a[1] > b[1]", true);
+
+    bool[] chosen = new bool[](N + 1);
+    int rest = K;
+    int restColor = M;
+    long ans;
+
+    foreach(h; heap.array) {
+      if (chosen[h[0]]) continue;
+
+      chosen[h[0]] = true;
+      ans += h[1];
+      heap.removeKey(h);
+      rest--;
+      restColor--;
+      if (restColor == 0 || rest == 0) break;
+    }
+
+    foreach(h; heap) {
+      if (rest <= 0) break;
+
+      ans += h[1];
+      rest--;
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);

@@ -1,11 +1,30 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto Q = scan!int;
+  auto RCX = iota(Q).map!(i => tuple(i + 1, scan!int, scan!int, scan!dchar)).array;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    int[][] ev = new int[][](H, W);
+    foreach(i, r, c, x; RCX.asTuples!4) {
+      ev[r - 1][c - 1].chmax(i);
+    }
+
+    // ev.each!deb;
+    string[] ans;
+    auto cur = new int[](W);
+    foreach(r; iota(0, H).retro) {
+      foreach(c; iota(0, W).retro) {
+        cur[c].chmax(ev[r][c]);
+        if (c < W - 1) cur[c].chmax(cur[c + 1]);
+      }
+
+      ans ~= cur.map!(a => a == 0 ? 'A' : RCX[a - 1][3]).to!string;
+    }
+
+    foreach(s; ans.retro) writeln(s);
   }
 
   outputForAtCoder(&solve);

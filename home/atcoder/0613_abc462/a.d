@@ -1,11 +1,10 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto S = scan!string;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    return S.filter!(c => '0' <= c && c <= '9').to!string;
   }
 
   outputForAtCoder(&solve);

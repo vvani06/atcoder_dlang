@@ -1,11 +1,15 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto X = scan!int;
+  auto Y = scan!int;
+  auto L = scan!int;
+  auto R = scan!int;
+  auto A = scan!int;
+  auto B = scan!int;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    return iota(A, B).map!(t => L <= t && t < R ? X : Y).sum;
   }
 
   outputForAtCoder(&solve);

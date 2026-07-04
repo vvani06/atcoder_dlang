@@ -1,11 +1,11 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto A = scan!int;
+  auto D = scan!int;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    return A <= D;
   }
 
   outputForAtCoder(&solve);

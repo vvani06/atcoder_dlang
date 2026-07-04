@@ -1,11 +1,20 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto S = scan!string(H);
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    auto l = iota(0, W).countUntil!(c => S.any!(row => row[c] == '#'));
+    auto r = iota(W - 1, -1, -1).countUntil!(c => S.any!(row => row[c] == '#'));
+    auto t = iota(0, H).countUntil!(r => S[r].canFind('#'));
+    auto b = iota(H - 1, -1, -1).countUntil!(r => S[r].canFind('#'));
+
+    // [l, r, t, b].deb;
+    foreach(row; S[t..$ - b]) {
+      writeln(row[l..$ - r]);
+    }
   }
 
   outputForAtCoder(&solve);

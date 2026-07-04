@@ -1,11 +1,10 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto S = scan!string;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    return S.count('E') > S.count('W') ? "East" : "West";
   }
 
   outputForAtCoder(&solve);

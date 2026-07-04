@@ -1,11 +1,24 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto H = scan!int;
+  auto W = scan!int;
+  auto K = scan!int;
+  auto S = scan!string(H).map!(s => s.map!(c => c == '1' ? 1 : 0).array).array;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    int[][] accCol = iota(W).map!(c => 0 ~ iota(H).map!(r => S[r][c]).cumulativeFold!"a + b".array).array;
+
+    long ans;
+    foreach(b; 0..H) foreach(t; b + 1..H + 1) {
+      auto acc = (0 ~ iota(W).map!(c => accCol[c][t] - accCol[c][b]).cumulativeFold!"a + b".array).assumeSorted;
+      foreach(left; 0..W) {
+        auto base = acc[left];
+        ans += acc[left + 1..$].upperBound(base + K - 1).lowerBound(base + K + 1).length;
+      }
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -117,4 +130,36 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+enum AroundDelta {
+  RC4 = zip([-1, 0, 1, 0], [0, -1, 0, 1]),
+  RC8 = zip([-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1])
+}
+
+struct GridGraph(AroundDelta ad = AroundDelta.RC4) {
+  int height, width;
+  int index(int r, int c) { return r * width + c; }
+
+  int[][] graph;
+  this (int h, int w) {
+    width = w;
+    height = h;
+    graph = new int[][](width * height);
+
+    foreach(r; 0..h) foreach(c; 0..w) {
+      auto i = index(r, c);
+      static foreach(dr, dc; ad) {{
+        auto rr = r + dr;
+        auto cc = c + dc;
+        if (0 <= rr && rr < h && 0 <= cc && cc < w) {
+          auto j = index(rr, cc);
+          graph[i] ~= j;
+        }
+      }}
+    }
+  }
+
+  auto nodes() { return iota(height * width); }
+  ref auto nexts(int node) { return graph[node]; }
 }

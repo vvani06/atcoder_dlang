@@ -1,11 +1,20 @@
-void main() { runSolver(true); }
+void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
-  auto M = scan!long;
+  auto N = scan!int;
+  auto XY = scan!int(N * 2).chunks(2).array;
 
   auto solve() {
-    return MInt9(N / M) * MInt9(N);
+    int minX = int.max, minY = int.max;
+    int ans;
+    foreach(x, y; XY.sort!"a[0] < b[0]".asTuples!2) {
+      if (minX >= x || minY >= y) ans++;
+
+      minX = min(minX, x);
+      minY = min(minY, y);
+    }
+
+    return ans;
   }
 
   outputForAtCoder(&solve);
