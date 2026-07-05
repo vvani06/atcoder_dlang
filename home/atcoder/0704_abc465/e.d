@@ -1,30 +1,33 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto H = scan!int;
-  auto W = scan!int;
-  auto Q = scan!int;
-  auto RCX = iota(Q).map!(i => tuple(i + 1, scan!int, scan!int, scan!dchar)).array;
+  auto S = scan!string;
+
+  static struct DigitDPState {
+    enum SIZES = [3, 2, 2^^10];
+    int mod, contain, set;
+
+    auto nextForDigitDP(int n) {
+      DigitDPState ret = this;
+
+      ret.mod = (mod + n) % 3;
+      ret.contain |= n == 3;
+      if (!(set == 0 && n == 0)) ret.set |= 2^^n;
+
+      return ret;
+    }
+  }
 
   auto solve() {
-    int[][] ev = new int[][](H, W);
-    foreach(i, r, c, x; RCX.asTuples!4) {
-      ev[r - 1][c - 1].chmax(i);
-    }
+    auto memo = digitDP(S, [DigitDPState(0, 0, 0): MInt9(1)]);
 
-    // ev.each!deb;
-    string[] ans;
-    auto cur = new int[](W);
-    foreach(r; iota(0, H).retro) {
-      foreach(c; iota(0, W).retro) {
-        cur[c].chmax(ev[r][c]);
-        if (c < W - 1) cur[c].chmax(cur[c + 1]);
+    MInt9 ans;
+    foreach(n, state; allStates!DigitDPState()) {
+      if ([state.mod == 0, state.contain == 1, state.set.popcnt == 3].count(true) == 1) {
+        ans += memo[n];
       }
-
-      ans ~= cur.map!(a => a == 0 ? 'A' : RCX[a - 1][3]).to!string;
     }
-
-    foreach(s; ans.retro) writeln(s);
+    return ans - MInt9(1);
   }
 
   outputForAtCoder(&solve);
@@ -32,7 +35,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std;
+import std, core.bitop;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -136,4 +139,51 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
+}
+
+T parseAsState(T)(int state) {
+  T ret;
+  static foreach(i; iota(T.SIZES.length).retro) {
+    ret.tupleof[i] = state % T.SIZES[i];
+    state /= T.SIZES[i];
+  }
+  return ret;
+}
+
+int composeStateInt(T)(T state) {
+  int ret;
+  static foreach(i, s; T.SIZES) {
+    ret *= s;
+    ret += state.tupleof[i];
+  }
+  return ret;
+}
+
+T[] allStates(T)() {
+  return iota(T.SIZES.fold!"a * b").map!(i => parseAsState!T(i)).array;
+}
+
+auto digitDP(T, R)(string N, R[T] init) {
+  enum size = T.SIZES.fold!"a * b";
+  auto memo = new R[][](2, size);
+  foreach(k, v; init) memo[0][composeStateInt(k)] = v;
+  
+  foreach(c; N.map!"(a - '0').to!long") {
+    auto pre = new R[][](2, size);
+    swap(pre, memo);
+
+    foreach(from; 0..size) {
+      auto fromState = parseAsState!T(from);
+
+      foreach(d; 0..10) {
+        auto toState = fromState.nextForDigitDP(d);
+        auto to = composeStateInt(toState);
+
+        memo[1][to] += pre[1][from];
+        if (d < c) memo[1][to] += pre[0][from];
+        if (d == c) memo[0][to] += pre[0][from];
+      }
+    }
+  }
+  return zip(memo[0], memo[1]).map!"a[0] + a[1]".array;
 }

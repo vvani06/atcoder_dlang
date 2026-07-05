@@ -6,14 +6,18 @@ void problem() {
   auto K = scan!long;
 
   auto solve() {
-    int ans;
-    while(X != Y) {
-      if (X > Y) swap(X, Y);
+    long[] x = [X];
+    while(x.back > 0) x ~= x.back / K;
 
-      Y /= K;
-      ans++;
+    long[] y = [Y];
+    while(y.back > 0) y ~= y.back / K;
+
+    long ans = int.max;
+    foreach(i, a; x) {
+      if (!y.canFind(a)) continue;
+
+      ans = min(ans, i + y.countUntil(a));
     }
-
     return ans;
   }
 
