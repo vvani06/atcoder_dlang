@@ -1,25 +1,25 @@
 void main() { runSolver(); }
 
 void problem() {
+  auto D = scan!int;
   auto S = scan!string;
 
   static struct DigitDPState {
-    enum SIZES = [1];
-    int ones;
+    enum SIZES = [100];
+    int mod;
+    static int D = 100;
 
     auto nextForDigitDP(int n) {
       DigitDPState ret = this;
+      ret.mod = (mod + n) % D;
       return ret;
-    }
-
-    auto coefForDigitDP(int n) {
-      return n == 1 ? 2 : 1;
     }
   }
 
   auto solve() {
-    auto ans = digitDP!2(S, [DigitDPState(0): MInt1(1)]);
-    return ans[0];
+    DigitDPState.D = D;
+    auto memo = digitDP(S, [DigitDPState(0): MInt1(1)]);
+    return memo[0] - MInt1(1);
   }
 
   outputForAtCoder(&solve);
@@ -155,7 +155,7 @@ T[] allStates(T)() {
   return iota(T.SIZES.fold!"a * b").map!(i => parseAsState!T(i)).array;
 }
 
-auto digitDP(int D = 10, T, R)(string N, R[T] init) {
+auto digitDP(T, R)(string N, R[T] init) {
   enum size = T.SIZES.fold!"a * b";
   auto memo = new R[][](2, size);
   foreach(k, v; init) memo[0][composeStateInt(k)] = v;
@@ -167,14 +167,13 @@ auto digitDP(int D = 10, T, R)(string N, R[T] init) {
     foreach(from; 0..size) {
       auto fromState = parseAsState!T(from);
 
-      foreach(d; 0..D) {
+      foreach(d; 0..10) {
         auto toState = fromState.nextForDigitDP(d);
         auto to = composeStateInt(toState);
-        auto coef = R(fromState.coefForDigitDP(d));
 
-        memo[1][to] += pre[1][from] * coef;
-        if (d < c) memo[1][to] += pre[0][from] * coef;
-        if (d == c) memo[0][to] += pre[0][from] * coef;
+        memo[1][to] += pre[1][from];
+        if (d < c) memo[1][to] += pre[0][from];
+        if (d == c) memo[0][to] += pre[0][from];
       }
     }
   }

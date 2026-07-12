@@ -1,25 +1,11 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto S = scan!string;
-
-  static struct DigitDPState {
-    enum SIZES = [1];
-    int ones;
-
-    auto nextForDigitDP(int n) {
-      DigitDPState ret = this;
-      return ret;
-    }
-
-    auto coefForDigitDP(int n) {
-      return n == 1 ? 2 : 1;
-    }
-  }
+  auto N = scan!int;
+  auto A = scan!int(N);
 
   auto solve() {
-    auto ans = digitDP!2(S, [DigitDPState(0): MInt1(1)]);
-    return ans[0];
+    return A.maxElement < 0;
   }
 
   outputForAtCoder(&solve);
@@ -27,7 +13,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std, core.bitop;
+import std;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -131,52 +117,4 @@ auto asTuples(int L, T)(T matrix) {
   } else {
     return matrix.map!(row => tuple());
   }
-}
-
-T parseAsState(T)(int state) {
-  T ret;
-  static foreach(i; iota(T.SIZES.length).retro) {
-    ret.tupleof[i] = state % T.SIZES[i];
-    state /= T.SIZES[i];
-  }
-  return ret;
-}
-
-int composeStateInt(T)(T state) {
-  int ret;
-  static foreach(i, s; T.SIZES) {
-    ret *= s;
-    ret += state.tupleof[i];
-  }
-  return ret;
-}
-
-T[] allStates(T)() {
-  return iota(T.SIZES.fold!"a * b").map!(i => parseAsState!T(i)).array;
-}
-
-auto digitDP(int D = 10, T, R)(string N, R[T] init) {
-  enum size = T.SIZES.fold!"a * b";
-  auto memo = new R[][](2, size);
-  foreach(k, v; init) memo[0][composeStateInt(k)] = v;
-  
-  foreach(c; N.map!"(a - '0').to!long") {
-    auto pre = new R[][](2, size);
-    swap(pre, memo);
-
-    foreach(from; 0..size) {
-      auto fromState = parseAsState!T(from);
-
-      foreach(d; 0..D) {
-        auto toState = fromState.nextForDigitDP(d);
-        auto to = composeStateInt(toState);
-        auto coef = R(fromState.coefForDigitDP(d));
-
-        memo[1][to] += pre[1][from] * coef;
-        if (d < c) memo[1][to] += pre[0][from] * coef;
-        if (d == c) memo[0][to] += pre[0][from] * coef;
-      }
-    }
-  }
-  return zip(memo[0], memo[1]).map!"a[0] + a[1]".array;
 }

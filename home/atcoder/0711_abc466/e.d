@@ -1,25 +1,27 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto S = scan!string;
-
-  static struct DigitDPState {
-    enum SIZES = [1];
-    int ones;
-
-    auto nextForDigitDP(int n) {
-      DigitDPState ret = this;
-      return ret;
-    }
-
-    auto coefForDigitDP(int n) {
-      return n == 1 ? 2 : 1;
-    }
-  }
+  auto N = scan!int;
+  auto K = scan!int;
+  auto AB = scan!long(2 * N).chunks(2).array;
 
   auto solve() {
-    auto ans = digitDP!2(S, [DigitDPState(0): MInt1(1)]);
-    return ans[0];
+    auto memo = new long[](2 * K + 1);
+
+    foreach(arr; AB) {
+      auto pre = memo.dup;
+      memo[] = 0L;
+
+      foreach(k; 0..2 * K + 1) {
+        memo[k].chmax(pre[k] + arr[k % 2]);
+
+        if (k < 2 * K) {
+          memo[k + 1].chmax(pre[k] + arr[(k + 1) % 2]);
+        }
+      }
+    }
+
+    return memo.maxElement;
   }
 
   outputForAtCoder(&solve);
@@ -27,7 +29,7 @@ void problem() {
 
 // ----------------------------------------------
 
-import std, core.bitop;
+import std;
 string scan(){ static string[] ss; while(!ss.length) ss = readln.chomp.split; string res = ss[0]; ss.popFront; return res; }
 T scan(T)(){ return scan.to!T; }
 T[] scan(T)(long n){ return n.iota.map!(i => scan!T()).array; }
@@ -133,50 +135,34 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-T parseAsState(T)(int state) {
-  T ret;
-  static foreach(i; iota(T.SIZES.length).retro) {
-    ret.tupleof[i] = state % T.SIZES[i];
-    state /= T.SIZES[i];
-  }
-  return ret;
+enum AroundDelta {
+  RC4 = zip([-1, 0, 1, 0], [0, -1, 0, 1]),
+  RC8 = zip([-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1])
 }
 
-int composeStateInt(T)(T state) {
-  int ret;
-  static foreach(i, s; T.SIZES) {
-    ret *= s;
-    ret += state.tupleof[i];
-  }
-  return ret;
-}
+struct GridGraph(AroundDelta ad = AroundDelta.RC4) {
+  int height, width;
+  int index(int r, int c) { return r * width + c; }
 
-T[] allStates(T)() {
-  return iota(T.SIZES.fold!"a * b").map!(i => parseAsState!T(i)).array;
-}
+  int[][] graph;
+  this (int h, int w) {
+    width = w;
+    height = h;
+    graph = new int[][](width * height);
 
-auto digitDP(int D = 10, T, R)(string N, R[T] init) {
-  enum size = T.SIZES.fold!"a * b";
-  auto memo = new R[][](2, size);
-  foreach(k, v; init) memo[0][composeStateInt(k)] = v;
-  
-  foreach(c; N.map!"(a - '0').to!long") {
-    auto pre = new R[][](2, size);
-    swap(pre, memo);
-
-    foreach(from; 0..size) {
-      auto fromState = parseAsState!T(from);
-
-      foreach(d; 0..D) {
-        auto toState = fromState.nextForDigitDP(d);
-        auto to = composeStateInt(toState);
-        auto coef = R(fromState.coefForDigitDP(d));
-
-        memo[1][to] += pre[1][from] * coef;
-        if (d < c) memo[1][to] += pre[0][from] * coef;
-        if (d == c) memo[0][to] += pre[0][from] * coef;
-      }
+    foreach(r; 0..h) foreach(c; 0..w) {
+      auto i = index(r, c);
+      static foreach(dr, dc; ad) {{
+        auto rr = r + dr;
+        auto cc = c + dc;
+        if (0 <= rr && rr < h && 0 <= cc && cc < w) {
+          auto j = index(rr, cc);
+          graph[i] ~= j;
+        }
+      }}
     }
   }
-  return zip(memo[0], memo[1]).map!"a[0] + a[1]".array;
+
+  auto nodes() { return iota(height * width); }
+  ref auto nexts(int node) { return graph[node]; }
 }
