@@ -2,42 +2,20 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto XY = scan!long(2 * N).chunks(2);
-  auto AB = scan!int(2 * Q).chunks(2);
+  auto X = scan!long;
+  auto Y = scan!long;
+  auto A = scan!string;
+  auto B = scan!string;
 
   auto solve() {
-    int[ArgumentCoord] minId, maxId;
-
-    foreach(i, ac; zip(iota(N), XY.map!(a => ArgumentCoord(a[0], a[1])).array.sort)) {
-      minId.require(ac, i);
-      minId[ac].chmin(i);
-      maxId.require(ac, i);
-      maxId[ac].chmax(i);
-      // ac.deb;
+    int ans;
+    long[dchar] delta = ['L': -1, 'S': 0, 'R': 1];
+    foreach(a, b; zip(A, B)) {
+      X += delta[a];
+      Y += delta[b];
+      if (X == Y) ans++;
     }
-
-    // minId.deb;
-    // maxId.deb;
-
-    auto acs = XY.map!(a => ArgumentCoord(a[0], a[1])).array;
-    foreach(a, b; AB.asTuples!2) {
-      a--; b--;
-      auto acA = acs[a];
-      auto acB = acs[b];
-      // [acA, acB].deb;
-
-      if (acA > acB) {
-        auto r = minId[acA];
-        auto l = maxId[acB];
-        // [l, r].deb;
-        writeln(N - (r - l - 1));
-      } else {
-        auto l = minId[acA];
-        auto r = maxId[acB];
-        writeln(r - l + 1);
-      }
-    }
+    return ans;
   }
 
   outputForAtCoder(&solve);
@@ -94,32 +72,5 @@ auto asTuples(int L, T)(T matrix) {
     return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
   } else {
     return matrix.map!(row => tuple());
-  }
-}
-
-
-// 偏角ソートに対応した比較関数を持つ (x, y) 2次元座標
-struct ArgumentCoord {
-  long x, y;
-
-  this(long x, long y) {
-    auto g = gcd(abs(x), abs(y));
-    this.x = x / g;
-    this.y = y / g;
-  }
-
-  inout long cross(inout ArgumentCoord other) {
-    return x * other.y - y * other.x;
-  }
-
-  int opCmp(inout ArgumentCoord other) {
-    auto ap = [0L, 0L] >= [y, x];
-    auto aq = [0L, 0L] >= [other.y, other.x];
-    if (ap < aq) return 1;
-    if (ap > aq) return -1;
-
-    if (cross(other) < 0) return -1;
-    if (cross(other) > 0) return 1;
-    return 0;
   }
 }

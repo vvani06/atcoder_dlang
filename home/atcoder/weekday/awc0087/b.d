@@ -2,42 +2,10 @@ void main() { runSolver(); }
 
 void problem() {
   auto N = scan!int;
-  auto Q = scan!int;
-  auto XY = scan!long(2 * N).chunks(2);
-  auto AB = scan!int(2 * Q).chunks(2);
+  auto TR = scan!long(N * 2).chunks(2).array;
 
   auto solve() {
-    int[ArgumentCoord] minId, maxId;
-
-    foreach(i, ac; zip(iota(N), XY.map!(a => ArgumentCoord(a[0], a[1])).array.sort)) {
-      minId.require(ac, i);
-      minId[ac].chmin(i);
-      maxId.require(ac, i);
-      maxId[ac].chmax(i);
-      // ac.deb;
-    }
-
-    // minId.deb;
-    // maxId.deb;
-
-    auto acs = XY.map!(a => ArgumentCoord(a[0], a[1])).array;
-    foreach(a, b; AB.asTuples!2) {
-      a--; b--;
-      auto acA = acs[a];
-      auto acB = acs[b];
-      // [acA, acB].deb;
-
-      if (acA > acB) {
-        auto r = minId[acA];
-        auto l = maxId[acB];
-        // [l, r].deb;
-        writeln(N - (r - l - 1));
-      } else {
-        auto l = minId[acA];
-        auto r = maxId[acB];
-        writeln(r - l + 1);
-      }
-    }
+    return TR.map!"a.sum".sum - TR.map!"a[1]".maxElement;
   }
 
   outputForAtCoder(&solve);
@@ -97,29 +65,80 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
+struct UnionFindWith(T = UnionFindExtra) {
+  int[] roots;
+  int[] sizes;
+  long[] weights;
+  T[] extras;
+ 
+  this(int size) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = new T[](size);
+  }
+ 
+  this(int size, T[] ex) {
+    roots = size.iota.array;
+    sizes = 1.repeat(size).array;
+    weights = 0L.repeat(size).array;
+    extras = ex.dup;
+  }
+ 
+  int root(int x) {
+    if (roots[x] == x) return x;
 
-// 偏角ソートに対応した比較関数を持つ (x, y) 2次元座標
-struct ArgumentCoord {
-  long x, y;
-
-  this(long x, long y) {
-    auto g = gcd(abs(x), abs(y));
-    this.x = x / g;
-    this.y = y / g;
+    const root = root(roots[x]);
+    weights[x] += weights[roots[x]];
+    return roots[x] = root;
   }
 
-  inout long cross(inout ArgumentCoord other) {
-    return x * other.y - y * other.x;
+  int size(int x) {
+    return sizes[root(x)];
   }
 
-  int opCmp(inout ArgumentCoord other) {
-    auto ap = [0L, 0L] >= [y, x];
-    auto aq = [0L, 0L] >= [other.y, other.x];
-    if (ap < aq) return 1;
-    if (ap > aq) return -1;
+  T extra(int x) {
+    return extras[root(x)];
+  }
 
-    if (cross(other) < 0) return -1;
-    if (cross(other) > 0) return 1;
-    return 0;
+  T setExtra(int x, T t) {
+    return extras[root(x)] = t;
+  }
+ 
+  bool unite(int x, int y, long w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+    if (rootX == rootY) return weights[x] - weights[y] == w;
+ 
+    if (sizes[rootX] < sizes[rootY]) {
+      swap(x, y);
+      swap(rootX, rootY);
+      w *= -1;
+    }
+
+    sizes[rootX] += sizes[rootY];
+    weights[rootY] = weights[x] - weights[y] - w;
+    extras[rootX] = extras[rootX].merge(extras[rootY]);
+    roots[rootY] = rootX;
+    return true;
+  }
+ 
+  bool same(int x, int y, int w = 0) {
+    int rootX = root(x);
+    int rootY = root(y);
+ 
+    return rootX == rootY && weights[rootX] - weights[rootY] == w;
+  }
+
+  auto dup() {
+    auto dupe = UnionFindWith!T(roots.length.to!int);
+    dupe.roots = roots.dup;
+    dupe.sizes = sizes.dup;
+    dupe.weights = weights.dup;
+    dupe.extras = extras.dup;
+    return dupe;
   }
 }
+
+struct UnionFindExtra { UnionFindExtra merge(UnionFindExtra other) { return UnionFindExtra(); } }
+alias UnionFind = UnionFindWith!UnionFindExtra;

@@ -1,43 +1,29 @@
 void main() { runSolver(); }
 
 void problem() {
-  auto N = scan!long;
+  auto N = scan!int;
   auto K = scan!int;
-  auto S = scan!string(K);
+  auto M = scan!int;
+  auto CV = scan!long(N * 2).chunks(2);
 
   auto solve() {
-    auto trie = new Trie!dchar();
-    foreach(s; S) trie.insert(s.array);
+    auto chosen = new bool[](N + 1);
+    auto buffer = K - M;
+    auto rest = K;
 
-    auto size = trie.nodes.length.to!int;
-    auto memo = new MInt9[](size);
-    memo[0] = MInt9(1);
+    long ans;
+    foreach(c, v; CV.array.sort!"a[1] > b[1]".asTuples!2) {
+      if (!chosen[c] || buffer > 0) {
+        ans += v;
+        rest--;
 
-    trie.nodes.map!(n => n.children).each!deb;
-
-    foreach(_; 0..min(1000, N)) {
-      auto pre = new MInt9[](size);
-      swap(memo, pre);
-
-      foreach(c; 0..26) {
-        auto dc = c + 'a';
-
-        foreach(i; 0..size) {
-          auto from = trie.nodes[i];
-          auto next = from.children.get(dc, from).id;
-          memo[next] += pre[i];
-        }
+        if (chosen[c]) buffer--;
+        chosen[c] = true;
       }
+
+      if (rest == 0) break;
     }
 
-    MInt9 ans;
-    foreach(i; 0..size) {
-      if (trie.nodes[i].end) {
-        memo[i].deb;
-      } else {
-        ans += memo[i];
-      }
-    }
     return ans;
   }
 
@@ -55,25 +41,6 @@ long[] divisors(long n) { long[] ret; for (long i = 1; i * i <= n; i++) { if (n 
 bool chmin(T)(ref T a, T b) { if (b < a) { a = b; return true; } else return false; }
 bool chmax(T)(ref T a, T b) { if (b > a) { a = b; return true; } else return false; }
 ulong comb(ulong a, ulong b) { if (b == 0) {return 1;}else{return comb(a - 1, b - 1) * a / b;}}
-struct ModInt(uint MD) if (MD < int.max) {ulong v;this(string v) {this(v.to!long);}this(int v) {this(long(v));}this(long v) {this.v = (v%MD+MD)%MD;}void opAssign(long t) {v = (t%MD+MD)%MD;}static auto normS(ulong x) {return (x<MD)?x:x-MD;}static auto make(ulong x) {ModInt m; m.v = x; return m;}auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}auto opBinary(string op:"^^", T)(T r) const {long x=v;long y=1;while(r){if(r%2==1)y=(y*x)%MD;x=x^^2%MD;r/=2;} return make(y);}auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}static ModInt inv(ModInt x) {return x^^(MD-2);}string toString() const {return v.to!string;}auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}}
-alias MInt1 = ModInt!(10^^9 + 7);
-alias MInt9 = ModInt!(998_244_353);
-string asAnswer(T ...)(T t) {
-  string ret;
-  foreach(i, a; t) {
-    if (i > 0) ret ~= "\n";
-    alias A = typeof(a);
-    static if (isIterable!A && !is(A == string)) {
-      string[] rets;
-      foreach(b; a) rets ~= asAnswer(b);
-      static if (isInputRange!A) ret ~= rets.joiner(" ").to!string; else ret ~= rets.joiner("\n").to!string; 
-    } else {
-      static if (is(A == float) || is(A == double) || is(A == real)) ret ~= "%.16f".format(a);
-      else static if (is(A == bool)) ret ~= YESNO[a]; else ret ~= "%s".format(a);
-    }
-  }
-  return ret;
-}
 void deb(T ...)(T t){ debug t.writeln; }
 void outputForAtCoder(T)(T delegate() fn) {
   static if (is(T == void)) fn();
@@ -91,41 +58,82 @@ enum YESNO = [true: "Yes", false: "No"];
 
 // -----------------------------------------------
 
+struct ModInt(uint MD) if (MD < int.max) {
+  ulong v;
+  this(string v) {this(v.to!long);}
+  this(int v) {this(long(v));}
+  this(long v) {this.v = (v%MD+MD)%MD;}
+  void opAssign(long t) {v = (t%MD+MD)%MD;}
+  static auto normS(ulong x) {return (x<MD)?x:x-MD;}
+  static auto make(ulong x) {ModInt m; m.v = x; return m;}
+  auto opBinary(string op:"+")(ModInt r) const {return make(normS(v+r.v));}
+  auto opBinary(string op:"-")(ModInt r) const {return make(normS(v+MD-r.v));}
+  auto opBinary(string op:"*")(ModInt r) const {return make((ulong(v)*r.v%MD).to!ulong);}
+  static long pow(long x, long n) { long ans = 1; while (n > 0) { if ((n & 1) == 1) {ans = ans * x % MD;} x = x * x % MD; n >>= 1;} return ans;}
+  auto opBinary(string op:"^^", T)(T r) const {return make(pow(v, r));}
+  auto opBinary(string op:"/")(ModInt r) const {return this*memoize!inv(r);}
+  static ModInt inv(ModInt x) {return x^^(MD-2);}
+  string toString() const {return v.to!string;}
+  auto opOpAssign(string op)(ModInt r) {return mixin ("this=this"~op~"r");}
+
+  static long[] factorials = [1], invFactorials = [1];
+  static void provisionFactorial(int limit) {
+    if (factorials.length >= limit) return;
+
+    auto l = factorials.length;
+    factorials.length = limit;
+    invFactorials.length = limit;
+    foreach(i; l..limit) {
+      factorials[i] = (factorials[i - 1] * i) % MD;
+      invFactorials[i] = pow(factorials[i], MD - 2) % MD;
+    }
+  }
+  static ModInt factorial(int n) {
+    provisionFactorial(n + 1);
+    return ModInt(factorials[n]);
+  }
+  static ModInt combine(int n, int k) {
+    if (n < k) return ModInt(1);
+    provisionFactorial(n + k + 1);
+    return ModInt(factorials[n] * invFactorials[k] % MD * invFactorials[n - k] % MD);
+  }
+  static ModInt combineNaive(long n, long k) {
+    if (k < 0 || k > n) return ModInt(0);
+    
+    ModInt ret = ModInt(1);
+    k = min(k, n - k);
+
+    foreach(x; 0..k) {
+      ret *= ModInt(n) - ModInt(x);
+      ret /= ModInt(x + 1);
+    }
+    return ret;
+  }
+}
+alias MInt1 = ModInt!(10^^9 + 7);
+alias MInt9 = ModInt!(998_244_353);
+
+string asAnswer(T ...)(T t) {
+  string ret;
+  foreach(i, a; t) {
+    if (i > 0) ret ~= "\n";
+    alias A = typeof(a);
+    static if (isIterable!A && !is(A == string)) {
+      string[] rets;
+      foreach(b; a) rets ~= asAnswer(b);
+      static if (isInputRange!A) ret ~= rets.joiner(" ").to!string; else ret ~= rets.joiner("\n").to!string; 
+    } else {
+      static if (is(A == float) || is(A == double) || is(A == real)) ret ~= "%.16f".format(a);
+      else static if (is(A == bool)) ret ~= YESNO[a]; else ret ~= "%s".format(a);
+    }
+  }
+  return ret;
+}
+
 auto asTuples(int L, T)(T matrix) {
   static if (__traits(compiles, L)) {
     return matrix.map!(row => mixin(format("tuple(%-(row[%s],%)])", L.iota)));
   } else {
     return matrix.map!(row => tuple());
-  }
-}
-
-class Trie(T) {
-  class Node {
-    int id;
-    Node[T] children;
-    bool end;
-  }
-
-  Node root;
-  Node[] nodes;
-
-  this() {
-    root = new Node();
-    nodes ~= root;
-  }
-
-  void insert(T[] s) {
-    auto node = root;
-
-    foreach(t; s) {
-      if (!(t in node.children)) {
-        auto n = new Node();
-        n.id = nodes.length.to!int;
-        nodes ~= n;
-        node.children[t] = n;
-      }
-      node = node.children[t];
-    }
-    node.end = true;
   }
 }
