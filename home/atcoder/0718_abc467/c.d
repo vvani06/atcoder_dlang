@@ -8,28 +8,21 @@ void problem() {
   enum INF = long.max / 3;
 
   auto solve() {
-    long[] memo = new long[](2);
-    memo[1] = 1L;
-
-    foreach(i; 0..N - 1) {
-      auto b = B[i];
-      auto pre = memo.dup;
-      memo[] = INF;
-
-      auto asum = (A[i] + A[i + 1]) % M;
-      
-      if (b % M == asum) {
-        memo[0] = pre[0];
-        memo[1] = pre[1] + 1;
-      } else {
-        memo[0] = pre[1];
-        memo[1] = pre[0] + 1;
+    return [0, 1].map!((pre) {
+      int ans = pre;
+      pre = (pre + A[0]) % 2;
+      foreach(a, b; zip(A[1..$], B)) {
+        if ((pre + a) % 2 == b) {
+          pre = 0;
+        } else {
+          pre = 1;
+          ans++;
+        }
+        pre = (pre + a) % 2;
       }
 
-      memo.deb;
-    }
-
-    return memo.minElement;
+      return ans;
+    }).minElement;
   }
 
   outputForAtCoder(&solve);
