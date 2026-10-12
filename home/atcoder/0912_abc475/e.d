@@ -4,23 +4,37 @@ void problem() {
   auto N = scan!int;
   auto M = scan!int;
   auto K = scan!int;
-  auto T = scan!string.map!"a == 'o'".array;
-  auto S = scan!string(N).map!(s => s.map!"a == 'o'".array).array;
+  auto T = scan!string;
+  auto S = scan!string(N).map!(s => iota(K).map!(i => s[i] == T[i]).array).array;
   auto Q = scan!int(scan!int * 2).map!"a - 1".chunks(2).array;
 
   auto solve() {
-    bool judge(int player) {
-      int rest = M;
-      foreach(k; 0..K) {
-        auto collects = iota(N).count!(i => T[k] == S[i][k]);
+    int[BitArray] index; {
+      auto baTree = S.map!"a.dup".redBlackTree!"a > b";
+      {
+        foreach(i, j; Q.asTuples!2) {
+          S[i][j] ^= true;
+          baTree.insert(S[i].dup);
+        }
+        foreach(i, j; Q.asTuples!2) S[i][j] ^= true;
       }
-
-      return false;
+      
+      foreach(i, a; baTree.array.enumerate(0)) {
+        index[BitArray(a)] = i;
+      }
     }
 
+    auto segTree = SegTree!("a + b", int)(new int[](index.length));
+    auto bas = S.map!(a => BitArray(a)).array;
+    foreach(ba; bas) segTree.add(index[ba], 1);
+
     foreach(i, j; Q.asTuples!2) {
-      S[i][j] ^= 1;
-      writeln(asAnswer(judge(i)));
+      segTree.add(index[bas[i]], -1);
+      bas[i].flip(j);
+      segTree.add(index[bas[i]], 1);
+
+      bool ans = bas[i].count > 0 && segTree.sum(0, index[bas[i]] + 1) <= M;
+      writeln(YESNO[ans]);
     }
   }
 
@@ -135,144 +149,121 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
+struct SegTree(alias pred = "a + b", T = long) {
+  alias predFun = binaryFun!pred;
+  int size;
+  T[] data;
+  T monoid;
 
-ulong[] primeFactoring(ulong target)
-{
-  ulong s = target.to!float.sqrt().floor.to!ulong;
-  ulong num = target;
-  ulong[] primes;
-	for (ulong i = 2; i <= s; i++) {
-    if (num % i != 0) continue;
+  T op(T a, T b) {
+    if (a == monoid) return b;
+    if (b == monoid) return a;
+    return predFun(a, b);
+  }
+ 
+  this(T[] src, T monoid = T.init) {
+    this.monoid = monoid;
 
-		while (num%i == 0) num /= i;
-    primes ~= i;
-	}
-  if (num > s) primes ~= num;
-	return primes;
-}
-
-bool[] enumeratePrimes(long max)
-{
-  auto primes = new bool[](max + 1);
-  primes[] = true;
-  primes[0] = false;
-  primes[1] = false;
-  foreach (i; 2..max+1) {
-    if (primes[i]) {
-      auto x = i*2;
-      while (x <= max) {
-        primes[x] = false;
-        x += i;
+    for(int i = 2; i < 2L^^32; i *= 2) {
+      if (src.length <= i) {
+        size = i;
+        break;
       }
     }
-  }
-
-  return primes;
-}
-
-struct Eratosthenes {
-  bool[] isPrime;
-  int[] rawPrimes;
-  int[] spf;
-
-  this(int lim) {
-    isPrime = new bool[](lim + 1);
-    isPrime[2..$] = true;
-    spf = new int[](lim + 1);
-    spf[] = int.max;
-    spf[0..2] = 1;
-    memo = new int[][](lim + 1, 0);
-
-    foreach (i; 2..lim+1) {
-      if (isPrime[i]) {
-        spf[i] = i;
-
-        auto x = i*2;
-        while (x <= lim) {
-          isPrime[x] = false;
-          spf[x].chmin(i);
-          x += i;
-        }
-      }
-    }
-
-    foreach(p; 2..lim + 1) {
-      if (isPrime[p]) rawPrimes ~= p;
-    }
-  }
-
-  auto primes() { return rawPrimes.assumeSorted; }
-
-  int[int] factorize(int x) {
-    int[int] ret;
-    while(x > 1) {
-      ret[spf[x]]++;
-      x /= spf[x];
-    }
-    return ret;
-  }
-
-  int lpf(int x) {
-    int ret = 1;
-    while(x > 1) {
-      ret = max(ret, spf[x]);
-      x /= spf[x];
-    }
-    return ret;
-  }
-
-  int[][] memo;
-  int[] divisors(int num) {
-    if (num <= 1) return [1];
-    if (!memo[num].empty) return memo[num];
-
-    auto p = lpf(num);
-    int t; for(auto n = num; n % p == 0; n /= p) t++;
-    auto pres = this.divisors(num / (p ^^ t));
     
-    int[] ret;
-    foreach(c; 0..t + 1) {
-      ret ~= pres.map!(pre => pre * (p ^^ c)).array;
+    data = new T[](size * 2);
+    foreach(i, s; src) data[i + size] = s;
+    foreach_reverse(b; 1..size) {
+      data[b] = op(data[b * 2], data[b * 2 + 1]);
     }
-    ret.sort!"a > b";
-    return memo[num] = ret;
+  }
+ 
+  void update(int index, T value) {
+    int i = index + size;
+    data[i] = value;
+    while(i > 0) {
+      i /= 2;
+      data[i] = op(data[i * 2], data[i * 2 + 1]);
+    }
+  }
+
+  void add(int index, T value) {
+    update(index, op(get(index), value));
+  }
+ 
+  T get(int index) {
+    return data[index + size];
+  }
+ 
+  T sum(int a, int b, int k = 1, int l = 0, int r = -1) {
+    if (r < 0) r = size;
+    
+    if (r <= a || b <= l) return monoid;
+    if (a <= l && r <= b) return data[k];
+ 
+    T leftValue = sum(a, b, 2*k, l, (l + r) / 2);
+    T rightValue = sum(a, b, 2*k + 1, (l + r) / 2, r);
+    return op(leftValue, rightValue);
+  }
+
+  T[] array() {
+    return size.iota.map!(i => get(i)).array;
+  }
+
+  static if (__traits(hasMember, T, "opCmp")) {
+    int lowerBound(T border) {
+      return binarySearch((int t) => sum(0, t) < border, 0, size + 1);
+    }
+
+    int upperBound(T border) {
+      return binarySearch((int t) => sum(t, size) < border, size, -1);
+    }
+  }
+
+  private K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
+  private T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
+    auto ok = l;
+    auto ng = r;
+    const T TWO = 2;
+  
+    bool again() {
+      static if (is(T == float) || is(T == double) || is(T == real)) {
+        return !ng.approxEqual(ok, 1e-08, 1e-08);
+      } else {
+        return abs(ng - ok) > 1;
+      }
+    }
+  
+    while(again()) {
+      const half = (ng + ok) / TWO;
+      const halfValue = fn(half);
+  
+      if (cond(halfValue)) {
+        ok = half;
+      } else {
+        ng = half;
+      }
+    }
+  
+    return ok;
   }
 }
 
-struct LinearSieze {
-  int limit;
-  int[] primes;
-  int[] spf;
-
-  this(int limit) {
-    this.limit = limit;
-    spf = new int[](limit + 1);
-
-    foreach(d; iota(2, limit + 1)) {
-      if (spf[d] == 0) {
-        spf[d] = d;
-        primes ~= d;
-      }
-
-      foreach(p; primes) {
-        if (p * d > limit || p > spf[d]) break; else spf[p * d] = p;
-      }
+long countInvertions(T)(T[] arr) {
+  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
+  long ret;
+  long pre = -1;
+  int[] adds;
+  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
+    auto i = a[0];
+    auto n = a[1];
+    if (pre != n) {
+      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
+      adds.length = 0;
     }
+    adds ~= i;
+    pre = n;
+    ret += segtree.sum(0, i);
   }
-
-  alias Factors = Tuple!(int, int)[];
-  Factors factors(int n) {
-    Factors ret;
-    for(auto prime = spf[n]; prime > 1;) {
-      int count;
-      while(n % prime == 0) {
-        count++;
-        n /= prime;
-      }
-
-      ret ~= tuple(prime, count);
-      prime = spf[n];
-    }
-    return ret;
-  }
+  return ret;
 }
