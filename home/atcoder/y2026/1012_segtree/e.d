@@ -1,69 +1,48 @@
 void main() { runSolver(false); }
 
-void problem() {
-  auto N = scan!int;
-  auto Q = scan!int(3 * scan!int).chunks(3).array;
+struct RGB {
+  MInt9 r, g, b, rg, gb, rgb;
 
-  struct Edge {
-    int type;
-    int to;
+  static RGB make(dchar c, long v) {
+    RGB ret;
+    if (c == 'R') ret.r = MInt9(v);
+    if (c == 'G') ret.g = MInt9(v);
+    if (c == 'B') ret.b = MInt9(v);
+    return ret;
   }
 
+  RGB add(RGB other) {
+    return RGB(
+      r + other.r,
+      g + other.g,
+      b + other.b,
+      rg + other.rg + r * other.g,
+      gb + other.gb + g * other.b,
+      rgb + other.rgb + rg * other.b + r * other.gb,
+    );
+  }
+}
+
+void problem() {
+  auto N = scan!int;
+  auto Q = scan!int;
+  auto A = scan!long(N);
+  auto S = scan!string;
+
   auto solve() {
-    auto graph = new Edge[][](N, 0);
-    auto graph2 = new Edge[][](N, 0);
-    auto ins = new int[](N);
-    auto outs = new int[](N);
-    {
-      bool[int][] used;
-      used.length = N;
-      foreach(t, u, v; Q.sort!"a[0] > a[1]".asTuples!3) {
-        u--; v--;
-        if (v in used[u]) continue;
-
-        used[u][v] = true;
-        graph[v] ~= Edge(t, u);
-        graph2[u] ~= Edge(t, v);
-        outs[v]++;
-        ins[u]++;
+    auto segTree = SegTree!("a.add(b)", RGB)(zip(S, A).map!(a => RGB.make(a.expand)).array);
+    
+    foreach(_; 0..Q) {
+      if (scan!int == 1) {
+        auto i = scan!int - 1;
+        auto x = scan!long;
+        segTree.update(i, RGB.make(S[i], x));
+      } else {
+        auto l = scan!int - 1;
+        auto r = scan!int;
+        writeln(segTree.sum(l, r).rgb);
       }
     }
-
-    auto ans = new int[](N);
-    ans[] = N;
-
-    auto heap = new int[][](0, 2).heapify!"a[1] > b[1]";
-    foreach(i, x; ins.enumerate(0).array.sort!"a[1] < b[1]".asTuples!2) heap.insert([i, x]);
-
-    bool valid = true;
-    auto visited = new bool[](N);
-    while(!heap.empty) {
-      auto cur = heap.front;
-      heap.removeFront();
-
-      auto node = cur[0];
-      if (visited[node]) continue;
-      visited[node] = true;
-
-      foreach(next; graph[node]) {
-        if (next.type == 0) {
-          ans[next.to].chmin(ans[node]);
-        } else {
-          ans[next.to].chmin(ans[node] - 1);
-        }
-
-        ins[next.to]--;
-        if (!visited[next.to]) {
-          heap.insert([next.to, ins[next.to]]);
-        }
-      }
-
-      if (!valid) break;
-    }
-
-    writeln(YESNO[valid]);
-    if (valid) writeln(asAnswer(ans));
-    ans.deb;
   }
 
   outputForAtCoder(&solve);
@@ -275,23 +254,4 @@ struct SegTree(alias pred = "a + b", T = long) {
   
     return ok;
   }
-}
-
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
-    }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
-  }
-  return ret;
 }

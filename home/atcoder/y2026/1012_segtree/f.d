@@ -1,71 +1,49 @@
 void main() { runSolver(false); }
 
+struct SegValue {
+  long l, lc, r, rc, longest;
+  bool mono;
+
+  static auto make(long v) {
+    SegValue ret;
+    ret.l = ret.r = v;
+    ret.lc = ret.rc = ret.longest = 1;
+    ret.mono = true;
+    return ret;
+  }
+
+  auto add(typeof(this) other) {
+    long newLc = (mono && r == other.l) ? lc + other.lc : lc;
+    long newRc = (r == other.l && other.mono) ? rc + other.lc : other.rc;
+    long mid = r == other.l ? rc + other.lc : 0;
+    long newLongest = max(longest, other.longest, newLc, newRc, mid);
+    bool newMono = r == other.l && mono && other.mono;
+
+    return typeof(this)(l, newLc, other.r, newRc, newLongest, newMono);
+  }
+}
+
 void problem() {
   auto N = scan!int;
-  auto M = scan!long;
+  auto Q = scan!int;
   auto A = scan!long(N);
-  auto B = scan!long(N);
+
+  // SegValue(1, 5, 2, 3, 5).add(SegValue(2, 5, 2, 3, 5)).deb;
 
   auto solve() {
-    long[][] p = new long[][](N, N);
-    foreach(r; 0..N) foreach(c; 0..N) p[r][c] = (A[r] * B[c]) % M;
-
-    long[] crossA = new long[](N);
-    foreach(c; 0..N) {
-      long sm;
-      int r;
-      foreach(tc; iota(c, -1, -1)) {
-        sm += p[r][tc];
-        r++;
-      }
-      crossA[c] = sm;
-    }
-
-    long[] crossB = new long[](N);
-    foreach(c; 0..N) {
-      long sm;
-      int r;
-      foreach(tc; iota(c, -1, -1)) {
-        sm += p[r][$ - tc - 1];
-        r++;
-      }
-      crossB[c] = sm;
-    }
-
-    long calc(int cr, int cc) {
-      long ret;
-      foreach(r; 0..N) foreach(c; 0..N) {
-        long d = max(abs(cr - r), abs(cc - c));
-        ret += d * p[r][c];
-      }
-      return ret;
-    }
-
-    long[][] ans = new long[][](N, N);
-    long[][] ans2 = new long[][](N, N);
-    foreach(r; 0..1) {
-      foreach(c; 0..N) {
-        ans2[r][c] = calc(r, c) + r*N + c;
+    auto segTree = SegTree!("a.add(b)", SegValue)(A.map!(a => SegValue.make(a)).array);
+    
+    foreach(_; 0..Q) {
+      if (scan!int == 1) {
+        auto i = scan!int - 1;
+        auto x = scan!long;
+        segTree.update(i, SegValue.make(x));
+      } else {
+        auto l = scan!int - 1;
+        auto r = scan!int;
+        writeln(segTree.sum(l, r).longest);
       }
     }
-
-    long base = calc(0, 0);
-    foreach(r; 0..1) {
-      long add = crossB.sum;
-      long rem;
-      [add, rem].deb;
-      foreach(c; 0..N) {
-        ans[r][c] = base + r*N + c;
-        add -= crossB[$ - c - 1];
-        rem += crossA[c];
-        base -= add - rem;
-      }
-    }
-
-    ans2[0].deb;
-    ans[0].deb;
-
-    return ans.joiner.fold!"a ^ b";
   }
 
   outputForAtCoder(&solve);
@@ -277,23 +255,4 @@ struct SegTree(alias pred = "a + b", T = long) {
   
     return ok;
   }
-}
-
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
-    }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
-  }
-  return ret;
 }

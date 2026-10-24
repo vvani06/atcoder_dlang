@@ -1,32 +1,51 @@
-void main() { runSolver(true); }
+void main() { runSolver(false); }
 
 void problem() {
   auto N = scan!int;
-  auto S = scan!string;
+  auto Q = scan!int;
+  auto A = scan!int(N);
 
-  struct ValueWithMin {
-    int v, m;
+  struct SmallerLarger {
+    long smaller, larger, inv;
 
-    ValueWithMin add(ValueWithMin other) {
-      return ValueWithMin(v + other.v, min(m, other.m, v + other.v));
+    SmallerLarger add(SmallerLarger other) {
+      return SmallerLarger(
+        smaller + other.smaller,
+        larger + other.larger,
+        inv + other.inv + larger * other.smaller
+      );
     }
   }
 
   auto solve() {
-    auto normalized = S.map!(a => a == '0' ? ValueWithMin(-1, -1) : ValueWithMin(1, 1)).array;
-    auto segTree = SegTree!((a, b) => a.add(b), ValueWithMin)(normalized ~ normalized, ValueWithMin(0, 0));
+    auto segTree0 = SegTree!("a.add(b)", SmallerLarger)(A.map!(a => a == 0 ? SmallerLarger(1, 0, 0) : SmallerLarger(0, 1, 0)).array, SmallerLarger(0, 0, 0));
+    auto segTree1 = SegTree!("a.add(b)", SmallerLarger)(A.map!(a => a == 1 ? SmallerLarger(1, 0, 0) : SmallerLarger(0, a == 2 ? 1 : 0, 0)).array, SmallerLarger(0, 0, 0));
+    
+    foreach(_; 0..Q) {
+      if (scan!int == 1) {
+        auto i = scan!int - 1;
+        auto x = scan!int;
 
-    int[] ans;
-    foreach(l; 0..N) {
-      bool isOk(int r) {
-        return segTree.sum(l, r).m >= 0;
+        if (x == 0) {
+          segTree0.update(i, SmallerLarger(1, 0, 0));
+          segTree1.update(i, SmallerLarger(0, 0, 0));
+        }
+        if (x == 1) {
+          segTree0.update(i, SmallerLarger(0, 1, 0));
+          segTree1.update(i, SmallerLarger(1, 0, 0));
+        }
+        if (x == 2) {
+          segTree0.update(i, SmallerLarger(0, 1, 0));
+          segTree1.update(i, SmallerLarger(0, 1, 0));
+        }
+      } else {
+        auto l = scan!int - 1;
+        auto r = scan!int;
+
+        writeln(segTree0.sum(l, r).inv + segTree1.sum(l, r).inv);
       }
-
-      ans ~= (binarySearch(&isOk, l, l + N) % N) + 1;
     }
-    return ans;
   }
-  
 
   outputForAtCoder(&solve);
 }
@@ -139,63 +158,6 @@ auto asTuples(int L, T)(T matrix) {
   }
 }
 
-K binarySearch(K)(bool delegate(K) cond, K l, K r) { return binarySearch((K k) => k, cond, l, r); }
-T binarySearch(T, K)(K delegate(T) fn, bool delegate(K) cond, T l, T r) {
-  auto ok = l;
-  auto ng = r;
-  const T TWO = 2;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !ng.approxEqual(ok, 1e-08, 1e-08);
-    } else {
-      return abs(ng - ok) > 1;
-    }
-  }
- 
-  while(again()) {
-    const half = (ng + ok) / TWO;
-    const halfValue = fn(half);
- 
-    if (cond(halfValue)) {
-      ok = half;
-    } else {
-      ng = half;
-    }
-  }
- 
-  return ok;
-}
-
-enum TernarySearchTarget { Min, Max }
-Tuple!(T, K) ternarySearch(T, K)(K delegate(T) fn, T l, T r, TernarySearchTarget target = TernarySearchTarget.Min) {
-  auto low = l;
-  auto high = r;
-  const T THREE = 3;
- 
-  bool again() {
-    static if (is(T == float) || is(T == double) || is(T == real)) {
-      return !high.approxEqual(low, 1e-08, 1e-08);
-    } else {
-      return low != high;
-    }
-  }
-
-  auto compare = (K a, K b) => target == TernarySearchTarget.Min ? a > b : a < b;
-  while(again()) {
-    const v1 = (low * 2 + high) / THREE;
-    const v2 = (low + high * 2) / THREE;
- 
-    if (compare(fn(v1), fn(v2))) {
-      low = v1 == low ? v2 : v1;
-    } else {
-      high = v2 == high ? v1 : v2;
-    }
-  }
- 
-  return tuple(low, fn(low));
-}
-
 struct SegTree(alias pred = "a + b", T = long) {
   alias predFun = binaryFun!pred;
   int size;
@@ -294,23 +256,4 @@ struct SegTree(alias pred = "a + b", T = long) {
   
     return ok;
   }
-}
-
-long countInvertions(T)(T[] arr) {
-  auto segtree = SegTree!("a + b", long)(new long[](arr.length));
-  long ret;
-  long pre = -1;
-  int[] adds;
-  foreach(a; arr.enumerate(0).array.sort!"a[1] > b[1]") {
-    auto i = a[0];
-    auto n = a[1];
-    if (pre != n) {
-      foreach(ai; adds) segtree.update(ai, segtree.get(ai) + 1);   
-      adds.length = 0;
-    }
-    adds ~= i;
-    pre = n;
-    ret += segtree.sum(0, i);
-  }
-  return ret;
 }
